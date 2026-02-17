@@ -1,137 +1,54 @@
 
 
-# Plano: Area de Proprietarios com Deduplicacao por Telefone
+# Alterar Senha de Usuario pelo Painel Developer
 
-## Resumo
+## Objetivo
+Adicionar um botao na aba "Usuarios" do Painel Developer que permite ao developer redefinir a senha de qualquer usuario informando o email.
 
-Criar uma nova arquitetura de proprietarios centralizada, onde cada proprietario e identificado pelo numero de telefone. Nomes duplicados sao agrupados automaticamente: o nome mais frequente vira o "nome principal" e os demais ficam como "apelidos" (aliases). Toda criacao ou importacao de imovel vincula ao proprietario existente ou cria um novo.
+## Solucao
 
----
+### 1. Edge Function `admin-users` - Adicionar endpoint PATCH
+Adicionar um handler `PATCH` na edge function existente `supabase/functions/admin-users/index.ts` que:
+- Recebe `{ user_id, new_password }` no body
+- Valida que a senha tem no minimo 6 caracteres
+- Usa `adminClient.auth.admin.updateUserById(user_id, { password })` para alterar a senha
+- Mantem a mesma verificacao de role `developer` que ja existe
 
-## Nova Arquitetura do Banco de Dados
+### 2. UsersTab - Adicionar botao de redefinir senha
+No componente `src/components/developer/UsersTab.tsx`:
+- Adicionar um icone de "chave" (KeyRound do lucide-react) ao lado do botao de excluir em cada linha da tabela
+- Ao clicar, abrir um `AlertDialog` com um campo de input para a nova senha
+- Ao confirmar, chamar a edge function `admin-users` com metodo PATCH enviando `user_id` e `new_password`
+- Exibir toast de sucesso ou erro
 
-### Tabela `owners` (nova - cadastro centralizado)
-
-| Coluna | Tipo | Descricao |
-|---|---|---|
-| id | uuid PK | Identificador unico |
-| organization_id | uuid FK | Organizacao |
-| primary_name | text NOT NULL | Nome principal (o mais frequente) |
-| phone | text NOT NULL | Telefone - chave de deduplicacao |
-| email | text | E-mail |
-| document | text | CPF/CNPJ |
-| notes | text | Observacoes |
-| created_at | timestamptz | Data de criacao |
-| updated_at | timestamptz | Data de atualizacao |
-
-- Constraint UNIQUE em (organization_id, phone) para garantir deduplicacao
-
-### Tabela `owner_aliases` (nova - apelidos/nomes alternativos)
-
-| Coluna | Tipo | Descricao |
-|---|---|---|
-| id | uuid PK | Identificador |
-| owner_id | uuid FK | Referencia ao proprietario |
-| name | text NOT NULL | Nome alternativo |
-| occurrence_count | integer | Quantas vezes esse nome apareceu |
-| created_at | timestamptz | Data de criacao |
-
-### Tabela `property_owners` (modificada)
-
-Adicionar coluna:
-- `owner_id` (uuid FK, nullable inicialmente) - referencia ao proprietario centralizado na tabela `owners`
-
-Isso permite manter a compatibilidade atual enquanto migra para o novo modelo.
-
----
-
-## Logica de Deduplicacao
-
-Ao criar ou importar um imovel com dados de proprietario:
-
-```text
-1. Normalizar o telefone (remover espacos, parenteses, tracos)
-2. Buscar na tabela "owners" por (organization_id, telefone normalizado)
-3. SE encontrou:
-   a. Incrementar occurrence_count do alias com esse nome
-   b. OU criar novo alias se nome nao existe
-   c. Recalcular primary_name (o alias com maior occurrence_count)
-   d. Vincular property_owners.owner_id ao owner existente
-4. SE nao encontrou:
-   a. Criar novo owner com primary_name = nome informado
-   b. Criar primeiro alias com occurrence_count = 1
-   c. Vincular property_owners.owner_id ao novo owner
-```
-
----
-
-## Novos Arquivos
-
-| Arquivo | Descricao |
-|---|---|
-| `src/pages/Owners.tsx` | Pagina principal com listagem, busca, metricas |
-| `src/components/owners/OwnerTable.tsx` | Tabela com busca por nome/telefone/documento |
-| `src/components/owners/OwnerForm.tsx` | Dialog de cadastro/edicao |
-| `src/components/owners/OwnerDetails.tsx` | Painel lateral com dados, aliases e imoveis vinculados |
-| `src/components/owners/OwnerAliases.tsx` | Componente para exibir/gerenciar apelidos |
-| `src/hooks/useOwners.ts` | Hook CRUD completo com logica de deduplicacao |
-
-## Arquivos Modificados
+## Arquivos alterados
 
 | Arquivo | Alteracao |
 |---|---|
-| `src/App.tsx` | Nova rota `/proprietarios` |
-| `src/components/AppSidebar.tsx` | Item "Proprietarios" no menu (icone UserCog, abaixo de Imoveis) |
-| `src/hooks/useProperties.ts` | Ao criar imovel, chamar logica de deduplicacao antes de inserir em property_owners |
-| `src/components/properties/form/OwnerSection.tsx` | Autocomplete busca da tabela owners (nao mais property_owners) |
-| `src/hooks/usePropertyOwners.ts` | Adaptar para buscar de owners ao inves de agrupar property_owners |
-| `supabase/functions/imobzi-import/index.ts` | Usar deduplicacao ao importar proprietarios |
-| `supabase/functions/imobzi-process/index.ts` | Usar deduplicacao ao processar proprietarios |
+| `supabase/functions/admin-users/index.ts` | Adicionar handler PATCH para `updateUserById` |
+| `src/components/developer/UsersTab.tsx` | Adicionar botao + dialog de redefinir senha por linha |
 
----
+## Detalhes tecnicos
 
-## Funcionalidades da Pagina de Proprietarios
-
-1. **Listagem** - Tabela com nome principal, telefone, e-mail, documento, quantidade de imoveis vinculados
-2. **Busca** - Por nome (principal ou alias), telefone, documento
-3. **Metricas** - Total de proprietarios, proprietarios com mais imoveis, proprietarios sem imoveis
-4. **Cadastro manual** - Criar proprietario diretamente (sem precisar criar imovel)
-5. **Edicao** - Alterar dados, trocar nome principal por um alias, adicionar/remover aliases
-6. **Detalhes** - Ver todos os aliases, lista de imoveis vinculados com link direto
-7. **Exclusao** - Remover proprietario (com confirmacao e desvinculacao dos imoveis)
-
----
-
-## Migracao de Dados
-
-A migracao SQL vai:
-1. Criar tabelas `owners` e `owner_aliases`
-2. Popular `owners` a partir dos registros existentes em `property_owners`, agrupando por telefone normalizado
-3. Para cada grupo de telefone, o nome mais frequente vira `primary_name` e os demais viram aliases
-4. Adicionar coluna `owner_id` em `property_owners` e preencher com os IDs correspondentes
-5. Configurar RLS seguindo o padrao existente (isolamento por organization_id)
-
----
-
-## Detalhes Tecnicos
-
-### Funcao de normalizacao de telefone (SQL)
-
-Sera criada uma funcao `normalize_phone(text)` que remove todos os caracteres nao-numericos para garantir comparacao consistente.
-
-### RLS das novas tabelas
-
-Seguira o padrao existente:
-- SELECT/INSERT/UPDATE/DELETE restritos a `organization_id = get_user_organization_id()` ou `is_member_of_org(organization_id)`
-
-### Hook useOwners
-
-```text
-- listOwners(): busca todos da org com contagem de imoveis e aliases
-- createOwner(): cria com deduplicacao automatica por telefone
-- updateOwner(): atualiza dados, permite trocar primary_name
-- deleteOwner(): remove owner + aliases (property_owners.owner_id vira null)
-- findOrCreateByPhone(): logica central de deduplicacao usada por importacao e criacao de imoveis
-- mergeOwners(): unificar dois proprietarios manualmente (futuro)
+**Edge Function - novo bloco PATCH:**
+```typescript
+if (req.method === "PATCH") {
+  const { user_id, new_password } = await req.json();
+  if (!user_id || !new_password) throw new Error("user_id and new_password required");
+  if (new_password.length < 6) throw new Error("Password must be at least 6 characters");
+  const { error } = await adminClient.auth.admin.updateUserById(user_id, { password: new_password });
+  if (error) throw error;
+  return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
 ```
 
+**Frontend - Dialog de redefinir senha:**
+- Input do tipo `password` com placeholder "Nova senha (min. 6 caracteres)"
+- Botao de confirmar desabilitado enquanto a senha tiver menos de 6 caracteres
+- Chamada fetch com `method: "PATCH"` para a edge function
+- Toast de confirmacao com o nome do usuario
+
+## Seguranca
+- Apenas usuarios com role `developer` podem executar esta acao (verificacao ja existente na edge function)
+- A senha nao e exibida em logs (a edge function ja usa `safeMsg` para erros)
+- Validacao de tamanho minimo no frontend e backend
