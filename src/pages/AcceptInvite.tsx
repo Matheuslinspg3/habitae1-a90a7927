@@ -104,6 +104,14 @@ export default function AcceptInvite() {
         body: { invite_id: invite.id },
       });
 
+      // If the invite was already accepted (e.g. by handle_new_user trigger), treat as success
+      if (data?.error && (data.error.includes("já utilizado") || data.error.includes("já pertence"))) {
+        setAccepted(true);
+        toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
+        setTimeout(() => navigate("/dashboard"), 2000);
+        return;
+      }
+
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
 
@@ -111,6 +119,21 @@ export default function AcceptInvite() {
       toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
       setTimeout(() => navigate("/dashboard"), 2000);
     } catch (err: any) {
+      // If edge function fails entirely, the trigger may have already handled it
+      // Check if user already belongs to the org and redirect
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      
+      if (profile?.organization_id === invite.organization_id) {
+        setAccepted(true);
+        toast({ title: "Bem-vindo!", description: `Você já faz parte de ${invite.org_name}` });
+        setTimeout(() => navigate("/dashboard"), 2000);
+        return;
+      }
+      
       toast({ variant: "destructive", title: "Erro", description: err.message || "Erro ao aceitar convite" });
     } finally {
       setIsSubmitting(false);
