@@ -214,6 +214,53 @@ Deno.serve(async (req) => {
       }
     }
 
+
+    if (action === 'all' || action === 'telemetry') {
+      console.log('Fetching expensive function telemetry...');
+      const expensiveFunctions = ['imobzi-process', 'extract-property-pdf', 'cloudinary-purge', 'scrape-drive-photos'];
+      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: usageEvents, error: usageErr } = await supabaseAdmin
+        .from('function_usage_events')
+        .select('function_name, organization_id, user_id, allowed, reason, response_status, duration_ms, created_at')
+        .in('function_name', expensiveFunctions)
+        .gte('created_at', since24h)
+        .order('created_at', { ascending: false })
+        .limit(5000);
+
+      const { data: activeBlocks } = await supabaseAdmin
+        .from('function_usage_blocks')
+        .select('function_name, organization_id, user_id, reason, blocked_until')
+        .in('function_name', expensiveFunctions)
+        .gt('blocked_until', new Date().toISOString())
+        .order('blocked_until', { ascending: false });
+
+      if (!usageErr) {
+        const summaryByFunction = expensiveFunctions.map((fn) => {
+          const rows = (usageEvents || []).filter((row) => row.function_name === fn);
+          const blocked = rows.filter((row) => !row.allowed).length;
+          const avgDuration = rows.length > 0
+            ? Math.round(rows.reduce((acc, row) => acc + (row.duration_ms || 0), 0) / rows.length)
+            : 0;
+          return {
+            functionName: fn,
+            totalCalls24h: rows.length,
+            blockedCalls24h: blocked,
+            blockRate: rows.length > 0 ? Number(((blocked / rows.length) * 100).toFixed(2)) : 0,
+            avgDurationMs: avgDuration,
+          };
+        });
+
+        result.functionTelemetry = {
+          summaryByFunction,
+          recentBlockedEvents: (usageEvents || []).filter((row) => !row.allowed).slice(0, 50),
+          activeBlocks: activeBlocks || [],
+        };
+      } else {
+        result.functionTelemetry = { error: 'Não foi possível carregar telemetria operacional' };
+      }
+    }
+
     // Add timestamp
     result.timestamp = new Date().toISOString();
     result.generatedBy = user.email;

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enforceUsageLimit, trackUsageEvent } from "../_shared/usage-governor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,36 +120,55 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestStartedAt = Date.now();
+  const telemetry: { userId?: string; blockedReason?: string | null; responseStatus?: number } = {};
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      telemetry.responseStatus = 401;
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    
-    // Use service role for DB operations (user auth is validated separately)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Validate user auth
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
       global: { headers: { Authorization: authHeader } },
     });
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
     if (claimsError || !claimsData?.claims) {
+      telemetry.responseStatus = 401;
       return new Response(JSON.stringify({ error: "Não autenticado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    telemetry.userId = claimsData.claims.sub as string;
+
+    const limitResult = await enforceUsageLimit({
+      supabase,
+      functionName: "scrape-drive-photos",
+      userId: telemetry.userId,
+      metadata: { endpoint: "scrape-drive-photos" },
+    });
+    if (!limitResult.allowed) {
+      telemetry.blockedReason = limitResult.reason;
+      telemetry.responseStatus = 429;
+      return new Response(JSON.stringify({ error: "Limite de uso excedido", reason: limitResult.reason, retry_after: limitResult.retryAfterSeconds }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(limitResult.retryAfterSeconds) },
+      });
+    }
+
     const DRIVE_API_KEY = Deno.env.get("GOOGLE_DRIVE_API_KEY");
     if (!DRIVE_API_KEY) {
+      telemetry.responseStatus = 500;
       return new Response(JSON.stringify({ error: "Chave da API do Google Drive não configurada" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -158,121 +178,67 @@ serve(async (req) => {
     const body = await req.json();
     const { url, property_id, max_photos = 20, mode = "reference", file_ids: providedFileIds, check_access, list_subfolders } = body;
 
-    console.log("Request:", JSON.stringify({
-      url: url?.substring(0, 80),
-      property_id,
-      max_photos,
-      mode,
-      file_ids_count: providedFileIds?.length,
-      check_access,
-      list_subfolders,
-    }));
-
-    // ── Access check mode ──
     if (check_access && url) {
       const folderId = extractFolderIdFromUrl(url);
       if (!folderId) {
-        return new Response(JSON.stringify({ access: "invalid_url" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        telemetry.responseStatus = 200;
+        return new Response(JSON.stringify({ access: "invalid_url" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const access = await checkFolderAccess(folderId, DRIVE_API_KEY);
-      
-      // Also check if folder has subfolders (for per-property matching)
-      let subfolders: { id: string; name: string; imageCount: number }[] = [];
-      if (access === "public") {
-        subfolders = await listSubfoldersForMatching(folderId, DRIVE_API_KEY);
-      }
-      
-      return new Response(JSON.stringify({ access, folder_id: folderId, subfolders }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const subfolders = access === "public" ? await listSubfoldersForMatching(folderId, DRIVE_API_KEY) : [];
+      telemetry.responseStatus = 200;
+      return new Response(JSON.stringify({ access, folder_id: folderId, subfolders }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── List subfolders mode ──
     if (list_subfolders && url) {
       const folderId = extractFolderIdFromUrl(url);
       if (!folderId) {
-        return new Response(JSON.stringify({ error: "URL inválida", subfolders: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        telemetry.responseStatus = 200;
+        return new Response(JSON.stringify({ error: "URL inválida", subfolders: [] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       const subfolders = await listSubfoldersForMatching(folderId, DRIVE_API_KEY);
-      return new Response(JSON.stringify({ success: true, subfolders }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      telemetry.responseStatus = 200;
+      return new Response(JSON.stringify({ success: true, subfolders }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── Resolve file IDs ──
     let folderId: string | null = null;
     let files: { id: string; name: string; mimeType: string; thumbnailLink?: string; subfolder?: string }[] = [];
 
     if (providedFileIds && Array.isArray(providedFileIds) && providedFileIds.length > 0) {
       files = providedFileIds.map((id: string) => ({ id, name: "", mimeType: "image/jpeg" }));
-      console.log(`Using ${files.length} provided file IDs`);
     } else {
       if (!url || typeof url !== "string") {
-        return new Response(
-          JSON.stringify({ error: "URL é obrigatória" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        telemetry.responseStatus = 400;
+        return new Response(JSON.stringify({ error: "URL é obrigatória" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-
-      const isGoogleDrive = url.includes("drive.google.com") || url.includes("docs.google.com");
-      if (!isGoogleDrive) {
-        return new Response(
-          JSON.stringify({ error: "Apenas links do Google Drive são suportados", photos: [] }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+      if (!(url.includes("drive.google.com") || url.includes("docs.google.com"))) {
+        telemetry.responseStatus = 200;
+        return new Response(JSON.stringify({ error: "Apenas links do Google Drive são suportados", photos: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-
       folderId = extractFolderIdFromUrl(url);
       if (!folderId) {
-        return new Response(
-          JSON.stringify({ error: "Não foi possível extrair o ID da pasta", photos: [] }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        telemetry.responseStatus = 200;
+        return new Response(JSON.stringify({ error: "Não foi possível extrair o ID da pasta", photos: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-
       try {
-        // Use recursive listing to find images in subfolders
         files = await listDriveImagesRecursive(folderId, DRIVE_API_KEY, 1);
       } catch (e) {
         if (e instanceof Error && e.message === "PRIVATE_FOLDER") {
-          return new Response(
-            JSON.stringify({
-              error: "Pasta sem acesso público. Peça ao proprietário para compartilhar com 'Qualquer pessoa com o link'.",
-              access: "private",
-              photos: [],
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
+          telemetry.responseStatus = 200;
+          return new Response(JSON.stringify({ error: "Pasta sem acesso público. Peça ao proprietário para compartilhar com 'Qualquer pessoa com o link'.", access: "private", photos: [] }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         throw e;
       }
-
-      console.log(`Total images found (including subfolders): ${files.length}`);
     }
 
     const limitedFiles = files.slice(0, Math.min(max_photos, 50));
 
-    // ── Save references to DB ──
     if (property_id && (mode === "reference" || mode === "download")) {
-      console.log(`Saving ${limitedFiles.length} Drive references for property ${property_id}`);
-      
-      // Delete existing drive references first to avoid duplicates
-      await supabase.from("property_images").delete()
-        .eq("property_id", property_id)
-        .eq("source", "drive-reference");
-
+      await supabase.from("property_images").delete().eq("property_id", property_id).eq("source", "drive-reference");
       const savedPhotos: { url: string; file_id: string; display_order: number }[] = [];
-
       for (let i = 0; i < limitedFiles.length; i++) {
         const file = limitedFiles[i];
-        const thumbnailUrl = file.thumbnailLink
-          ? file.thumbnailLink.replace(/=s\d+/, "=s800")
-          : `https://lh3.googleusercontent.com/d/${file.id}=w800`;
-
+        const thumbnailUrl = file.thumbnailLink ? file.thumbnailLink.replace(/=s\d+/, "=s800") : `https://lh3.googleusercontent.com/d/${file.id}=w800`;
         const { error: insertErr } = await supabase.from("property_images").insert({
           property_id,
           url: thumbnailUrl,
@@ -282,55 +248,37 @@ serve(async (req) => {
           drive_file_id: file.id,
           cache_status: "pending",
         });
-
-        if (insertErr) {
-          console.error(`Error saving image reference: ${insertErr.message}`);
-        } else {
-          savedPhotos.push({ url: thumbnailUrl, file_id: file.id, display_order: i });
-        }
+        if (!insertErr) savedPhotos.push({ url: thumbnailUrl, file_id: file.id, display_order: i });
       }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          folder_id: folderId,
-          total_found: files.length,
-          saved: savedPhotos.length,
-          mode: "reference",
-          photos: savedPhotos,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      telemetry.responseStatus = 200;
+      return new Response(JSON.stringify({ success: true, folder_id: folderId, total_found: files.length, saved: savedPhotos.length, mode: "reference", photos: savedPhotos }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ── Preview mode (no property_id) ──
     const photos = limitedFiles.map((file, index) => ({
-      url: file.thumbnailLink
-        ? file.thumbnailLink.replace(/=s\d+/, "=s800")
-        : `https://lh3.googleusercontent.com/d/${file.id}=w800`,
-      thumbnail_url: file.thumbnailLink
-        ? file.thumbnailLink.replace(/=s\d+/, "=s400")
-        : `https://lh3.googleusercontent.com/d/${file.id}=w400`,
+      url: file.thumbnailLink ? file.thumbnailLink.replace(/=s\d+/, "=s800") : `https://lh3.googleusercontent.com/d/${file.id}=w800`,
+      thumbnail_url: file.thumbnailLink ? file.thumbnailLink.replace(/=s\d+/, "=s400") : `https://lh3.googleusercontent.com/d/${file.id}=w400`,
       file_id: file.id,
       filename: file.name || `foto_${index + 1}.jpg`,
       subfolder: (file as any).subfolder,
     }));
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        folder_id: folderId,
-        photos,
-        total_found: files.length,
-        returned: photos.length,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    telemetry.responseStatus = 200;
+    return new Response(JSON.stringify({ success: true, folder_id: folderId, photos, total_found: files.length, returned: photos.length }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
+    telemetry.responseStatus = telemetry.responseStatus ?? 500;
     console.error("Error in scrape-drive-photos:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Erro ao acessar pasta de fotos", photos: [] }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Erro ao acessar pasta de fotos", photos: [] }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } finally {
+    if (telemetry.userId) {
+      await trackUsageEvent({
+        supabase,
+        functionName: "scrape-drive-photos",
+        userId: telemetry.userId,
+        allowed: !telemetry.blockedReason,
+        reason: telemetry.blockedReason ?? null,
+        responseStatus: telemetry.responseStatus,
+        durationMs: Date.now() - requestStartedAt,
+      });
+    }
   }
 });

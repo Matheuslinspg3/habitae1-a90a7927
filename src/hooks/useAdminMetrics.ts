@@ -53,6 +53,35 @@ export interface AdminMetrics {
     size_bytes: number;
     row_count: number;
   }>;
+
+  functionTelemetry?: {
+    summaryByFunction?: Array<{
+      functionName: string;
+      totalCalls24h: number;
+      blockedCalls24h: number;
+      blockRate: number;
+      avgDurationMs: number;
+    }>;
+    recentBlockedEvents?: Array<{
+      function_name: string;
+      organization_id: string | null;
+      user_id: string | null;
+      allowed: boolean;
+      reason: string | null;
+      response_status: number | null;
+      duration_ms: number | null;
+      created_at: string;
+    }>;
+    activeBlocks?: Array<{
+      function_name: string;
+      organization_id: string | null;
+      user_id: string | null;
+      reason: string;
+      blocked_until: string;
+    }>;
+    error?: string;
+  };
+
   cloudinary?: {
     storage?: {
       used: number;

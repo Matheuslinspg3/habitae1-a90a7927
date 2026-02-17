@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enforceUsageLimit, trackUsageEvent } from "../_shared/usage-governor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,9 +94,13 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const requestStartedAt = Date.now();
+  const telemetry: { userId?: string; blockedReason?: string | null; responseStatus?: number } = {};
+
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      telemetry.responseStatus = 401;
       return new Response(JSON.stringify({ error: 'Não autorizado' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -103,21 +108,38 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } },
     );
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
+      telemetry.responseStatus = 401;
       return new Response(JSON.stringify({ error: 'Não autenticado' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = user.id;
-    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', userId);
+    telemetry.userId = user.id;
+
+    const limitResult = await enforceUsageLimit({
+      supabase,
+      functionName: 'cloudinary-purge',
+      userId: user.id,
+      metadata: { endpoint: 'cloudinary-purge' },
+    });
+    if (!limitResult.allowed) {
+      telemetry.blockedReason = limitResult.reason;
+      telemetry.responseStatus = 429;
+      return new Response(JSON.stringify({ error: 'Limite de uso excedido', reason: limitResult.reason, retry_after: limitResult.retryAfterSeconds }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(limitResult.retryAfterSeconds) },
+      });
+    }
+
+    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
     const isDev = roles?.some((r: any) => r.role === 'developer');
     if (!isDev) {
+      telemetry.responseStatus = 403;
       return new Response(JSON.stringify({ error: 'Acesso negado' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -126,43 +148,45 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { /* no body = purge all */ }
     const accounts = body.accounts || ['cloudinary1', 'cloudinary2'];
-
     const results: Record<string, any> = {};
 
     if (accounts.includes('cloudinary1')) {
       const cn = (Deno.env.get('CLOUDINARY_CLOUD_NAME') ?? '').trim();
       const ak = (Deno.env.get('CLOUDINARY_API_KEY') ?? '').trim();
       const as_ = (Deno.env.get('CLOUDINARY_API_SECRET') ?? '').trim();
-      if (cn && ak && as_) {
-        console.log(`Purging Cloudinary 1 (${cn})...`);
-        results.cloudinary1 = await deleteAllResources(cn, ak, as_);
-      } else {
-        results.cloudinary1 = { error: 'Não configurado' };
-      }
+      results.cloudinary1 = (cn && ak && as_) ? await deleteAllResources(cn, ak, as_) : { error: 'Não configurado' };
     }
 
     if (accounts.includes('cloudinary2')) {
       const cn = (Deno.env.get('CLOUDINARY2_CLOUD_NAME') ?? '').trim();
       const ak = (Deno.env.get('CLOUDINARY2_API_KEY') ?? '').trim();
       const as_ = (Deno.env.get('CLOUDINARY2_API_SECRET') ?? '').trim();
-      if (cn && ak && as_) {
-        console.log(`Purging Cloudinary 2 (${cn})...`);
-        results.cloudinary2 = await deleteAllResources(cn, ak, as_);
-      } else {
-        results.cloudinary2 = { error: 'Não configurado' };
-      }
+      results.cloudinary2 = (cn && ak && as_) ? await deleteAllResources(cn, ak, as_) : { error: 'Não configurado' };
     }
 
     await supabase.from('deleted_property_media').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-
+    telemetry.responseStatus = 200;
     return new Response(JSON.stringify({ success: true, results }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (e) {
+    telemetry.responseStatus = telemetry.responseStatus ?? 500;
     console.error('cloudinary-purge error:', e);
-    return new Response(JSON.stringify({ error: 'Erro interno', message: e.message }), {
+    return new Response(JSON.stringify({ error: 'Erro interno', message: (e as Error).message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  } finally {
+    if (telemetry.userId) {
+      const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+      await trackUsageEvent({
+        supabase,
+        functionName: 'cloudinary-purge',
+        userId: telemetry.userId,
+        allowed: !telemetry.blockedReason,
+        reason: telemetry.blockedReason ?? null,
+        responseStatus: telemetry.responseStatus,
+        durationMs: Date.now() - requestStartedAt,
+      });
+    }
   }
 });

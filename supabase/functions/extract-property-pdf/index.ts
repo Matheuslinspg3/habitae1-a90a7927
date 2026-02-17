@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { createServiceClient, enforceUsageLimit, trackUsageEvent } from "../_shared/usage-governor.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,6 +152,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const requestStartedAt = Date.now();
+  const telemetry: { userId?: string; blockedReason?: string | null; responseStatus?: number } = {};
+
   try {
     // Require authentication
     const authHeader = req.headers.get("Authorization");
@@ -171,6 +175,25 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Token inválido" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    telemetry.userId = claimsData.claims.sub as string;
+
+    const telemetryClient = createServiceClient();
+    const limitResult = await enforceUsageLimit({
+      supabase: telemetryClient,
+      functionName: "extract-property-pdf",
+      userId: telemetry.userId,
+      metadata: { endpoint: "extract-property-pdf" },
+    });
+
+    if (!limitResult.allowed) {
+      telemetry.blockedReason = limitResult.reason;
+      telemetry.responseStatus = 429;
+      return new Response(
+        JSON.stringify({ error: "Limite de uso excedido", reason: limitResult.reason, retry_after: limitResult.retryAfterSeconds }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(limitResult.retryAfterSeconds) } }
       );
     }
 
@@ -197,8 +220,11 @@ serve(async (req) => {
     }
 
     const hyperlinksContext = photoLinks.length > 0
-      ? `\n\nLINKS DE FOTOS EXTRAÍDOS DO PDF (hiperlinks embutidos):
-${photoLinks.map((url, i) => `  ${i + 1}. ${url}`).join("\n")}
+      ? `
+
+LINKS DE FOTOS EXTRAÍDOS DO PDF (hiperlinks embutidos):
+${photoLinks.map((url, i) => `  ${i + 1}. ${url}`).join("
+")}
 IMPORTANTE: Use esses links no campo photos_url de cada imóvel correspondente.`
       : "";
 
@@ -259,54 +285,48 @@ Regras:
                         sale_price: { type: "number" },
                         sale_price_financed: { type: "number" },
                         rent_price: { type: "number" },
-                        condominium_fee: { type: "number" },
+                        condo_fee: { type: "number" },
                         iptu: { type: "number" },
-                        bedrooms: { type: "integer" },
-                        suites: { type: "integer" },
-                        bathrooms: { type: "integer" },
-                        parking_spots: { type: "integer" },
                         area_total: { type: "number" },
                         area_built: { type: "number" },
-                        area_useful: { type: "number" },
-                        floor: { type: "integer" },
-                        beach_distance_meters: { type: "integer" },
-                        address_zipcode: { type: "string" },
-                        address_street: { type: "string" },
-                        address_number: { type: "string" },
-                        address_complement: { type: "string" },
-                        address_neighborhood: { type: "string" },
-                        address_city: { type: "string" },
-                        address_state: { type: "string" },
+                        bedrooms: { type: "number" },
+                        suites: { type: "number" },
+                        bathrooms: { type: "number" },
+                        parking_spots: { type: "number" },
+                        floor: { type: "number" },
+                        furnished: { type: "boolean" },
+                        accepts_financing: { type: "boolean" },
+                        title: { type: "string" },
                         description: { type: "string" },
                         amenities: { type: "array", items: { type: "string" } },
                         owner_name: { type: "string" },
                         owner_phone: { type: "string" },
                         owner_email: { type: "string" },
-                        is_sold: { type: "boolean" },
-                        is_reserved: { type: "boolean" },
                         photos_url: { type: "string" },
-                      },
-                      required: ["transaction_type"],
-                    },
-                  },
+                        is_sold: { type: "boolean" },
+                        is_reserved: { type: "boolean" }
+                      }
+                    }
+                  }
                 },
-                required: ["properties"],
-                additionalProperties: false,
-              },
-            },
-          },
+                required: ["properties"]
+              }
+            }
+          }
         ],
-        tool_choice: { type: "function", function: { name: "extract_property_list" } },
+        tool_choice: { type: "function", function: { name: "extract_property_list" } }
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
+        telemetry.responseStatus = 429;
         return new Response(JSON.stringify({ error: "Limite de requisições excedido." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
+        telemetry.responseStatus = 402;
         return new Response(JSON.stringify({ error: "Créditos de IA insuficientes." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -322,15 +342,28 @@ Regras:
     }
 
     const extractedData = JSON.parse(toolCall.function.arguments);
-
-    return new Response(JSON.stringify({ success: true, data: extractedData }), {
+    telemetry.responseStatus = 200;
+    return new Response(JSON.stringify({ success: true, data: extractedData, fileName }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    telemetry.responseStatus = telemetry.responseStatus ?? 500;
     console.error("[extract-pdf] Error:", error instanceof Error ? error.message : "unknown");
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+  } finally {
+    if (telemetry.userId) {
+      await trackUsageEvent({
+        supabase: createServiceClient(),
+        functionName: "extract-property-pdf",
+        userId: telemetry.userId,
+        allowed: !telemetry.blockedReason,
+        reason: telemetry.blockedReason ?? null,
+        responseStatus: telemetry.responseStatus,
+        durationMs: Date.now() - requestStartedAt,
+      });
+    }
   }
 });
