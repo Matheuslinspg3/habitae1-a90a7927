@@ -61,7 +61,8 @@ export function ApiKeyManager({ apiKeys, isLoading, onAdd, onDelete }: ApiKeyMan
     setShowKeyValues(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const maskKey = (key: string) => {
+  const maskKey = (key: string | undefined | null) => {
+    if (!key) return '••••••••';
     if (key.length <= 8) return '••••••••';
     return `${key.slice(0, 4)}••••${key.slice(-4)}`;
   };
