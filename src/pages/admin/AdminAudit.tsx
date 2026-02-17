@@ -1,4 +1,4 @@
-import { RefreshCw, Building2, Users, Home, UserCheck, Database, Cloud, AlertTriangle, TrendingUp, HardDrive, Image } from "lucide-react";
+import { RefreshCw, Building2, Users, Home, UserCheck, Database, Cloud, AlertTriangle, TrendingUp, HardDrive, Image, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -234,6 +234,67 @@ export default function AdminAudit() {
                 isWarning={(metrics?.health?.invoices_pending || 0) > 5}
               />
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+
+      {/* Telemetria de Funções Caras */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5" />
+            Telemetria Operacional (Funções Caras)
+          </CardTitle>
+          <CardDescription>Consumo, bloqueios por limite e bursts anômalos (últimas 24h)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <Skeleton className="h-32 w-full" />
+          ) : metrics?.functionTelemetry?.error ? (
+            <p className="text-sm text-muted-foreground">{metrics.functionTelemetry.error}</p>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {metrics?.functionTelemetry?.summaryByFunction?.map((item) => (
+                  <div key={item.functionName} className="border rounded-lg p-3">
+                    <p className="text-sm font-medium">{item.functionName}</p>
+                    <p className="text-2xl font-bold mt-1">{item.totalCalls24h}</p>
+                    <p className="text-xs text-muted-foreground">chamadas / 24h</p>
+                    <p className="text-xs mt-2">Bloqueios: <span className="font-medium">{item.blockedCalls24h}</span> ({item.blockRate}%)</p>
+                    <p className="text-xs text-muted-foreground">Latência média: {item.avgDurationMs}ms</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Função</TableHead>
+                      <TableHead>Motivo</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Quando</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {metrics?.functionTelemetry?.recentBlockedEvents?.slice(0, 12).map((event, index) => (
+                      <TableRow key={`${event.function_name}-${event.created_at}-${index}`}>
+                        <TableCell className="font-mono text-xs">{event.function_name}</TableCell>
+                        <TableCell>{event.reason || 'n/a'}</TableCell>
+                        <TableCell>{event.response_status || '-'}</TableCell>
+                        <TableCell>{format(new Date(event.created_at), "dd/MM HH:mm", { locale: ptBR })}</TableCell>
+                      </TableRow>
+                    ))}
+                    {(!metrics?.functionTelemetry?.recentBlockedEvents || metrics.functionTelemetry.recentBlockedEvents.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">Sem bloqueios recentes</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

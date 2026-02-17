@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { enforceUsageLimit, trackUsageEvent } from "../_shared/usage-governor.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -458,6 +459,7 @@ async function processProperty(
     return { status: 'success', imagesImported };
 
   } catch (error) {
+    telemetry.responseStatus = telemetry.responseStatus ?? 500;
     const err = error as Error;
     console.error(`[PROCESS] ❌ ${pid}: ${err.message}`);
 
@@ -519,6 +521,7 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
+  const telemetry: { userId?: string; organizationId?: string | null; blockedReason?: string | null; responseStatus?: number } = {};
   console.log('[PROCESS] ========== INVOCATION START ==========');
 
   try {
@@ -629,17 +632,31 @@ serve(async (req) => {
 
     const organization_id = runMeta.organization_id;
     const user_id = callerUserId;
-    const runCheck = runMeta;
+    telemetry.userId = user_id;
+    telemetry.organizationId = organization_id;
 
-    if (runCheckErr) {
+    const limitResult = await enforceUsageLimit({
+      supabase,
+      functionName: 'imobzi-process',
+      userId: user_id,
+      organizationId: organization_id,
+      metadata: { run_id },
+    });
+    if (!limitResult.allowed) {
+      telemetry.blockedReason = limitResult.reason;
+      telemetry.responseStatus = 429;
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to read run: ${runCheckErr.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Limite de uso excedido', reason: limitResult.reason, retry_after: limitResult.retryAfterSeconds }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(limitResult.retryAfterSeconds) } }
       );
     }
 
+    const runCheck = runMeta;
+
+
     if (runCheck?.status === 'cancelled' || runCheck?.status === 'failed' || runCheck?.status === 'completed') {
       console.log(`[PROCESS] Run is ${runCheck.status}, skipping`);
+      telemetry.responseStatus = 200;
       return new Response(
         JSON.stringify({ success: true, message: `Run already ${runCheck.status}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -668,6 +685,7 @@ serve(async (req) => {
         finished_at: new Date().toISOString(),
       }).eq('id', run_id);
       
+      telemetry.responseStatus = 200;
       return new Response(
         JSON.stringify({ success: true, message: 'All done' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -787,6 +805,7 @@ serve(async (req) => {
     const totalElapsed = Date.now() - startTime;
     console.log(`[PROCESS] ========== INVOCATION END (${totalElapsed}ms) ==========`);
 
+    telemetry.responseStatus = 200;
     return new Response(
       JSON.stringify({
         success: true,
@@ -799,11 +818,26 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    telemetry.responseStatus = telemetry.responseStatus ?? 500;
     const err = error as Error;
     console.error('[PROCESS] ❌ TOP-LEVEL ERROR:', err.message);
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+  } finally {
+    if (telemetry.userId) {
+      const metricsClient = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+      await trackUsageEvent({
+        supabase: metricsClient,
+        functionName: 'imobzi-process',
+        userId: telemetry.userId,
+        organizationId: telemetry.organizationId,
+        allowed: !telemetry.blockedReason,
+        reason: telemetry.blockedReason ?? null,
+        responseStatus: telemetry.responseStatus,
+        durationMs: Date.now() - startTime,
+      });
+    }
   }
 });
