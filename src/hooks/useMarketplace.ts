@@ -13,7 +13,6 @@ export interface MarketplaceProperty {
   transaction_type: 'venda' | 'aluguel' | 'ambos';
   sale_price: number | null;
   rent_price: number | null;
-  commission_percentage: number | null;
   address_street: string | null;
   address_number: string | null;
   address_complement: string | null;
@@ -29,9 +28,6 @@ export interface MarketplaceProperty {
   area_built: number | null;
   amenities: string[] | null;
   images: string[] | null;
-  owner_name: string | null;
-  owner_phone: string | null;
-  owner_email: string | null;
   status: 'disponivel' | 'reservado' | 'vendido' | 'alugado' | 'inativo';
   is_featured: boolean;
   created_at: string;

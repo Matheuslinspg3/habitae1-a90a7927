@@ -121,12 +121,6 @@ export function MarketplacePropertyCard({ property, onContactClick }: Marketplac
           </div>
         )}
 
-        {/* Commission */}
-        {property.commission_percentage && (
-          <Badge variant="outline" className="text-xs rounded-full">
-            Comissão: {property.commission_percentage}%
-          </Badge>
-        )}
 
         {/* CTA */}
         <Button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ const loginSchema = z.object({
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
 });
 
-export default function Auth() {
+const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref) {
   const navigate = useNavigate();
   const { signIn, user, loading } = useAuth();
   const { toast } = useToast();
@@ -282,4 +282,7 @@ export default function Auth() {
       </main>
     </div>
   );
-}
+});
+Auth.displayName = "Auth";
+
+export default Auth;

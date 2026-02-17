@@ -3099,7 +3099,6 @@ export type Database = {
           area_total: number | null
           bathrooms: number | null
           bedrooms: number | null
-          commission_percentage: number | null
           created_at: string | null
           description: string | null
           external_code: string | null
@@ -3132,7 +3131,6 @@ export type Database = {
           area_total?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
-          commission_percentage?: number | null
           created_at?: string | null
           description?: string | null
           external_code?: string | null
@@ -3165,7 +3163,6 @@ export type Database = {
           area_total?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
-          commission_percentage?: number | null
           created_at?: string | null
           description?: string | null
           external_code?: string | null
