@@ -65,6 +65,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (req.method === "PATCH") {
+      const { user_id: targetUserId, new_password } = await req.json();
+      if (!targetUserId || !new_password) throw new Error("user_id and new_password required");
+      if (new_password.length < 6) throw new Error("Password must be at least 6 characters");
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUserId, { password: new_password });
+      if (updateError) throw updateError;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (req.method === "DELETE") {
       const { user_id } = await req.json();
       if (!user_id) throw new Error("user_id required");
