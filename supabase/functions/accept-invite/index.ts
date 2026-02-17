@@ -18,17 +18,20 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
 
     // Auth
-    const authHeader = req.headers.get("Authorization")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await userClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
       return new Response(JSON.stringify({ error: "Não autenticado" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user: authUser }, error: authError } = await adminClient.auth.getUser(token);
+    if (authError || !authUser) {
+      return new Response(JSON.stringify({ error: "Não autenticado" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const user = { id: authUser.id, email: authUser.email! };
 
     const { invite_id } = await req.json();
     if (!invite_id) {
