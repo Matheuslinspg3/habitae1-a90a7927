@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +171,15 @@ export default function Auth() {
                 className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
               />
               {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                to="/esqueci-a-senha"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Esqueci a senha
+              </Link>
             </div>
 
             <Button

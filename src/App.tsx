@@ -30,6 +30,8 @@ import Contracts from "./pages/Contracts";
 import Financial from "./pages/Financial";
 import Schedule from "./pages/Schedule";
 import Settings from "./pages/Settings";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 import AdminAudit from "./pages/admin/AdminAudit";
 import DeveloperDashboard from "./pages/developer/DeveloperDashboard";
@@ -75,6 +77,8 @@ const App = () => (
                   <FloatingImportProgress />
                   <Routes>
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/esqueci-a-senha" element={<ForgotPassword />} />
+                    <Route path="/redefinir-senha" element={<ResetPassword />} />
                     <Route path="/convite/:id" element={<AcceptInvite />} />
                     <Route path="/cadastro/:id" element={<PlatformSignup />} />
                     <Route path="/demo" element={<Demo />} />
