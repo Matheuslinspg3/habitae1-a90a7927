@@ -1,1 +1,7 @@
 project_id = "aiflfkkjitvsyszwdfga"
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.platform-signup]
+verify_jwt = false
