@@ -11,7 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Users, Search } from "lucide-react";
+import { Trash2, AlertTriangle, Users, Search, KeyRound } from "lucide-react";
 import { useState } from "react";
 
 const roleBadgeVariant = (role: string) => {
@@ -25,7 +25,8 @@ const roleBadgeVariant = (role: string) => {
 export function UsersTab() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-
+  const [passwordTarget, setPasswordTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   const { data: allRoles = [] } = useQuery({
     queryKey: ["all-user-roles"],
     queryFn: async () => {
@@ -149,48 +150,95 @@ export function UsersTab() {
                       </Select>
                     </TableCell>
                     <TableCell>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle className="flex items-center gap-2">
-                              <AlertTriangle className="h-5 w-5 text-destructive" />
-                              Excluir usuário
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Excluir <strong>{p.full_name}</strong> ({email})? Esta ação é irreversível.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={async () => {
-                                try {
-                                  const { data: { session } } = await supabase.auth.getSession();
-                                  const res = await fetch(
-                                    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
-                                    { method: "DELETE", headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: p.user_id }) }
-                                  );
-                                  if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro ao excluir"); }
-                                  queryClient.invalidateQueries({ queryKey: ["all-profiles-dev"] });
-                                  queryClient.invalidateQueries({ queryKey: ["admin-users-emails"] });
-                                  queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-                                  toast({ title: `${p.full_name} excluído com sucesso` });
-                                } catch (e) {
-                                  toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
-                                }
-                              }}
-                            >
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex gap-1">
+                        <AlertDialog open={passwordTarget?.userId === p.user_id} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(""); } }}>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPasswordTarget({ userId: p.user_id, name: p.full_name || "" })}>
+                              <KeyRound className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Redefinir senha</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Definir nova senha para <strong>{p.full_name}</strong> ({email})
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <Input
+                              type="password"
+                              placeholder="Nova senha (mín. 6 caracteres)"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                            />
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                disabled={newPassword.length < 6}
+                                onClick={async () => {
+                                  try {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const res = await fetch(
+                                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
+                                      { method: "PATCH", headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: p.user_id, new_password: newPassword }) }
+                                    );
+                                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro"); }
+                                    toast({ title: `Senha de ${p.full_name} redefinida com sucesso` });
+                                  } catch (e) {
+                                    toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+                                  } finally {
+                                    setPasswordTarget(null);
+                                    setNewPassword("");
+                                  }
+                                }}
+                              >
+                                Redefinir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2">
+                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                Excluir usuário
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Excluir <strong>{p.full_name}</strong> ({email})? Esta ação é irreversível.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={async () => {
+                                  try {
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    const res = await fetch(
+                                      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
+                                      { method: "DELETE", headers: { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: p.user_id }) }
+                                    );
+                                    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro ao excluir"); }
+                                    queryClient.invalidateQueries({ queryKey: ["all-profiles-dev"] });
+                                    queryClient.invalidateQueries({ queryKey: ["admin-users-emails"] });
+                                    queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+                                    toast({ title: `${p.full_name} excluído com sucesso` });
+                                  } catch (e) {
+                                    toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+                                  }
+                                }}
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
