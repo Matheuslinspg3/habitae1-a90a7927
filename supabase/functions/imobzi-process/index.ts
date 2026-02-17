@@ -629,19 +629,11 @@ serve(async (req) => {
 
     const organization_id = runMeta.organization_id;
     const user_id = callerUserId;
-    const runCheck = runMeta;
 
-    if (runCheckErr) {
+    if (runMeta.status === 'cancelled' || runMeta.status === 'failed' || runMeta.status === 'completed') {
+      console.log(`[PROCESS] Run is ${runMeta.status}, skipping`);
       return new Response(
-        JSON.stringify({ success: false, error: `Failed to read run: ${runCheckErr.message}` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (runCheck?.status === 'cancelled' || runCheck?.status === 'failed' || runCheck?.status === 'completed') {
-      console.log(`[PROCESS] Run is ${runCheck.status}, skipping`);
-      return new Response(
-        JSON.stringify({ success: true, message: `Run already ${runCheck.status}` }),
+        JSON.stringify({ success: true, message: `Run already ${runMeta.status}` }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -696,7 +688,7 @@ serve(async (req) => {
     // Set run status to processing
     await supabase.from('import_runs').update({ status: 'processing' }).eq('id', run_id);
 
-    const marketplacePropertyIds: string[] = runCheck?.marketplace_property_ids || [];
+    const marketplacePropertyIds: string[] = runMeta?.marketplace_property_ids || [];
     if (marketplacePropertyIds.length > 0) {
       console.log(`[PROCESS] 🏪 Marketplace publish requested for ${marketplacePropertyIds.length} properties`);
     }
