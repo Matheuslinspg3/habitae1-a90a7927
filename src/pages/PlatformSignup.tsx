@@ -41,25 +41,18 @@ export default function PlatformSignup() {
   useEffect(() => {
     if (!id) return;
     const checkInvite = async () => {
-      const { data, error } = await supabase
-        .from("platform_invites")
-        .select("id, status, expires_at, name, invite_email")
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error } = await supabase.functions.invoke("platform-invite-validate", {
+        body: { invite_id: id },
+      });
 
-      if (error || !data) {
+      if (error || !data?.valid || !data?.invite) {
         setInviteValid(false);
         return;
       }
 
-      if (data.status !== "active" || new Date(data.expires_at) < new Date()) {
-        setInviteValid(false);
-        return;
-      }
-
-      setInviteName(data.name);
-      if (data.invite_email) {
-        setForm(prev => ({ ...prev, email: data.invite_email! }));
+      setInviteName(data.invite.name);
+      if (data.invite.invite_email) {
+        setForm(prev => ({ ...prev, email: data.invite.invite_email as string }));
         setEmailLocked(true);
       }
       setInviteValid(true);
