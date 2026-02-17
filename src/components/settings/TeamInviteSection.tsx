@@ -17,7 +17,7 @@ export function TeamInviteSection() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
-  const canInvite = hasRole('leader') || hasRole('developer');
+  const canInvite = hasRole('admin') || hasRole('leader') || hasRole('developer');
   const [inviteEmail, setInviteEmail] = useState("");
 
   const { data: invites = [], isLoading } = useQuery({
