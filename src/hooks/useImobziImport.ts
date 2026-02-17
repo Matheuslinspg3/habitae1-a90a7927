@@ -79,10 +79,9 @@ export function useImobziImport() {
     
     setIsLoadingKeys(true);
     try {
-      // AH-03: Only select metadata, not the full api_key
       const { data, error } = await supabase
         .from('imobzi_api_keys' as 'profiles')
-        .select('id, name, created_at')
+        .select('id, name, api_key, created_at')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
       
