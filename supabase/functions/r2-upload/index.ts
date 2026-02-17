@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { buildObjectPrefix } from "./path-security.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,7 +59,7 @@ Deno.serve(async (req) => {
     // File
     const fd = await req.formData();
     const file = fd.get('file') as File | null;
-    const folder = (fd.get('folder') as string) || 'properties';
+    const folder = fd.get('folder');
     if (!file) return new Response(JSON.stringify({ error: 'Nenhum arquivo' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     if (!file.type.startsWith('image/')) return new Response(JSON.stringify({ error: 'Apenas imagens' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     if (file.size > 10 * 1024 * 1024) return new Response(JSON.stringify({ error: 'Arquivo > 10MB' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -74,8 +75,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'R2 config incompleta' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const ext = file.name.split('.').pop() || 'jpg';
-    const objectKey = `${folder}/${crypto.randomUUID()}.${ext}`;
+    const extensionCandidate = file.name.split('.').pop() || 'jpg';
+    const [sanitizedExt] = extensionCandidate.toLowerCase().match(/[a-z0-9]+/) ?? ['jpg'];
+
+    let objectPrefix: string;
+    try {
+      objectPrefix = buildObjectPrefix(claimsData.claims as Record<string, unknown>, typeof folder === 'string' ? folder : null);
+    } catch (pathError) {
+      return new Response(JSON.stringify({ error: (pathError as Error).message }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const objectKey = `${objectPrefix}/${crypto.randomUUID()}.${sanitizedExt}`;
     const body = new Uint8Array(await file.arrayBuffer());
 
     const host = new URL(endpoint).host;
