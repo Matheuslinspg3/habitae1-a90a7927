@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { setAuthStorageStrategy, supabase } from '@/integrations/supabase/client';
 
 interface Profile {
   id: string;
@@ -42,7 +42,7 @@ interface AuthContextType {
   trialInfo: TrialInfo | null;
   loading: boolean;
   signUp: (params: SignUpParams) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -181,7 +181,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error as Error | null };
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe = true) => {
+    setAuthStorageStrategy(rememberMe ? 'local' : 'session');
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

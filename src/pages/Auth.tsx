@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { z } from "zod";
+import { getAuthStorageStrategy } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -21,6 +23,7 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [rememberMe, setRememberMe] = useState(() => getAuthStorageStrategy() === "local");
 
   useEffect(() => {
     if (user && !loading) {
@@ -51,7 +54,7 @@ export default function Auth() {
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginForm.email, loginForm.password);
+    const { error } = await signIn(loginForm.email, loginForm.password, rememberMe);
     setIsLoading(false);
 
     if (error) {
@@ -171,6 +174,19 @@ export default function Auth() {
                 className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
               />
               {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
+            </div>
+
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="login-remember-me"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
+                aria-label="Lembrar-me"
+              />
+              <Label htmlFor="login-remember-me" className="text-sm text-muted-foreground cursor-pointer">
+                Lembrar-me (manter login após fechar a aba)
+              </Label>
             </div>
 
             <Button
