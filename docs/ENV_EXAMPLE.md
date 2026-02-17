@@ -19,6 +19,7 @@ VITE_SUPABASE_PROJECT_ID="<project-id>"
 # R2_BUCKET_NAME         → Storage fallback
 # R2_ENDPOINT            → Storage fallback
 # R2_PUBLIC_URL          → Storage fallback
+# APP_ALLOWED_ORIGINS  → OBRIGATÓRIO para CORS das Edge Functions (CSV de origens permitidas)
 
 # --- Boas Práticas ---
 # 1. NUNCA comitar .env com valores reais

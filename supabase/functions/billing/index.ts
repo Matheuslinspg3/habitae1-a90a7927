@@ -2,26 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { createLogger } from "../_shared/logger.ts";
-
-// A14: CORS allowlist — fail-closed when not configured
-const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "").split(",").map(s => s.trim()).filter(Boolean);
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  if (ALLOWED_ORIGINS.length === 0) {
-    // Fail-closed: no allowlist configured = reject cross-origin in production
-    console.warn("[billing] APP_ALLOWED_ORIGINS not configured — CORS will be restrictive");
-    return {
-      "Access-Control-Allow-Origin": origin || "null",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    };
-  }
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 // Use sandbox for testing, production for live
 // Auto-detect sandbox from ASAAS_SANDBOX flag OR from API key prefix
