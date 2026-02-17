@@ -32,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, X } from 'lucide-react';
+import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LEAD_SOURCES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
 import { type LeadType } from '@/hooks/useLeadTypes';
@@ -238,9 +239,10 @@ export function LeadForm({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <TabsTrigger value="basic">Dados do Lead</TabsTrigger>
                 <TabsTrigger value="interest">Interesse em Imóvel</TabsTrigger>
+                {isEditing && <TabsTrigger value="interactions">Interações</TabsTrigger>}
               </TabsList>
 
               {/* Aba Dados Básicos */}
@@ -844,6 +846,12 @@ export function LeadForm({
                   )}
                 />
               </TabsContent>
+
+              {isEditing && lead && (
+                <TabsContent value="interactions" className="mt-4">
+                  <LeadInteractionTimeline leadId={lead.id} />
+                </TabsContent>
+              )}
             </Tabs>
 
             <div className="flex justify-end gap-2 pt-4">
