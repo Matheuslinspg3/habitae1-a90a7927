@@ -25,6 +25,7 @@ import { UnifiedPlanSection } from "@/components/settings/UnifiedPlanSection";
 import { VerificationSection } from "@/components/settings/VerificationSection";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useMfaAuth } from "@/hooks/useMfaAuth";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -42,6 +43,7 @@ export default function Settings() {
   const { hasRole, isDeveloperOrLeader, isAdmin, isDeveloper } = useUserRoles();
   const { theme, setTheme } = useTheme();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
+  const { hasRecentStepUp, listFactors, verifyCode } = useMfaAuth();
   const queryClient = useQueryClient();
 
   // Profile state
@@ -287,7 +289,33 @@ export default function Settings() {
     ...(isDeveloper ? [{ value: "admin", label: "Dono", description: "Proprietário da organização com controle total" }] : []),
   ];
 
+  const ensureRecentMfa = async () => {
+    if (hasRecentStepUp) return true;
+
+    const factors = await listFactors();
+    const activeFactor = factors.totp.find((factor) => factor.status === "verified");
+
+    if (!activeFactor) {
+      toast.error("MFA obrigatório para esta operação. Configure em /auth/mfa/enroll.");
+      return false;
+    }
+
+    const code = window.prompt("Confirme o código MFA para continuar:")?.trim();
+    if (!code) return false;
+
+    await verifyCode(activeFactor.id, code);
+    return true;
+  };
+
   const handleChangeRole = async (memberId: string, newRole: string) => {
+    try {
+      const mfaOk = await ensureRecentMfa();
+      if (!mfaOk) return;
+    } catch (error: any) {
+      toast.error("Falha na validação MFA: " + (error?.message || "código inválido"));
+      return;
+    }
+
     const { error } = await supabase.from("user_roles").update({ role: newRole as any }).eq("user_id", memberId);
     if (error) {
       toast.error("Erro ao alterar cargo");

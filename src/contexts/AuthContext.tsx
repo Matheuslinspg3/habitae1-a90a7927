@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearStepUp } from '@/lib/mfa';
 
 interface Profile {
   id: string;
@@ -193,6 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setProfile(null);
     setOrganizationType(null);
+    clearStepUp();
     await supabase.auth.signOut();
   };
 

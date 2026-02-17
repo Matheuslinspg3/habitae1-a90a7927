@@ -51,6 +51,8 @@ import AppSearch from "./pages/app/Search";
 import AppFavorites from "./pages/app/Favorites";
 import AppProfile from "./pages/app/Profile";
 import AppPropertyDetail from "./pages/app/PropertyDetail";
+import MfaEnroll from "./pages/MfaEnroll";
+import MfaVerify from "./pages/MfaVerify";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +77,8 @@ const App = () => (
                   <FloatingImportProgress />
                   <Routes>
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/auth/mfa/enroll" element={<MfaEnroll />} />
+                    <Route path="/auth/mfa/verify" element={<MfaVerify />} />
                     <Route path="/convite/:id" element={<AcceptInvite />} />
                     <Route path="/cadastro/:id" element={<PlatformSignup />} />
                     <Route path="/demo" element={<Demo />} />
