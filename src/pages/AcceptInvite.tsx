@@ -28,6 +28,7 @@ interface InviteData {
   organization_id: string;
   status: string;
   expires_at: string;
+  email?: string | null;
   org_name?: string;
 }
 
@@ -52,7 +53,7 @@ export default function AcceptInvite() {
 
       const { data, error: fetchError } = await supabase
         .from("organization_invites")
-        .select("id, role, organization_id, status, expires_at")
+        .select("id, role, organization_id, status, expires_at, email")
         .eq("id", id)
         .maybeSingle();
 
@@ -78,6 +79,10 @@ export default function AcceptInvite() {
         .rpc("get_org_name_for_invite", { p_invite_id: data.id });
 
       setInvite({ ...data, org_name: (orgName as string) || "Organização" });
+      // Pre-fill email if invite has one
+      if (data.email) {
+        setForm(prev => ({ ...prev, email: data.email! }));
+      }
       setLoading(false);
     };
 
@@ -276,7 +281,12 @@ export default function AcceptInvite() {
                   placeholder="seu@email.com"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  readOnly={!!invite?.email}
+                  className={invite?.email ? "bg-muted" : ""}
                 />
+                {invite?.email && (
+                  <p className="text-xs text-muted-foreground">Este convite é destinado a este email</p>
+                )}
                 {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
 
