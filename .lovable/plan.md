@@ -1,54 +1,91 @@
 
 
-# Alterar Senha de Usuario pelo Painel Developer
+# Plano de Correções da Auditoria
 
-## Objetivo
-Adicionar um botao na aba "Usuarios" do Painel Developer que permite ao developer redefinir a senha de qualquer usuario informando o email.
+## O que será feito
 
-## Solucao
+### 1. Dados-semente para novas organizações (Crítico)
+Novas organizações são criadas sem estágios de lead, tipos de lead ou tipos de imóvel. Isso deixa o Kanban do CRM vazio e impede classificação de propriedades.
 
-### 1. Edge Function `admin-users` - Adicionar endpoint PATCH
-Adicionar um handler `PATCH` na edge function existente `supabase/functions/admin-users/index.ts` que:
-- Recebe `{ user_id, new_password }` no body
-- Valida que a senha tem no minimo 6 caracteres
-- Usa `adminClient.auth.admin.updateUserById(user_id, { password })` para alterar a senha
-- Mantem a mesma verificacao de role `developer` que ja existe
+**Correção:** Inserir registros-modelo no banco de dados:
+- 8 estágios de lead (Novo, Contato Inicial, Visita Agendada, Proposta, Negociação, Fechado Ganho, Fechado Perdido, Descartado)
+- 6 tipos de lead (Comprador, Locatário, Investidor, Vendedor, Proprietário, Indicação)
+- 12 tipos de imóvel (Apartamento, Casa, Terreno, Sala Comercial, Loja, Galpão, Cobertura, Studio, Kitnet, Chácara, Fazenda, Flat)
 
-### 2. UsersTab - Adicionar botao de redefinir senha
-No componente `src/components/developer/UsersTab.tsx`:
-- Adicionar um icone de "chave" (KeyRound do lucide-react) ao lado do botao de excluir em cada linha da tabela
-- Ao clicar, abrir um `AlertDialog` com um campo de input para a nova senha
-- Ao confirmar, chamar a edge function `admin-users` com metodo PATCH enviando `user_id` e `new_password`
-- Exibir toast de sucesso ou erro
+### 2. Corrigir políticas RLS duplicadas em `user_roles`
+Existem políticas de INSERT e DELETE duplicadas que podem causar conflitos.
 
-## Arquivos alterados
+**Correção:** Remover as políticas antigas redundantes (`Dev or leader can insert/delete roles`), mantendo apenas as mais recentes.
 
-| Arquivo | Alteracao |
-|---|---|
-| `supabase/functions/admin-users/index.ts` | Adicionar handler PATCH para `updateUserById` |
-| `src/components/developer/UsersTab.tsx` | Adicionar botao + dialog de redefinir senha por linha |
+### 3. Unificar lógica de mudança de cargo
+Na página de Configurações, o `handleChangeRole` usa `.update()`, enquanto a Administração usa `delete + insert`. Isso causa inconsistência.
 
-## Detalhes tecnicos
+**Correção:** Alterar `Settings.tsx` para usar `delete + insert`, igual ao padrão da Administração.
 
-**Edge Function - novo bloco PATCH:**
-```typescript
-if (req.method === "PATCH") {
-  const { user_id, new_password } = await req.json();
-  if (!user_id || !new_password) throw new Error("user_id and new_password required");
-  if (new_password.length < 6) throw new Error("Password must be at least 6 characters");
-  const { error } = await adminClient.auth.admin.updateUserById(user_id, { password: new_password });
-  if (error) throw error;
-  return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
+### 4. Corrigir warnings de ref nos logos
+Os componentes `HabitaeLogo` e `LogoMark` geram avisos no console por não suportarem refs.
+
+**Correção:** Adicionar `React.forwardRef` nos dois componentes.
+
+### 5. Adicionar "Esqueci minha senha" na página de login
+Usuários que esquecem a senha ficam sem acesso. Como a plataforma é fechada (sem criar conta publicamente), apenas o link de recuperação será adicionado.
+
+**Correção:** Adicionar link "Esqueci minha senha" na página `/auth` que envia email de reset via `resetPasswordForEmail`.
+
+### 6. Remover cast `as any` do `occurred_at`
+O campo `occurred_at` já existe nos tipos gerados, mas o código ainda usa cast inseguro.
+
+**Correção:** Remover `(interaction as any).occurred_at` e usar o campo tipado diretamente.
+
+---
+
+## Detalhes técnicos
+
+### Migração SQL (Etapas 1 e 2)
+
+```text
+-- Dados-semente: lead_stages
+INSERT INTO lead_stages (name, color, position, is_default, is_win, is_loss)
+VALUES
+  ('Novo', '#3b82f6', 0, true, false, false),
+  ('Contato Inicial', '#8b5cf6', 1, true, false, false),
+  ('Visita Agendada', '#f59e0b', 2, true, false, false),
+  ('Proposta Enviada', '#06b6d4', 3, true, false, false),
+  ('Negociação', '#ec4899', 4, true, false, false),
+  ('Fechado Ganho', '#22c55e', 5, true, true, false),
+  ('Fechado Perdido', '#ef4444', 6, true, false, true),
+  ('Descartado', '#6b7280', 7, true, false, true);
+
+-- Dados-semente: lead_types
+INSERT INTO lead_types (name, color, is_default)
+VALUES
+  ('Comprador', '#3b82f6', true),
+  ('Locatário', '#8b5cf6', true),
+  ('Investidor', '#f59e0b', true),
+  ('Vendedor', '#22c55e', true),
+  ('Proprietário', '#06b6d4', true),
+  ('Indicação', '#ec4899', true);
+
+-- Dados-semente: property_types
+INSERT INTO property_types (name, is_default)
+VALUES
+  ('Apartamento', true), ('Casa', true), ('Terreno', true),
+  ('Sala Comercial', true), ('Loja', true), ('Galpão', true),
+  ('Cobertura', true), ('Studio', true), ('Kitnet', true),
+  ('Chácara', true), ('Fazenda', true), ('Flat', true);
+
+-- Limpar RLS duplicadas
+DROP POLICY IF EXISTS "Dev or leader can insert roles" ON user_roles;
+DROP POLICY IF EXISTS "Dev or leader can delete roles" ON user_roles;
 ```
 
-**Frontend - Dialog de redefinir senha:**
-- Input do tipo `password` com placeholder "Nova senha (min. 6 caracteres)"
-- Botao de confirmar desabilitado enquanto a senha tiver menos de 6 caracteres
-- Chamada fetch com `method: "PATCH"` para a edge function
-- Toast de confirmacao com o nome do usuario
+### Arquivos modificados
 
-## Seguranca
-- Apenas usuarios com role `developer` podem executar esta acao (verificacao ja existente na edge function)
-- A senha nao e exibida em logs (a edge function ja usa `safeMsg` para erros)
-- Validacao de tamanho minimo no frontend e backend
+| Arquivo | Mudança |
+|---|---|
+| `src/pages/Settings.tsx` | `handleChangeRole`: trocar `.update()` por `delete + insert` |
+| `src/pages/Auth.tsx` | Adicionar link "Esqueci minha senha" com modal/inline de reset |
+| `src/components/HabitaeLogo.tsx` | Adicionar `forwardRef` em `LogoMark` e `HabitaeLogo` |
+| `src/components/crm/LeadInteractionTimeline.tsx` | Remover `as any` do `occurred_at` |
+| Migração SQL | Seed data + remoção de políticas duplicadas |
+
