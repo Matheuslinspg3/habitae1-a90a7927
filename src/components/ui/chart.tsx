@@ -6,6 +6,12 @@ import { cn } from "@/lib/utils";
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
 
+const SAFE_KEY_PATTERN = /^[a-zA-Z0-9_-]+$/;
+const SAFE_HEX_COLOR_PATTERN = /^#(?:[a-fA-F0-9]{3}|[a-fA-F0-9]{4}|[a-fA-F0-9]{6}|[a-fA-F0-9]{8})$/;
+const SAFE_RGB_COLOR_PATTERN = /^rgba?\(\s*(?:\d{1,3}%?\s*,\s*){2}\d{1,3}%?(?:\s*,\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\)$/;
+const SAFE_HSL_COLOR_PATTERN = /^hsla?\(\s*\d{1,3}(?:deg|grad|rad|turn)?\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%(?:\s*,\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\)$/;
+const SAFE_CSS_VARIABLE_PATTERN = /^var\(\s*--[a-zA-Z0-9_-]+\s*\)$/;
+
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode;
@@ -59,9 +65,12 @@ const ChartContainer = React.forwardRef<
 ChartContainer.displayName = "Chart";
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
+  const safeChartId = sanitizeKey(id);
+  const colorConfig = Object.entries(config)
+    .map(([key, itemConfig]) => ({ key: sanitizeKey(key), itemConfig }))
+    .filter(({ key, itemConfig }) => !!key && (itemConfig.theme || itemConfig.color));
 
-  if (!colorConfig.length) {
+  if (!safeChartId || !colorConfig.length) {
     return null;
   }
 
@@ -71,10 +80,10 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
         __html: Object.entries(THEMES)
           .map(
             ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+${prefix} [data-chart="${safeChartId}"] {
 ${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+  .map(({ key, itemConfig }) => {
+    const color = sanitizeColor(itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color);
     return color ? `  --color-${key}: ${color};` : null;
   })
   .join("\n")}
@@ -298,6 +307,29 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
   }
 
   return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
+}
+
+function sanitizeKey(value: string) {
+  if (SAFE_KEY_PATTERN.test(value)) {
+    return value;
+  }
+
+  const normalized = value.replace(/[^a-zA-Z0-9_-]/g, "");
+  return SAFE_KEY_PATTERN.test(normalized) ? normalized : null;
+}
+
+function sanitizeColor(value?: string) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return SAFE_HEX_COLOR_PATTERN.test(trimmedValue) ||
+    SAFE_RGB_COLOR_PATTERN.test(trimmedValue) ||
+    SAFE_HSL_COLOR_PATTERN.test(trimmedValue) ||
+    SAFE_CSS_VARIABLE_PATTERN.test(trimmedValue)
+    ? trimmedValue
+    : null;
 }
 
 export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle };
