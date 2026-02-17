@@ -26,6 +26,7 @@ export default function PlatformSignup() {
   const [isLoading, setIsLoading] = useState(false);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteName, setInviteName] = useState<string | null>(null);
+  const [emailLocked, setEmailLocked] = useState(false);
   const [success, setSuccess] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
@@ -42,7 +43,7 @@ export default function PlatformSignup() {
     const checkInvite = async () => {
       const { data, error } = await supabase
         .from("platform_invites")
-        .select("id, status, expires_at, name")
+        .select("id, status, expires_at, name, invite_email")
         .eq("id", id)
         .maybeSingle();
 
@@ -57,6 +58,10 @@ export default function PlatformSignup() {
       }
 
       setInviteName(data.name);
+      if (data.invite_email) {
+        setForm(prev => ({ ...prev, email: data.invite_email! }));
+        setEmailLocked(true);
+      }
       setInviteValid(true);
     };
     checkInvite();
@@ -246,7 +251,12 @@ export default function PlatformSignup() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="seu@email.com"
+                  readOnly={emailLocked}
+                  className={emailLocked ? "bg-muted" : ""}
                 />
+                {emailLocked && (
+                  <p className="text-xs text-muted-foreground">Este convite é destinado a este email</p>
+                )}
                 {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
               </div>
 

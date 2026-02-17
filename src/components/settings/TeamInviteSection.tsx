@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Copy, Loader2, Link, Trash2, Key, ShieldAlert } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { format } from "date-fns";
@@ -16,6 +18,7 @@ export function TeamInviteSection() {
   const queryClient = useQueryClient();
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
   const canInvite = hasRole('leader') || hasRole('developer');
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const { data: invites = [], isLoading } = useQuery({
     queryKey: ["organization-invites", profile?.organization_id],
@@ -49,12 +52,17 @@ export function TeamInviteSection() {
   const createInvite = useMutation({
     mutationFn: async () => {
       if (!profile?.organization_id || !user) throw new Error("Sem organização");
+      const email = inviteEmail.trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Informe um email válido");
+      }
       const { data, error } = await supabase
         .from("organization_invites")
         .insert({
           organization_id: profile.organization_id,
           role: "corretor" as any,
           invited_by: user.id,
+          email,
         })
         .select()
         .single();
@@ -65,10 +73,11 @@ export function TeamInviteSection() {
       const link = `${window.location.origin}/convite/${data.id}`;
       navigator.clipboard.writeText(link);
       toast.success("Link de convite copiado para a área de transferência!");
+      setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["organization-invites"] });
     },
-    onError: () => {
-      toast.error("Erro ao criar convite");
+    onError: (err: Error) => {
+      toast.error(err.message || "Erro ao criar convite");
     },
   });
 
@@ -162,7 +171,18 @@ export function TeamInviteSection() {
             </div>
           )}
 
-          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending}>
+          <div className="space-y-2">
+            <Label htmlFor="invite-email">Email do corretor *</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="corretor@email.com"
+            />
+          </div>
+
+          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim()}>
             {createInvite.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -184,9 +204,9 @@ export function TeamInviteSection() {
             {pendingInvites.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate capitalize">{invite.role}</p>
+                  <p className="font-medium truncate">{invite.email || "Sem email"}</p>
                   <p className="text-xs text-muted-foreground">
-                    Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
+                    Corretor · Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
                 <Badge variant={statusVariant(invite.status)}>{statusLabel(invite.status)}</Badge>
@@ -213,9 +233,9 @@ export function TeamInviteSection() {
             {otherInvites.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg opacity-70">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate capitalize">{invite.role}</p>
+                  <p className="font-medium truncate">{invite.email || "Sem email"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {invite.accepted_at
+                    Corretor · {invite.accepted_at
                       ? `Aceito em ${format(new Date(invite.accepted_at), "dd/MM/yyyy", { locale: ptBR })}`
                       : `Criado em ${format(new Date(invite.created_at), "dd/MM/yyyy", { locale: ptBR })}`
                     }

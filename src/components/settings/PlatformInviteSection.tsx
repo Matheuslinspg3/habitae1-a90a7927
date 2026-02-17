@@ -19,6 +19,7 @@ export function PlatformInviteSection() {
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
   const canInvite = hasRole("developer") || hasRole("leader");
   const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const { data: invites = [], isLoading } = useQuery({
     queryKey: ["platform-invites"],
@@ -36,12 +37,17 @@ export function PlatformInviteSection() {
   const createInvite = useMutation({
     mutationFn: async () => {
       if (!profile?.organization_id || !user) throw new Error("Sem organização");
+      const email = inviteEmail.trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Informe um email válido");
+      }
       const { data, error } = await supabase
         .from("platform_invites")
         .insert({
           created_by: user.id,
           organization_id: profile.organization_id,
           name: inviteName.trim() || null,
+          invite_email: email,
         })
         .select()
         .single();
@@ -53,10 +59,11 @@ export function PlatformInviteSection() {
       navigator.clipboard.writeText(link);
       toast.success("Link de convite copiado para a área de transferência!");
       setInviteName("");
+      setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["platform-invites"] });
     },
-    onError: () => {
-      toast.error("Erro ao criar convite");
+    onError: (err: Error) => {
+      toast.error(err.message || "Erro ao criar convite");
     },
   });
 
@@ -130,7 +137,18 @@ export function PlatformInviteSection() {
             />
           </div>
 
-          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending}>
+          <div className="space-y-2">
+            <Label htmlFor="invite-client-email">Email do cliente *</Label>
+            <Input
+              id="invite-client-email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="cliente@email.com"
+            />
+          </div>
+
+          <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim()}>
             {createInvite.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -152,9 +170,9 @@ export function PlatformInviteSection() {
             {activeInvites.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{invite.name || "Sem identificação"}</p>
+                  <p className="font-medium truncate">{invite.invite_email || invite.name || "Sem identificação"}</p>
                   <p className="text-xs text-muted-foreground">
-                    Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
+                    {invite.name ? `${invite.name} · ` : ""}Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
                 <Badge variant={statusVariant(invite.status)}>{statusLabel(invite.status)}</Badge>
@@ -181,9 +199,9 @@ export function PlatformInviteSection() {
             {otherInvites.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg opacity-70">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{invite.name || "Sem identificação"}</p>
+                  <p className="font-medium truncate">{invite.invite_email || invite.name || "Sem identificação"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {invite.used_at
+                    {invite.name ? `${invite.name} · ` : ""}{invite.used_at
                       ? `Utilizado em ${format(new Date(invite.used_at), "dd/MM/yyyy", { locale: ptBR })}`
                       : `Criado em ${format(new Date(invite.created_at), "dd/MM/yyyy", { locale: ptBR })}`}
                   </p>

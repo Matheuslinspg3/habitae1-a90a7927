@@ -37,6 +37,19 @@ serve(async (req) => {
       });
     }
 
+    // Validate email binding on the invite
+    const { data: inviteData } = await adminClient
+      .from("organization_invites")
+      .select("email")
+      .eq("id", invite_id)
+      .single();
+
+    if (inviteData?.email && inviteData.email.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return new Response(JSON.stringify({ error: "Este convite é destinado a outro email" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Call atomic RPC
     const { data, error } = await adminClient.rpc("accept_organization_invite", {
       p_invite_id: invite_id,
