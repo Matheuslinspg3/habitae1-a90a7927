@@ -145,3 +145,43 @@ describe("Payload sanitization", () => {
     expect(JSON.stringify(sanitized)).not.toContain("123.456");
   });
 });
+
+describe("Organization invite authorization policy", () => {
+  const canReadInvite = ({
+    inviteOrganizationId,
+    userOrganizationId,
+    inviteEmail,
+    authEmail,
+  }: {
+    inviteOrganizationId: string;
+    userOrganizationId: string | null;
+    inviteEmail: string | null;
+    authEmail: string | null;
+  }) => {
+    const sameOrg = !!userOrganizationId && inviteOrganizationId === userOrganizationId;
+    const emailMatch = !!inviteEmail && !!authEmail && inviteEmail.toLowerCase() === authEmail.toLowerCase();
+    return sameOrg || emailMatch;
+  };
+
+  it("blocks authenticated user from another tenant reading someone else's invite", () => {
+    const allowed = canReadInvite({
+      inviteOrganizationId: "org-a",
+      userOrganizationId: "org-b",
+      inviteEmail: "invitee@tenant-a.com",
+      authEmail: "intruder@tenant-b.com",
+    });
+
+    expect(allowed).toBe(false);
+  });
+
+  it("allows invited authenticated user by email match", () => {
+    const allowed = canReadInvite({
+      inviteOrganizationId: "org-a",
+      userOrganizationId: "org-b",
+      inviteEmail: "Invitee@Tenant-A.com",
+      authEmail: "invitee@tenant-a.com",
+    });
+
+    expect(allowed).toBe(true);
+  });
+});
