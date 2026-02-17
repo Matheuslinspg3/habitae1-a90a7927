@@ -40,8 +40,54 @@ Deno.serve(async (req) => {
     const userId = data.claims.sub;
 
     const body = await req.json().catch(() => ({}));
-    const folder = body.folder || 'properties';
-    const fileHash = body.file_hash || '';
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      console.warn(`[SIGN] invalid_payload user=${userId} reason=body_not_object`);
+      return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const allowedKeys = new Set(['file_hash']);
+    const invalidKeys = Object.keys(body).filter((key) => !allowedKeys.has(key));
+    if (invalidKeys.length > 0) {
+      console.warn(`[SIGN] invalid_payload user=${userId} reason=unexpected_keys keys=${invalidKeys.join(',')}`);
+      return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const rawFileHash = body.file_hash;
+    if (rawFileHash !== undefined && typeof rawFileHash !== 'string') {
+      console.warn(`[SIGN] invalid_payload user=${userId} reason=file_hash_type`);
+      return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const fileHash = (rawFileHash || '').trim();
+    if (fileHash && !/^[a-f0-9]{64}$/i.test(fileHash)) {
+      console.warn(`[SIGN] invalid_payload user=${userId} reason=file_hash_format`);
+      return new Response(JSON.stringify({ error: 'Parâmetros inválidos' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error(`[SIGN] profile_lookup_failed user=${userId}`, profileError);
+      return new Response(JSON.stringify({ error: 'Erro interno' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const folder = profile?.organization_id
+      ? `properties/${profile.organization_id}`
+      : `properties/user/${userId}`;
 
     const cloudName = Deno.env.get('CLOUDINARY_CLOUD_NAME');
     const apiKey = Deno.env.get('CLOUDINARY_API_KEY');
