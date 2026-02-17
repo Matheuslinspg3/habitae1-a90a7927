@@ -37,12 +37,16 @@ function PortalFeedCard({
   feed,
   onToggle,
   onRegenerate,
+  onRotateToken,
   isRegenerating,
+  isRotatingToken,
 }: {
   feed: PortalFeed;
   onToggle: (feedId: string, isActive: boolean) => void;
   onRegenerate: (feedId: string) => void;
+  onRotateToken: (feedId: string) => void;
   isRegenerating: boolean;
+  isRotatingToken: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -114,6 +118,14 @@ function PortalFeedCard({
                   </span>
                 </div>
               )}
+              {feed.token_rotated_at && (
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    Token rotacionado {formatDistanceToNow(new Date(feed.token_rotated_at), { addSuffix: true, locale: ptBR })}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
@@ -130,6 +142,19 @@ function PortalFeedCard({
                   <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
                 )}
                 Regenerar agora
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRotateToken(feed.id)}
+                disabled={isRotatingToken}
+              >
+                {isRotatingToken ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Rotacionar token
               </Button>
               {feed.feed_url && (
                 <Button
@@ -166,6 +191,8 @@ export function PortalFeedsSection() {
     toggleFeed,
     regenerateFeed,
     isRegenerating,
+    rotateFeedToken,
+    isRotatingFeedToken,
   } = usePortalFeeds();
 
   // Auto-initialize feeds if none exist
@@ -214,7 +241,9 @@ export function PortalFeedsSection() {
             feed={feed}
             onToggle={(id, active) => toggleFeed({ feedId: id, isActive: active })}
             onRegenerate={regenerateFeed}
+            onRotateToken={rotateFeedToken}
             isRegenerating={isRegenerating}
+            isRotatingToken={isRotatingFeedToken}
           />
         ))}
       </div>
