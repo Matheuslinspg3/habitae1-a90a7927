@@ -7,16 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, ClipboardList, Home, BarChart3, UserPlus, Loader2 } from "lucide-react";
+import { Users, ClipboardList, Home, BarChart3, UserPlus, Loader2, Crown, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserRoles } from "@/hooks/useUserRole";
+import { useUserRoles, AppRole } from "@/hooks/useUserRole";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Dono",
+  sub_admin: "Sub-Dono",
+  corretor: "Corretor",
+  assistente: "Assistente",
+  leader: "Leader",
+  developer: "Developer",
+};
+
+const ASSIGNABLE_ROLES_BY_ADMIN = ["admin", "sub_admin", "corretor", "assistente"];
+const PROTECTED_ROLES = ["developer", "leader"];
+
 function TeamOverview() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const { isDeveloper, isAdmin } = useUserRoles();
   const orgId = profile?.organization_id;
+  const queryClient = useQueryClient();
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["admin-team", orgId],
@@ -46,6 +60,33 @@ function TeamOverview() {
     enabled: !!orgId,
   });
 
+  const changeRole = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
+      await supabase.from("user_roles").delete().eq("user_id", userId);
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole as any });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-team"] });
+      queryClient.invalidateQueries({ queryKey: ["user-roles"] });
+      toast.success("Cargo atualizado com sucesso");
+    },
+    onError: () => toast.error("Erro ao atualizar cargo"),
+  });
+
+  const canChangeRole = (memberRole: string, memberId: string) => {
+    if (memberId === user?.id) return false; // Can't change own role
+    if (PROTECTED_ROLES.includes(memberRole) && !isDeveloper) return false;
+    if (memberRole === "admin" && !isDeveloper) return false;
+    return true;
+  };
+
+  const getAvailableRoles = () => {
+    if (isDeveloper) return [...ASSIGNABLE_ROLES_BY_ADMIN];
+    if (isAdmin) return ["sub_admin", "corretor", "assistente"];
+    return [];
+  };
+
   if (isLoading) return <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>;
 
   const getInitials = (name: string) => name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -61,7 +102,26 @@ function TeamOverview() {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{m.full_name}</p>
-                <Badge variant="secondary" className="text-[10px]">{m.role}</Badge>
+                {canChangeRole(m.role, m.user_id) ? (
+                  <Select
+                    value={m.role}
+                    onValueChange={(newRole) => changeRole.mutate({ userId: m.user_id, newRole })}
+                  >
+                    <SelectTrigger className="h-7 w-36 text-[11px] mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableRoles().map(r => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="secondary" className="text-[10px] gap-1">
+                    {(m.role === "admin" || m.role === "developer") && <Crown className="h-3 w-3" />}
+                    {ROLE_LABELS[m.role] || m.role}
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
