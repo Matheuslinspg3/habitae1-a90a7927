@@ -1,0 +1,79 @@
+# Habitae — robots.txt
+# Public: landing pages de imóveis e assets
+# Private: todas as rotas autenticadas
+
+User-agent: Googlebot
+Allow: /imovel/
+Allow: /instalar
+Disallow: /dashboard
+Disallow: /imoveis
+Disallow: /proprietarios
+Disallow: /crm
+Disallow: /contratos
+Disallow: /financeiro
+Disallow: /agenda
+Disallow: /automacoes
+Disallow: /administracao
+Disallow: /integracoes
+Disallow: /configuracoes
+Disallow: /marketplace
+Disallow: /admin/
+Disallow: /developer
+Disallow: /app/
+Disallow: /auth
+Disallow: /convite/
+Disallow: /cadastro/
+
+User-agent: Bingbot
+Allow: /imovel/
+Allow: /instalar
+Disallow: /dashboard
+Disallow: /imoveis
+Disallow: /proprietarios
+Disallow: /crm
+Disallow: /contratos
+Disallow: /financeiro
+Disallow: /agenda
+Disallow: /automacoes
+Disallow: /administracao
+Disallow: /integracoes
+Disallow: /configuracoes
+Disallow: /marketplace
+Disallow: /admin/
+Disallow: /developer
+Disallow: /app/
+Disallow: /auth
+Disallow: /convite/
+Disallow: /cadastro/
+
+User-agent: Twitterbot
+Allow: /imovel/
+Disallow: /
+
+User-agent: facebookexternalhit
+Allow: /imovel/
+Disallow: /
+
+User-agent: *
+Allow: /imovel/
+Allow: /instalar
+Disallow: /dashboard
+Disallow: /imoveis
+Disallow: /proprietarios
+Disallow: /crm
+Disallow: /contratos
+Disallow: /financeiro
+Disallow: /agenda
+Disallow: /automacoes
+Disallow: /administracao
+Disallow: /integracoes
+Disallow: /configuracoes
+Disallow: /marketplace
+Disallow: /admin/
+Disallow: /developer
+Disallow: /app/
+Disallow: /auth
+Disallow: /convite/
+Disallow: /cadastro/
+
+Sitemap: https://habitae1.lovable.app/sitemap.xml

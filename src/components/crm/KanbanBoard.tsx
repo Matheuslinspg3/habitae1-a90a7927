@@ -1,0 +1,527 @@
+import { useState, useMemo, useCallback } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+} from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
+import { KanbanColumn } from './KanbanColumn';
+import { LeadCard } from './LeadCard';
+import { LeadForm } from './LeadForm';
+import { LeadDetails } from './LeadDetails';
+import { LeadFilters } from './LeadFilters';
+import { LeadMetrics } from './LeadMetrics';
+import { LeadAssignmentDialog } from './LeadAssignmentDialog';
+import { LeadListView } from './LeadListView';
+import { LeadBulkToolbar } from './LeadBulkToolbar';
+import { MobileKanbanView } from './MobileKanbanView';
+import { ExportButton } from './ExportButton';
+import { CRMImportWizard } from './import/CRMImportWizard';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useLeads, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
+import { useLeadTypes } from '@/hooks/useLeadTypes';
+import { useBrokers } from '@/hooks/useBrokers';
+import { useProperties } from '@/hooks/useProperties';
+import { usePropertyTypes } from '@/hooks/usePropertyTypes';
+import { useToast } from '@/hooks/use-toast';
+
+const TEMP_CHIPS = [
+  { value: 'prioridade', label: 'Prioridade', icon: Zap, activeClass: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
+  { value: 'quente', label: 'Quente', icon: Flame, activeClass: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700' },
+  { value: 'morno', label: 'Morno', icon: Sun, activeClass: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700' },
+  { value: 'frio', label: 'Frio', icon: Snowflake, activeClass: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' },
+] as const;
+
+export function KanbanBoard() {
+  const { toast } = useToast();
+  const isMobile = useIsMobile();
+  
+  const {
+    leads,
+    leadStages,
+    leadsByStage,
+    stageStats,
+    isLoading,
+    createLead,
+    updateLead,
+    updateLeadStage,
+    reorderLeads,
+    deleteLead,
+    inactivateLead,
+    bulkDeleteLeads,
+    bulkInactivateLeads,
+    bulkMoveStage,
+    isCreating,
+    isUpdating,
+    isDeleting,
+    isInactivating,
+  } = useLeads();
+
+  const { leadTypes } = useLeadTypes();
+  const { brokers } = useBrokers();
+  const { properties } = useProperties();
+  const { propertyTypes } = usePropertyTypes();
+
+  const [search, setSearch] = useState('');
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [assigningLead, setAssigningLead] = useState<Lead | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  // Filter leads
+  const filteredLeadsByStage = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    
+    return leadStages.reduce((acc, stage) => {
+      let stageLeads = leadsByStage[stage.id] || [];
+      
+      if (search) {
+        stageLeads = stageLeads.filter(
+          (lead) =>
+            lead.name.toLowerCase().includes(searchLower) ||
+            lead.email?.toLowerCase().includes(searchLower) ||
+            lead.phone?.includes(search)
+        );
+      }
+      
+      if (selectedTypeId) {
+        stageLeads = stageLeads.filter((lead) => lead.lead_type_id === selectedTypeId);
+      }
+
+      if (selectedStage) {
+        if (stage.id !== selectedStage) {
+          acc[stage.id] = [];
+          return acc;
+        }
+      }
+
+      if (selectedBrokerId) {
+        stageLeads = stageLeads.filter((lead) => lead.broker_id === selectedBrokerId);
+      }
+
+      if (selectedSource) {
+        stageLeads = stageLeads.filter((lead) => lead.source === selectedSource);
+      }
+
+      if (selectedTemperature) {
+        stageLeads = stageLeads.filter((lead) => lead.temperature === selectedTemperature);
+      }
+      
+      acc[stage.id] = stageLeads;
+      return acc;
+    }, {} as Record<string, Lead[]>);
+  }, [leadsByStage, leadStages, search, selectedTypeId, selectedStage, selectedBrokerId, selectedSource, selectedTemperature]);
+
+  const filteredStageStats = useMemo(() => {
+    return leadStages.reduce((acc, stage) => {
+      const stageLeads = filteredLeadsByStage[stage.id] || [];
+      acc[stage.id] = {
+        count: stageLeads.length,
+        totalValue: stageLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0),
+      };
+      return acc;
+    }, {} as Record<string, { count: number; totalValue: number }>);
+  }, [filteredLeadsByStage, leadStages]);
+
+  const filteredLeads = useMemo(() => {
+    return Object.values(filteredLeadsByStage).flat();
+  }, [filteredLeadsByStage]);
+
+  const activeLead = activeId ? leads.find((l) => l.id === activeId) : null;
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const leadId = active.id as string;
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+
+    const overId = over.id as string;
+
+    // Determine target stage: is overId a stage or a lead?
+    const isStage = leadStages.some(s => s.id === overId);
+    let targetStageId: string;
+    
+    if (isStage) {
+      targetStageId = overId;
+    } else {
+      const overLead = leads.find(l => l.id === overId);
+      if (!overLead) return;
+      targetStageId = overLead.lead_stage_id || '';
+    }
+
+    const sourceStageId = lead.lead_stage_id || '';
+    const sourceLeads = [...(filteredLeadsByStage[sourceStageId] || [])];
+    const targetLeads = sourceStageId === targetStageId 
+      ? sourceLeads 
+      : [...(filteredLeadsByStage[targetStageId] || [])];
+
+    if (sourceStageId === targetStageId) {
+      const oldIndex = sourceLeads.findIndex(l => l.id === leadId);
+      const newIndex = isStage 
+        ? sourceLeads.length - 1 
+        : sourceLeads.findIndex(l => l.id === overId);
+      
+      if (oldIndex === newIndex) return;
+
+      const reordered = arrayMove(sourceLeads, oldIndex, newIndex);
+      const updates = reordered.map((l, i) => ({
+        id: l.id,
+        position: i,
+        lead_stage_id: targetStageId,
+      }));
+      reorderLeads(updates);
+    } else {
+      const insertIndex = isStage
+        ? targetLeads.length
+        : targetLeads.findIndex(l => l.id === overId);
+
+      const newSource = sourceLeads.filter(l => l.id !== leadId);
+      const newTarget = [...targetLeads];
+      newTarget.splice(insertIndex >= 0 ? insertIndex : newTarget.length, 0, lead);
+
+      const updates = [
+        ...newSource.map((l, i) => ({ id: l.id, position: i, lead_stage_id: sourceStageId })),
+        ...newTarget.map((l, i) => ({ id: l.id, position: i, lead_stage_id: targetStageId })),
+      ];
+      reorderLeads(updates);
+    }
+  }, [leads, leadStages, filteredLeadsByStage, reorderLeads]);
+
+  const handleLeadClick = useCallback((lead: Lead) => {
+    if (activeId) return;
+    setSelectedLead(lead);
+    setDetailsOpen(true);
+  }, [activeId]);
+
+  const handleNewLead = useCallback(() => {
+    setEditingLead(null);
+    setFormOpen(true);
+  }, []);
+
+  const handleEditLead = useCallback(() => {
+    setEditingLead(selectedLead);
+    setDetailsOpen(false);
+    setFormOpen(true);
+  }, [selectedLead]);
+
+  const handleDeleteLead = useCallback(() => {
+    if (selectedLead) {
+      deleteLead(selectedLead.id);
+      setDetailsOpen(false);
+      setSelectedLead(null);
+    }
+  }, [selectedLead, deleteLead]);
+
+  const handleInactivateLead = useCallback(() => {
+    if (selectedLead) {
+      inactivateLead(selectedLead.id);
+      setDetailsOpen(false);
+      setSelectedLead(null);
+    }
+  }, [selectedLead, inactivateLead]);
+
+  const handleAssignLead = useCallback((lead?: Lead) => {
+    const target = lead || selectedLead;
+    if (target) {
+      setAssigningLead(target);
+      setAssignmentOpen(true);
+    }
+  }, [selectedLead]);
+
+  const handleFormSubmit = async (data: CreateLeadInput) => {
+    if (editingLead) {
+      await new Promise<void>((resolve, reject) => {
+        updateLead(
+          { id: editingLead.id, ...data },
+          { onSuccess: () => resolve(), onError: reject }
+        );
+      });
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        createLead(data, { onSuccess: () => resolve(), onError: reject });
+      });
+    }
+  };
+
+  const propertyOptions = useMemo(() => {
+    return properties.map((p) => ({ id: p.id, title: p.title }));
+  }, [properties]);
+
+  const selectionMode = selectedIds.size > 0;
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredLeads.map((l) => l.id)));
+  }, [filteredLeads]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkDelete = useCallback(() => {
+    bulkDeleteLeads([...selectedIds]);
+    clearSelection();
+  }, [selectedIds, bulkDeleteLeads, clearSelection]);
+
+  const handleBulkInactivate = useCallback(() => {
+    bulkInactivateLeads([...selectedIds]);
+    clearSelection();
+  }, [selectedIds, bulkInactivateLeads, clearSelection]);
+
+  const handleBulkMoveStage = useCallback((stageId: string) => {
+    bulkMoveStage({ ids: [...selectedIds], lead_stage_id: stageId });
+    const stage = leadStages.find((s) => s.id === stageId);
+    toast({ title: 'Leads movidos', description: `${selectedIds.size} lead(s) movidos para "${stage?.name}".` });
+    clearSelection();
+  }, [selectedIds, bulkMoveStage, leadStages, toast, clearSelection]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-10 flex-1 max-w-md" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        {isMobile ? (
+          <Skeleton className="h-64" />
+        ) : (
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="w-72 lg:w-80 h-64 flex-shrink-0" />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 lg:space-y-6">
+      <LeadMetrics leads={leads} />
+      
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between">
+        <LeadFilters
+          search={search}
+          onSearchChange={setSearch}
+          selectedTypeId={selectedTypeId}
+          onTypeChange={setSelectedTypeId}
+          leadTypes={leadTypes}
+          selectedStage={selectedStage}
+          onStageChange={setSelectedStage}
+          leadStages={leadStages}
+          selectedBrokerId={selectedBrokerId}
+          onBrokerChange={setSelectedBrokerId}
+          brokers={brokers}
+          selectedSource={selectedSource}
+          onSourceChange={setSelectedSource}
+        />
+        <div className="flex gap-2">
+          <div className="flex border rounded-md overflow-hidden shrink-0">
+            <Button
+              variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+              size="icon"
+              className="rounded-none h-9 w-9"
+              onClick={() => setViewMode('kanban')}
+              title="Kanban"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="icon"
+              className="rounded-none h-9 w-9"
+              onClick={() => setViewMode('list')}
+              title="Lista"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button
+            variant={selectionMode ? 'default' : 'outline'}
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => selectionMode ? clearSelection() : selectAll()}
+            title="Selecionar em lote"
+          >
+            <CheckSquare className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Importar</span>
+          </Button>
+          <ExportButton leads={filteredLeads} leadStages={leadStages} />
+          <Button onClick={handleNewLead} className="flex-1 sm:flex-none">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="sm:inline">Novo Lead</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick temperature filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mb-2">
+        {TEMP_CHIPS.map(({ value, label, icon: Icon, activeClass }) => {
+          const isActive = selectedTemperature === value;
+          return (
+            <button
+              key={value}
+              onClick={() => setSelectedTemperature(isActive ? null : value)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0 min-h-[32px] ${
+                isActive ? activeClass : 'border-border text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+              {isActive && (
+                <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-0.5">
+                  {leads.filter(l => l.temperature === value).length}
+                </Badge>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Bulk actions toolbar */}
+      <LeadBulkToolbar
+        selectedCount={selectedIds.size}
+        totalCount={filteredLeads.length}
+        onSelectAll={selectAll}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+        onBulkInactivate={handleBulkInactivate}
+        onBulkMoveStage={handleBulkMoveStage}
+        leadStages={leadStages}
+        isDeleting={isDeleting}
+        isInactivating={isInactivating}
+        allSelected={selectedIds.size === filteredLeads.length && filteredLeads.length > 0}
+      />
+
+      {viewMode === 'list' ? (
+        <LeadListView
+          leads={filteredLeads}
+          leadStages={leadStages}
+          onLeadClick={handleLeadClick}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          selectionMode={selectionMode}
+        />
+      ) : isMobile ? (
+        <MobileKanbanView
+          leadStages={leadStages}
+          leadsByStage={filteredLeadsByStage}
+          stageStats={filteredStageStats}
+          onLeadClick={handleLeadClick}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          selectionMode={selectionMode}
+        />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+            {leadStages.map((stage) => (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                leads={filteredLeadsByStage[stage.id] || []}
+                stats={filteredStageStats[stage.id]}
+                onLeadClick={handleLeadClick}
+              />
+            ))}
+          </div>
+
+          <DragOverlay dropAnimation={null}>
+            {activeLead && <LeadCard lead={activeLead} />}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      <LeadForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        lead={editingLead}
+        leadTypes={leadTypes}
+        leadStages={leadStages}
+        brokers={brokers}
+        properties={propertyOptions}
+        propertyTypes={propertyTypes}
+        onSubmit={handleFormSubmit}
+        isLoading={isCreating || isUpdating}
+      />
+
+      <LeadDetails
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        lead={selectedLead}
+        leadStages={leadStages}
+        onEdit={handleEditLead}
+        onDelete={handleDeleteLead}
+        onInactivate={handleInactivateLead}
+        onAssign={() => handleAssignLead()}
+        isDeleting={isDeleting}
+        isInactivating={isInactivating}
+      />
+
+      <LeadAssignmentDialog
+        open={assignmentOpen}
+        onOpenChange={setAssignmentOpen}
+        lead={assigningLead}
+      />
+
+      <CRMImportWizard
+        open={importOpen}
+        onOpenChange={setImportOpen}
+      />
+    </div>
+  );
+}

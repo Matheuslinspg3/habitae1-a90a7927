@@ -1,0 +1,134 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Phone, Mail, MapPin, MessageCircle, Users, FileText, Plus, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  useLeadInteractions,
+  INTERACTION_TYPES,
+  type InteractionType,
+} from '@/hooks/useLeadInteractions';
+
+const ICON_MAP: Record<string, React.ElementType> = {
+  Phone, Mail, MapPin, MessageCircle, Users, FileText,
+};
+
+interface LeadInteractionTimelineProps {
+  leadId: string | null;
+}
+
+export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps) {
+  const { interactions, isLoading, createInteraction, isCreating } = useLeadInteractions(leadId);
+  const [showForm, setShowForm] = useState(false);
+  const [type, setType] = useState<InteractionType>('ligacao');
+  const [description, setDescription] = useState('');
+
+  const handleSubmit = () => {
+    if (!description.trim()) return;
+    createInteraction(
+      { type, description: description.trim() },
+      {
+        onSuccess: () => {
+          setDescription('');
+          setShowForm(false);
+        },
+      }
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Interações</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowForm(!showForm)}
+          className="h-7 text-xs"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Registrar
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="space-y-2 p-3 rounded-md border bg-muted/30">
+          <Select value={type} onValueChange={(v) => setType(v as InteractionType)}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INTERACTION_TYPES.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descreva a interação..."
+            className="resize-none text-sm"
+            rows={2}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} className="h-7 text-xs">
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={isCreating || !description.trim()} className="h-7 text-xs">
+              {isCreating && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Carregando...</p>
+      ) : interactions.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhuma interação registrada.</p>
+      ) : (
+        <div className="space-y-0">
+          {interactions.map((interaction, index) => {
+            const typeInfo = INTERACTION_TYPES.find((t) => t.id === interaction.type);
+            const Icon = typeInfo ? ICON_MAP[typeInfo.icon] || FileText : FileText;
+
+            return (
+              <div key={interaction.id} className="flex gap-3 py-2">
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  {index < interactions.length - 1 && (
+                    <div className="w-px flex-1 bg-border mt-1" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">{typeInfo?.label || interaction.type}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(interaction.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                    {interaction.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

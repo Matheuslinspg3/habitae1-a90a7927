@@ -1,0 +1,867 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, X } from 'lucide-react';
+import { LEAD_SOURCES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
+import type { LeadStage } from '@/hooks/useLeadStages';
+import { type LeadType } from '@/hooks/useLeadTypes';
+import { type Broker } from '@/hooks/useBrokers';
+import { type PropertyType } from '@/hooks/usePropertyTypes';
+import { usePropertyLocations } from '@/hooks/usePropertyLocations';
+
+const formSchema = z.object({
+  // Dados básicos
+  name: z.string().min(1, 'Nome é obrigatório'),
+  phone: z.string().optional(),
+  email: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  lead_type_id: z.string().optional(),
+  source: z.string().optional(),
+  custom_source: z.string().optional(),
+  broker_id: z.string().optional(),
+  lead_stage_id: z.string().min(1, 'Estágio é obrigatório'),
+  notes: z.string().optional(),
+  
+  // Critérios de interesse do imóvel
+  interested_property_type_id: z.string().optional(),
+  interested_property_type_ids: z.array(z.string()).optional(),
+  property_id: z.string().optional(),
+  estimated_value: z.coerce.number().optional(),
+  bedrooms: z.coerce.number().optional(),
+  bathrooms: z.coerce.number().optional(),
+  parking: z.coerce.number().optional(),
+  area: z.coerce.number().optional(),
+  preferred_neighborhoods: z.array(z.string()).optional(),
+  preferred_cities: z.array(z.string()).optional(),
+  transaction_interest: z.enum(['venda', 'aluguel', 'ambos']).optional(),
+  additional_requirements: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+interface LeadFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  lead?: Lead | null;
+  leadTypes: LeadType[];
+  leadStages: LeadStage[];
+  brokers: Broker[];
+  properties: { id: string; title: string }[];
+  propertyTypes?: PropertyType[];
+  onSubmit: (data: CreateLeadInput) => Promise<void>;
+  isLoading?: boolean;
+}
+
+export function LeadForm({
+  open,
+  onOpenChange,
+  lead,
+  leadTypes,
+  leadStages,
+  brokers,
+  properties,
+  propertyTypes = [],
+  onSubmit,
+  isLoading,
+}: LeadFormProps) {
+  const { neighborhoods: availableNeighborhoods, cities: availableCities } = usePropertyLocations();
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState('');
+  const [citySearch, setCitySearch] = useState('');
+  const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const isEditing = !!lead;
+  const [showCustomSource, setShowCustomSource] = useState(false);
+  const [activeTab, setActiveTab] = useState('basic');
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      phone: '',
+      email: '',
+      lead_type_id: '',
+      source: '',
+      custom_source: '',
+      broker_id: '',
+      lead_stage_id: leadStages[0]?.id || '',
+      notes: '',
+      interested_property_type_id: '',
+      interested_property_type_ids: [],
+      property_id: '',
+      estimated_value: undefined,
+      bedrooms: undefined,
+      bathrooms: undefined,
+      parking: undefined,
+      area: undefined,
+      preferred_neighborhoods: [],
+      preferred_cities: [],
+      transaction_interest: undefined,
+      additional_requirements: '',
+    },
+  });
+
+  useEffect(() => {
+    if (lead) {
+      // Check if the source is a custom one (not in predefined list)
+      const isCustomSource = lead.source && !LEAD_SOURCES.some(s => s.id === lead.source);
+      setShowCustomSource(isCustomSource || lead.source === 'outro');
+      
+      form.reset({
+        name: lead.name,
+        phone: lead.phone || '',
+        email: lead.email || '',
+        lead_type_id: lead.lead_type_id || '',
+        source: isCustomSource ? 'outro' : (lead.source || ''),
+        custom_source: isCustomSource ? lead.source || '' : '',
+        broker_id: lead.broker_id || '',
+        lead_stage_id: lead.lead_stage_id || leadStages[0]?.id || '',
+        notes: lead.notes || '',
+        interested_property_type_id: lead.interested_property_type_id || '',
+        interested_property_type_ids: (lead as any).interested_property_type_ids || 
+          (lead.interested_property_type_id ? [lead.interested_property_type_id] : []),
+        property_id: lead.property_id || '',
+        estimated_value: lead.estimated_value || undefined,
+        bedrooms: (lead as any).min_bedrooms || undefined,
+        bathrooms: (lead as any).min_bathrooms || undefined,
+        parking: (lead as any).min_parking || undefined,
+        area: (lead as any).min_area || undefined,
+        preferred_neighborhoods: (lead as any).preferred_neighborhoods || [],
+        preferred_cities: (lead as any).preferred_cities || [],
+        transaction_interest: (lead as any).transaction_interest || undefined,
+        additional_requirements: (lead as any).additional_requirements || '',
+      });
+    } else {
+      setShowCustomSource(false);
+      form.reset({
+        name: '',
+        phone: '',
+        email: '',
+        lead_type_id: '',
+        source: '',
+        custom_source: '',
+        broker_id: '',
+        lead_stage_id: leadStages[0]?.id || '',
+        notes: '',
+        interested_property_type_id: '',
+        interested_property_type_ids: [],
+        property_id: '',
+        estimated_value: undefined,
+        bedrooms: undefined,
+        bathrooms: undefined,
+        parking: undefined,
+        area: undefined,
+        preferred_neighborhoods: [],
+        preferred_cities: [],
+        transaction_interest: undefined,
+        additional_requirements: '',
+      });
+    }
+    setActiveTab('basic');
+  }, [lead, form, open]);
+
+  const handleSourceChange = (value: string) => {
+    form.setValue('source', value);
+    setShowCustomSource(value === 'outro');
+    if (value !== 'outro') {
+      form.setValue('custom_source', '');
+    }
+  };
+
+  const handleSubmit = async (data: FormData) => {
+    // Determine the final source value
+    const finalSource = data.source === 'outro' && data.custom_source 
+      ? data.custom_source 
+      : data.source;
+
+    const cleanData: CreateLeadInput = {
+      name: data.name,
+      phone: data.phone || undefined,
+      email: data.email || undefined,
+      lead_type_id: data.lead_type_id || undefined,
+      source: finalSource || undefined,
+      interested_property_type_id: data.interested_property_type_ids?.[0] || data.interested_property_type_id || undefined,
+      interested_property_type_ids: data.interested_property_type_ids?.length ? data.interested_property_type_ids : undefined,
+      property_id: data.property_id || undefined,
+      broker_id: data.broker_id || undefined,
+      estimated_value: data.estimated_value || undefined,
+      lead_stage_id: data.lead_stage_id || undefined,
+      notes: data.notes || undefined,
+      transaction_interest: data.transaction_interest || undefined,
+      min_bedrooms: data.bedrooms || undefined,
+      min_bathrooms: data.bathrooms || undefined,
+      min_parking: data.parking || undefined,
+      min_area: data.area || undefined,
+      preferred_neighborhoods: data.preferred_neighborhoods?.length ? data.preferred_neighborhoods : undefined,
+      preferred_cities: data.preferred_cities?.length ? data.preferred_cities : undefined,
+      additional_requirements: data.additional_requirements || undefined,
+    };
+    await onSubmit(cleanData);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="basic">Dados do Lead</TabsTrigger>
+                <TabsTrigger value="interest">Interesse em Imóvel</TabsTrigger>
+              </TabsList>
+
+              {/* Aba Dados Básicos */}
+              <TabsContent value="basic" className="space-y-4 mt-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome do lead" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Telefone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="(00) 00000-0000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-mail</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@exemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="lead_type_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Lead</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {leadTypes.map((type) => (
+                              <SelectItem key={type.id} value={type.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: type.color || '#6366f1' }}
+                                  />
+                                  {type.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Origem</FormLabel>
+                        <Select onValueChange={handleSourceChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {LEAD_SOURCES.map((source) => (
+                              <SelectItem key={source.id} value={source.id}>
+                                {source.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {showCustomSource && (
+                  <FormField
+                    control={form.control}
+                    name="custom_source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Origem Personalizada</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Digite a origem..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="broker_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Corretor Responsável</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {brokers.map((broker) => (
+                            <SelectItem key={broker.user_id} value={broker.user_id}>
+                              {broker.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="lead_stage_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estágio *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {leadStages.map((stage) => (
+                            <SelectItem key={stage.id} value={stage.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+                                {stage.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Observações sobre o lead..."
+                          className="resize-none"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+
+              {/* Aba Interesse em Imóvel */}
+              <TabsContent value="interest" className="space-y-4 mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Informe os critérios do imóvel que o cliente procura. Essas informações ajudarão a filtrar e apresentar imóveis compatíveis.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="transaction_interest"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Interesse</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Comprar ou Alugar?" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="venda">Comprar</SelectItem>
+                            <SelectItem value="aluguel">Alugar</SelectItem>
+                            <SelectItem value="ambos">Ambos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="interested_property_type_ids"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipos de Imóvel</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3 bg-background">
+                          {propertyTypes.map((type) => {
+                            const isChecked = (field.value || []).includes(type.id);
+                            return (
+                              <div key={type.id} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`ptype-${type.id}`}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const current = field.value || [];
+                                    if (checked) {
+                                      field.onChange([...current, type.id]);
+                                    } else {
+                                      field.onChange(current.filter((id: string) => id !== type.id));
+                                    }
+                                  }}
+                                />
+                                <Label htmlFor={`ptype-${type.id}`} className="text-sm font-normal cursor-pointer">
+                                  {type.name}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="estimated_value"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Orçamento Máximo</FormLabel>
+                      <FormControl>
+                        <CurrencyInput
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="R$ 0,00"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bedrooms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quartos</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="bathrooms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banheiros</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="parking"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vagas</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="area"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Área (m²)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Bairros de Preferência - Multi-select */}
+                <FormField
+                  control={form.control}
+                  name="preferred_neighborhoods"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bairros de Preferência</FormLabel>
+                      <div className="space-y-2">
+                        {(field.value || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(field.value || []).map((n) => (
+                              <Badge key={n} variant="secondary" className="gap-1 text-xs">
+                                {n}
+                                <button
+                                  type="button"
+                                  onClick={() => field.onChange((field.value || []).filter((v: string) => v !== n))}
+                                  className="ml-0.5 hover:text-destructive"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <Input
+                            placeholder="Buscar bairro..."
+                            value={neighborhoodSearch}
+                            onChange={(e) => {
+                              setNeighborhoodSearch(e.target.value);
+                              setShowNeighborhoodDropdown(true);
+                            }}
+                            onFocus={() => setShowNeighborhoodDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowNeighborhoodDropdown(false), 200)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && neighborhoodSearch.trim()) {
+                                e.preventDefault();
+                                const val = neighborhoodSearch.trim();
+                                if (!(field.value || []).includes(val)) {
+                                  field.onChange([...(field.value || []), val]);
+                                }
+                                setNeighborhoodSearch('');
+                                setShowNeighborhoodDropdown(false);
+                              }
+                            }}
+                          />
+                          {showNeighborhoodDropdown && (
+                            <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
+                              {availableNeighborhoods
+                                .filter(n => 
+                                  n.toLowerCase().includes(neighborhoodSearch.toLowerCase()) &&
+                                  !(field.value || []).includes(n)
+                                )
+                                .slice(0, 20)
+                                .map((n) => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      field.onChange([...(field.value || []), n]);
+                                      setNeighborhoodSearch('');
+                                      setShowNeighborhoodDropdown(false);
+                                    }}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              {neighborhoodSearch.trim() && !availableNeighborhoods.some(n => 
+                                n.toLowerCase() === neighborhoodSearch.toLowerCase()
+                              ) && (
+                                <button
+                                  type="button"
+                                  className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    const val = neighborhoodSearch.trim();
+                                    if (!(field.value || []).includes(val)) {
+                                      field.onChange([...(field.value || []), val]);
+                                    }
+                                    setNeighborhoodSearch('');
+                                    setShowNeighborhoodDropdown(false);
+                                  }}
+                                >
+                                  + Adicionar "{neighborhoodSearch.trim()}"
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Cidades de Preferência - Multi-select */}
+                <FormField
+                  control={form.control}
+                  name="preferred_cities"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cidades de Preferência</FormLabel>
+                      <div className="space-y-2">
+                        {(field.value || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {(field.value || []).map((c) => (
+                              <Badge key={c} variant="secondary" className="gap-1 text-xs">
+                                {c}
+                                <button
+                                  type="button"
+                                  onClick={() => field.onChange((field.value || []).filter((v: string) => v !== c))}
+                                  className="ml-0.5 hover:text-destructive"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="relative">
+                          <Input
+                            placeholder="Buscar cidade..."
+                            value={citySearch}
+                            onChange={(e) => {
+                              setCitySearch(e.target.value);
+                              setShowCityDropdown(true);
+                            }}
+                            onFocus={() => setShowCityDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && citySearch.trim()) {
+                                e.preventDefault();
+                                const val = citySearch.trim();
+                                if (!(field.value || []).includes(val)) {
+                                  field.onChange([...(field.value || []), val]);
+                                }
+                                setCitySearch('');
+                                setShowCityDropdown(false);
+                              }
+                            }}
+                          />
+                          {showCityDropdown && (
+                            <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
+                              {availableCities
+                                .filter(c => 
+                                  c.toLowerCase().includes(citySearch.toLowerCase()) &&
+                                  !(field.value || []).includes(c)
+                                )
+                                .slice(0, 20)
+                                .map((c) => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      field.onChange([...(field.value || []), c]);
+                                      setCitySearch('');
+                                      setShowCityDropdown(false);
+                                    }}
+                                  >
+                                    {c}
+                                  </button>
+                                ))}
+                              {citySearch.trim() && !availableCities.some(c => 
+                                c.toLowerCase() === citySearch.toLowerCase()
+                              ) && (
+                                <button
+                                  type="button"
+                                  className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    const val = citySearch.trim();
+                                    if (!(field.value || []).includes(val)) {
+                                      field.onChange([...(field.value || []), val]);
+                                    }
+                                    setCitySearch('');
+                                    setShowCityDropdown(false);
+                                  }}
+                                >
+                                  + Adicionar "{citySearch.trim()}"
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="property_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Imóvel Específico de Interesse</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um imóvel (opcional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {properties.map((property) => (
+                            <SelectItem key={property.id} value={property.id}>
+                              {property.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="additional_requirements"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Requisitos Adicionais</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Ex: Precisa de vaga de garagem coberta, aceita financiamento, prefere andar alto..."
+                          className="resize-none"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isEditing ? 'Salvar' : 'Criar Lead'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

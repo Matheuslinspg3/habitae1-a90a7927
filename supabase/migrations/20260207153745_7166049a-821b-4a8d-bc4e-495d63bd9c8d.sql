@@ -1,0 +1,1 @@
+ALTER TABLE public.import_runs ADD COLUMN marketplace_property_ids text[] DEFAULT '{}';

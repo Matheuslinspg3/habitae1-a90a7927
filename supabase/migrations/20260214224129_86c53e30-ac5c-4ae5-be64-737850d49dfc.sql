@@ -1,0 +1,1 @@
+ALTER TABLE public.subscriptions DROP CONSTRAINT subscriptions_organization_id_key;

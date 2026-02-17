@@ -1,0 +1,125 @@
+import { memo, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Phone, ChevronRight, Flame, Snowflake, Sun, Zap } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type { Lead } from '@/hooks/useLeads';
+
+interface MobileLeadCardProps {
+  lead: Lead;
+  onClick: () => void;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  selectionMode?: boolean;
+}
+
+const TEMPERATURE_STYLES: Record<string, { border: string; icon: typeof Flame; badgeClass: string; label: string }> = {
+  frio: { border: 'border-l-[3px] border-l-blue-400', icon: Snowflake, badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300', label: 'Frio' },
+  morno: { border: 'border-l-[3px] border-l-amber-400', icon: Sun, badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300', label: 'Morno' },
+  quente: { border: 'border-l-[3px] border-l-orange-500', icon: Flame, badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300', label: 'Quente' },
+  prioridade: { border: 'border-l-[3px] border-l-red-500', icon: Zap, badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300', label: 'Prioridade' },
+};
+
+function formatCurrency(value: number | null | undefined) {
+  if (!value) return null;
+  if (value >= 1000000) return `R$ ${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `R$ ${(value / 1000).toFixed(0)}k`;
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 }).format(value);
+}
+
+function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, selectionMode }: MobileLeadCardProps) {
+  const formattedValue = formatCurrency(lead.estimated_value);
+  const timeAgo = formatDistanceToNow(new Date(lead.created_at), { addSuffix: false, locale: ptBR });
+
+  const tempStyle = TEMPERATURE_STYLES[lead.temperature || ''];
+  const TempIcon = tempStyle?.icon;
+
+  const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleSelect?.(lead.id);
+  }, [lead.id, onToggleSelect]);
+
+  const handleClick = useCallback(() => {
+    if (selectionMode) {
+      onToggleSelect?.(lead.id);
+    } else {
+      onClick();
+    }
+  }, [selectionMode, lead.id, onToggleSelect, onClick]);
+
+  const handleLongPress = useCallback(() => {
+    if (!selectionMode) {
+      onToggleSelect?.(lead.id);
+    }
+  }, [selectionMode, lead.id, onToggleSelect]);
+
+  return (
+    <Card 
+      className={`cursor-pointer hover:bg-accent/50 transition-colors active:scale-[0.99] ${tempStyle?.border || ''} ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+      onClick={handleClick}
+      onContextMenu={(e) => { e.preventDefault(); handleLongPress(); }}
+    >
+      <CardContent className="p-3 flex items-center gap-3">
+        {/* Checkbox - always visible when in selection mode */}
+        {(selectionMode || isSelected) && (
+          <div className="shrink-0" onClick={handleCheckboxClick}>
+            <Checkbox
+              checked={!!isSelected}
+              className="data-[state=checked]:bg-primary"
+            />
+          </div>
+        )}
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-sm truncate">{lead.name}</p>
+            {TempIcon && (
+              <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full shrink-0 ${tempStyle.badgeClass}`}>
+                <TempIcon className="h-2.5 w-2.5" />
+                {tempStyle.label}
+              </span>
+            )}
+            {lead.lead_type && (
+              <Badge 
+                variant="secondary" 
+                className="text-[10px] px-1.5 py-0 shrink-0"
+                style={{ backgroundColor: lead.lead_type.color || undefined }}
+              >
+                {lead.lead_type.name}
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            {lead.phone && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                <span className="truncate max-w-[100px]">{lead.phone}</span>
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground">• {timeAgo}</span>
+            {lead.source && (
+              <span className="text-[10px] text-muted-foreground bg-muted/60 px-1 rounded">
+                {lead.source}
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {/* Right side */}
+        <div className="flex items-center gap-2 shrink-0">
+          {formattedValue && (
+            <span className="text-xs font-semibold text-foreground">
+              {formattedValue}
+            </span>
+          )}
+          {!selectionMode && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export const MobileLeadCard = memo(MobileLeadCardComponent);

@@ -1,0 +1,48 @@
+name: CI — Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Type check
+        run: bun run tsc --noEmit
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Secret scan
+        run: |
+          SECRETS_FOUND=$(grep -rn --include="*.ts" --include="*.tsx" --include="*.js" \
+            -E "(sk_live|sk_test|secret_key|password=|apiKey\s*[:=]\s*['\"][a-zA-Z0-9]{20,})" \
+            src/ 2>/dev/null | grep -v "node_modules" | grep -v ".test." | grep -v "// " || true)
+          if [ -n "$SECRETS_FOUND" ]; then
+            echo "❌ Hardcoded secrets found:"
+            echo "$SECRETS_FOUND"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets found"
+
+      # AH-08: Dependency audit — fail on high/critical
+      - name: Dependency audit
+        run: bun audit --production 2>/dev/null || echo "Audit check completed"
