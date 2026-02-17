@@ -40,7 +40,10 @@
 - Se persistente, verificar se há bot/abuso.
 
 ### Sessão não persiste
-- Verificar localStorage do navegador (storage cheio?).
+- Verificar a opção **"Lembrar-me"** na tela de login:
+  - Marcada: tokens são salvos em `localStorage` e a sessão permanece após refresh e fechamento da aba.
+  - Desmarcada: tokens ficam em `sessionStorage`, sobrevivem refresh, mas encerram ao fechar a aba.
+- Verificar localStorage/sessionStorage do navegador (storage cheio ou bloqueado).
 - Limpar cookies/storage e re-logar.
 
 ---
