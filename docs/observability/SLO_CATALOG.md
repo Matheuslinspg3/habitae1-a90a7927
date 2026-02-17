@@ -100,3 +100,21 @@ Revisão: Mensal
 - Revisão mensal em reunião de confiabilidade.
 - SLOs ajustados com base em dados reais após 90 dias de coleta.
 - Novos serviços devem ter SLO definido antes de ir para produção.
+
+---
+
+## Alertas de autenticação com provedores (secrets inválidos/expirados)
+
+### Padrões de detecção em logs
+- `[PROVIDER_AUTH_SECRET_INVALID][ASAAS]`
+- `[PROVIDER_AUTH_SECRET_INVALID][CLOUDINARY]`
+- `[PROVIDER_AUTH_SECRET_INVALID][R2]`
+
+### Regras sugeridas
+1. **SEV-2 (degradação):** >= 3 ocorrências em 5 minutos por provedor/ambiente.
+2. **SEV-1 (impacto de receita ou indisponibilidade):** >= 10 ocorrências em 5 minutos ou erro contínuo por 15 minutos.
+3. **Notificação:** canal `#oncall-backend` + owner do domínio (Billing/Storage).
+
+### Ação automática recomendada
+- Abrir incidente com template de playbook.
+- Linkar runbook: `docs/runbooks/billing.md` (seção de rotação/revogação).

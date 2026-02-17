@@ -86,6 +86,10 @@ async function getR2Stats(endpoint: string, bucket: string, accessKey: string, s
     if (!res.ok) {
       const text = await res.text();
       console.error(`R2 ListObjects error: ${res.status} ${text}`);
+      if (res.status === 401 || res.status === 403) {
+        console.error('[PROVIDER_AUTH_SECRET_INVALID][R2]', { status: res.status, detail: text.slice(0, 300) });
+        throw new Error(`[PROVIDER_AUTH_SECRET_INVALID][R2] R2 ListObjects failed: ${res.status}`);
+      }
       throw new Error(`R2 ListObjects failed: ${res.status}`);
     }
 
@@ -138,6 +142,10 @@ async function getCloudinaryStats(cloudName: string, apiKey: string, apiSecret: 
   if (!res.ok) {
     const text = await res.text();
     console.error(`Cloudinary usage error: ${res.status} ${text}`);
+    if (res.status === 401 || res.status === 403) {
+      console.error('[PROVIDER_AUTH_SECRET_INVALID][CLOUDINARY]', { status: res.status, detail: text.slice(0, 300) });
+      throw new Error(`[PROVIDER_AUTH_SECRET_INVALID][CLOUDINARY] Cloudinary usage API failed: ${res.status}`);
+    }
     throw new Error(`Cloudinary usage API failed: ${res.status}`);
   }
 
