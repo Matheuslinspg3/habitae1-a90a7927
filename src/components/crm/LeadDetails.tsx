@@ -24,6 +24,11 @@ import {
   BedDouble,
   Ruler,
   Clock,
+  Flame,
+  Snowflake,
+  Sun,
+  Zap,
+  Thermometer,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,6 +93,15 @@ export function LeadDetails({
   const leadAny = lead as any;
   const daysSinceUpdate = formatDistanceToNow(new Date(lead.updated_at), { locale: ptBR, addSuffix: true });
 
+  const TEMP_MAP: Record<string, { icon: typeof Flame; label: string; badgeClass: string }> = {
+    frio: { icon: Snowflake, label: 'Frio', badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300' },
+    morno: { icon: Sun, label: 'Morno', badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' },
+    quente: { icon: Flame, label: 'Quente', badgeClass: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300' },
+    prioridade: { icon: Zap, label: 'Prioridade', badgeClass: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' },
+  };
+  const tempInfo = lead.temperature ? TEMP_MAP[lead.temperature] : null;
+  const TempIcon = tempInfo?.icon;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto p-4 sm:p-6">
@@ -109,6 +123,12 @@ export function LeadDetails({
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
                     {stage.name}
                   </Badge>
+                )}
+                {tempInfo && TempIcon && (
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${tempInfo.badgeClass}`}>
+                    <TempIcon className="h-3 w-3" />
+                    {tempInfo.label}
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">

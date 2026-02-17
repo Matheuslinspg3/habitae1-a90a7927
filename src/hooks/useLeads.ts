@@ -28,6 +28,13 @@ export const LEAD_SOURCES = [
   { id: 'outro', label: 'Outro' },
 ] as const;
 
+export const TEMPERATURES = [
+  { id: 'frio', label: 'Frio', color: 'text-blue-500' },
+  { id: 'morno', label: 'Morno', color: 'text-amber-500' },
+  { id: 'quente', label: 'Quente', color: 'text-orange-500' },
+  { id: 'prioridade', label: 'Prioridade Máxima', color: 'text-red-500' },
+] as const;
+
 export type CreateLeadInput = {
   name: string;
   phone?: string;
@@ -41,6 +48,7 @@ export type CreateLeadInput = {
   estimated_value?: number;
   lead_stage_id?: string;
   notes?: string;
+  temperature?: string;
   transaction_interest?: string;
   min_bedrooms?: number;
   min_bathrooms?: number;
