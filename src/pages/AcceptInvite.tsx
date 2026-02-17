@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
-import { Loader2, ArrowRight, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, ArrowRight, CheckCircle, XCircle, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -43,13 +43,24 @@ export default function AcceptInvite() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [waitingEmailConfirmation, setWaitingEmailConfirmation] = useState(false);
+  const acceptAttempted = useRef(false);
 
   const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", orgCode: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Load invite data
   useEffect(() => {
     const loadInvite = async () => {
       if (!id) { setError("Link inválido"); setLoading(false); return; }
+
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        setError("Link de convite inválido");
+        setLoading(false);
+        return;
+      }
 
       const { data, error: fetchError } = await supabase
         .from("organization_invites")
@@ -59,6 +70,26 @@ export default function AcceptInvite() {
 
       if (fetchError || !data) {
         setError("Convite não encontrado ou expirado");
+        setLoading(false);
+        return;
+      }
+
+      if (data.status === "accepted") {
+        // If user is logged in and already in this org, redirect
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("organization_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (profile?.organization_id === data.organization_id) {
+            setAccepted(true);
+            setLoading(false);
+            setTimeout(() => navigate("/dashboard"), 1500);
+            return;
+          }
+        }
+        setError("Este convite já foi utilizado");
         setLoading(false);
         return;
       }
@@ -75,41 +106,73 @@ export default function AcceptInvite() {
         return;
       }
 
-      const { data: orgName } = await supabase
-        .rpc("get_org_name_for_invite", { p_invite_id: data.id });
+      // Get org name
+      let orgName = "Organização";
+      try {
+        const { data: nameData } = await supabase
+          .rpc("get_org_name_for_invite", { p_invite_id: data.id });
+        if (nameData) orgName = nameData as string;
+      } catch {}
 
-      setInvite({ ...data, org_name: (orgName as string) || "Organização" });
-      // Pre-fill email if invite has one
+      setInvite({ ...data, org_name: orgName });
       if (data.email) {
         setForm(prev => ({ ...prev, email: data.email! }));
       }
       setLoading(false);
     };
 
-    loadInvite();
-  }, [id]);
+    if (!authLoading) {
+      loadInvite();
+    }
+  }, [id, authLoading, user]);
 
+  // Auto-accept when user is logged in
   useEffect(() => {
-    if (user && invite && !accepted && !isSubmitting) {
+    if (user && invite && !accepted && !isSubmitting && !acceptAttempted.current) {
+      acceptAttempted.current = true;
       acceptInvite();
     }
   }, [user, invite]);
 
   const acceptInvite = async () => {
-    if (!invite) return;
+    if (!invite || !user) return;
     setIsSubmitting(true);
 
     try {
+      // First check if the trigger already handled it (profile already in correct org)
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (profile?.organization_id === invite.organization_id) {
+        setAccepted(true);
+        toast({ title: "Bem-vindo!", description: `Você faz parte de ${invite.org_name}` });
+        setTimeout(() => navigate("/dashboard"), 1500);
+        return;
+      }
+
+      // Call edge function
       const { data, error: fnError } = await supabase.functions.invoke("accept-invite", {
         body: { invite_id: invite.id },
       });
 
-      // If the invite was already accepted (e.g. by handle_new_user trigger), treat as success
+      // Handle "already used" as success (trigger may have handled it)
       if (data?.error && (data.error.includes("já utilizado") || data.error.includes("já pertence"))) {
-        setAccepted(true);
-        toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
-        setTimeout(() => navigate("/dashboard"), 2000);
-        return;
+        // Double-check profile
+        const { data: profileCheck } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileCheck?.organization_id === invite.organization_id) {
+          setAccepted(true);
+          toast({ title: "Bem-vindo!", description: `Você faz parte de ${invite.org_name}` });
+          setTimeout(() => navigate("/dashboard"), 1500);
+          return;
+        }
       }
 
       if (fnError) throw fnError;
@@ -117,24 +180,26 @@ export default function AcceptInvite() {
 
       setAccepted(true);
       toast({ title: "Bem-vindo!", description: `Você agora faz parte de ${invite.org_name}` });
-      setTimeout(() => navigate("/dashboard"), 2000);
+      setTimeout(() => navigate("/dashboard"), 1500);
     } catch (err: any) {
-      // If edge function fails entirely, the trigger may have already handled it
-      // Check if user already belongs to the org and redirect
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organization_id")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      
-      if (profile?.organization_id === invite.organization_id) {
-        setAccepted(true);
-        toast({ title: "Bem-vindo!", description: `Você já faz parte de ${invite.org_name}` });
-        setTimeout(() => navigate("/dashboard"), 2000);
-        return;
-      }
-      
+      // Final fallback: check if user is already in the org
+      try {
+        const { data: profileFallback } = await supabase
+          .from("profiles")
+          .select("organization_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileFallback?.organization_id === invite.organization_id) {
+          setAccepted(true);
+          toast({ title: "Bem-vindo!", description: `Você já faz parte de ${invite.org_name}` });
+          setTimeout(() => navigate("/dashboard"), 1500);
+          return;
+        }
+      } catch {}
+
       toast({ variant: "destructive", title: "Erro", description: err.message || "Erro ao aceitar convite" });
+      acceptAttempted.current = false; // Allow retry
     } finally {
       setIsSubmitting(false);
     }
@@ -155,7 +220,7 @@ export default function AcceptInvite() {
       return;
     }
 
-    // Validate org code via secure RPC
+    // Validate org code
     const { data: codeValid } = await supabase
       .rpc("validate_invite_org_code", { p_org_id: invite.organization_id, p_code: form.orgCode.trim() });
 
@@ -178,8 +243,9 @@ export default function AcceptInvite() {
       },
     });
 
+    setIsSubmitting(false);
+
     if (signUpError) {
-      setIsSubmitting(false);
       if (signUpError.message.includes("already registered")) {
         toast({
           variant: "destructive",
@@ -192,9 +258,11 @@ export default function AcceptInvite() {
       return;
     }
 
-    toast({ title: "Conta criada!", description: "Processando seu convite..." });
+    // Show email confirmation screen
+    setWaitingEmailConfirmation(true);
   };
 
+  // Loading state
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -203,12 +271,13 @@ export default function AcceptInvite() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <div className="max-w-md w-full text-center space-y-6">
           <HabitaeLogo variant="horizontal" size="lg" />
-          <Card className="glass-card border-white/10">
+          <Card>
             <CardContent className="pt-6 space-y-4">
               <XCircle className="h-12 w-12 text-destructive mx-auto" />
               <p className="text-lg font-medium">{error}</p>
@@ -222,16 +291,45 @@ export default function AcceptInvite() {
     );
   }
 
+  // Waiting for email confirmation
+  if (waitingEmailConfirmation) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+        <div className="max-w-md w-full text-center space-y-6">
+          <HabitaeLogo variant="horizontal" size="lg" />
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <Mail className="h-12 w-12 text-primary mx-auto" />
+              <h2 className="text-xl font-bold">Verifique seu email</h2>
+              <p className="text-muted-foreground">
+                Enviamos um link de confirmação para <span className="font-medium text-foreground">{form.email}</span>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Clique no link do email para confirmar sua conta. Após a confirmação, você será redirecionado automaticamente para aceitar o convite.
+              </p>
+              <div className="pt-2">
+                <Button variant="outline" size="sm" onClick={() => setWaitingEmailConfirmation(false)}>
+                  Voltar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Accepted state
   if (accepted) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <div className="max-w-md w-full text-center space-y-6">
           <HabitaeLogo variant="horizontal" size="lg" />
-          <Card className="glass-card border-white/10">
+          <Card>
             <CardContent className="pt-6 space-y-4">
               <CheckCircle className="h-12 w-12 text-primary mx-auto" />
               <p className="text-lg font-medium">Convite aceito!</p>
-              <p className="text-muted-foreground">Redirecionando...</p>
+              <p className="text-muted-foreground">Redirecionando para o painel...</p>
             </CardContent>
           </Card>
         </div>
@@ -239,15 +337,22 @@ export default function AcceptInvite() {
     );
   }
 
+  // User logged in - accepting invite
   if (user) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
         <div className="max-w-md w-full text-center space-y-6">
           <HabitaeLogo variant="horizontal" size="lg" />
-          <Card className="glass-card border-white/10">
+          <Card>
             <CardContent className="pt-6 space-y-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
               <p className="text-muted-foreground">Aceitando convite...</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => {
+                acceptAttempted.current = false;
+                acceptInvite();
+              }}>
+                Tentar novamente
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -255,6 +360,7 @@ export default function AcceptInvite() {
     );
   }
 
+  // Signup form
   return (
     <div className="min-h-screen flex flex-col items-center bg-background py-8 px-4 relative overflow-y-auto">
       <div className="absolute inset-0 bg-radial-gradient pointer-events-none" />
@@ -276,7 +382,7 @@ export default function AcceptInvite() {
           </p>
         </div>
 
-        <Card className="glass-card border-white/10 shadow-2xl">
+        <Card>
           <CardHeader className="pb-4">
             <CardTitle className="text-center text-lg">Criar sua conta</CardTitle>
             <CardDescription className="text-center">
