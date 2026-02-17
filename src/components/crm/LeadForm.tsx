@@ -31,9 +31,9 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Flame, Snowflake, Sun, Zap } from 'lucide-react';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
-import { LEAD_SOURCES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
+import { LEAD_SOURCES, TEMPERATURES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
 import { type LeadType } from '@/hooks/useLeadTypes';
 import { type Broker } from '@/hooks/useBrokers';
@@ -50,6 +50,7 @@ const formSchema = z.object({
   custom_source: z.string().optional(),
   broker_id: z.string().optional(),
   lead_stage_id: z.string().min(1, 'Estágio é obrigatório'),
+  temperature: z.string().optional(),
   notes: z.string().optional(),
   
   // Critérios de interesse do imóvel
@@ -114,6 +115,7 @@ export function LeadForm({
       custom_source: '',
       broker_id: '',
       lead_stage_id: leadStages[0]?.id || '',
+      temperature: '',
       notes: '',
       interested_property_type_id: '',
       interested_property_type_ids: [],
@@ -145,6 +147,7 @@ export function LeadForm({
         custom_source: isCustomSource ? lead.source || '' : '',
         broker_id: lead.broker_id || '',
         lead_stage_id: lead.lead_stage_id || leadStages[0]?.id || '',
+        temperature: lead.temperature || '',
         notes: lead.notes || '',
         interested_property_type_id: lead.interested_property_type_id || '',
         interested_property_type_ids: (lead as any).interested_property_type_ids || 
@@ -171,6 +174,7 @@ export function LeadForm({
         custom_source: '',
         broker_id: '',
         lead_stage_id: leadStages[0]?.id || '',
+        temperature: '',
         notes: '',
         interested_property_type_id: '',
         interested_property_type_ids: [],
@@ -215,6 +219,7 @@ export function LeadForm({
       broker_id: data.broker_id || undefined,
       estimated_value: data.estimated_value || undefined,
       lead_stage_id: data.lead_stage_id || undefined,
+      temperature: data.temperature || undefined,
       notes: data.notes || undefined,
       transaction_interest: data.transaction_interest || undefined,
       min_bedrooms: data.bedrooms || undefined,
@@ -411,6 +416,54 @@ export function LeadForm({
                               </div>
                             </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="temperature"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Temperatura / Prioridade</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a temperatura" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="frio">
+                            <div className="flex items-center gap-2">
+                              <Snowflake className="h-3.5 w-3.5 text-blue-500" />
+                              <span>Frio</span>
+                              <span className="text-xs text-muted-foreground">— sem urgência, acompanhamento futuro</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="morno">
+                            <div className="flex items-center gap-2">
+                              <Sun className="h-3.5 w-3.5 text-amber-500" />
+                              <span>Morno</span>
+                              <span className="text-xs text-muted-foreground">— interesse moderado</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="quente">
+                            <div className="flex items-center gap-2">
+                              <Flame className="h-3.5 w-3.5 text-orange-500" />
+                              <span>Quente</span>
+                              <span className="text-xs text-muted-foreground">— pronto para fechar</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="prioridade">
+                            <div className="flex items-center gap-2">
+                              <Zap className="h-3.5 w-3.5 text-red-500" />
+                              <span>Prioridade Máxima</span>
+                              <span className="text-xs text-muted-foreground">— ação imediata</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

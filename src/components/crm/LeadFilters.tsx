@@ -19,7 +19,7 @@ import type { Broker } from '@/hooks/useBrokers';
 import type { LeadStage } from '@/hooks/useLeadStages';
 import { LeadTypeManager } from './LeadTypeManager';
 import { LeadStageManager } from './LeadStageManager';
-import { LEAD_SOURCES } from '@/hooks/useLeads';
+import { LEAD_SOURCES, TEMPERATURES } from '@/hooks/useLeads';
 import { useUserRoles } from '@/hooks/useUserRole';
 
 interface LeadFiltersProps {
@@ -36,6 +36,8 @@ interface LeadFiltersProps {
   brokers: Broker[];
   selectedSource: string | null;
   onSourceChange: (value: string | null) => void;
+  selectedTemperature: string | null;
+  onTemperatureChange: (value: string | null) => void;
 }
 
 export function LeadFilters({
@@ -52,11 +54,13 @@ export function LeadFilters({
   brokers,
   selectedSource,
   onSourceChange,
+  selectedTemperature,
+  onTemperatureChange,
 }: LeadFiltersProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { isAdminOrAbove } = useUserRoles();
   const canManageTypes = isAdminOrAbove;
-  const hasAdvancedFilters = !!selectedStage || !!selectedBrokerId || !!selectedSource;
+  const hasAdvancedFilters = !!selectedStage || !!selectedBrokerId || !!selectedSource || !!selectedTemperature;
 
   return (
     <div className="flex flex-col gap-2 flex-1">
@@ -162,6 +166,24 @@ export function LeadFilters({
               </SelectContent>
             </Select>
 
+            <Select
+              value={selectedTemperature || 'all'}
+              onValueChange={(value) => onTemperatureChange(value === 'all' ? null : value)}
+            >
+              <SelectTrigger className="flex-1 sm:w-[160px]">
+                <SelectValue placeholder="Temperatura" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas temperaturas</SelectItem>
+                {TEMPERATURES.map((temp) => (
+                  <SelectItem key={temp.id} value={temp.id}>
+                    <span className={`mr-1 ${temp.color}`}>●</span>
+                    {temp.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {hasAdvancedFilters && (
               <Button
                 variant="ghost"
@@ -170,6 +192,7 @@ export function LeadFilters({
                   onStageChange(null);
                   onBrokerChange(null);
                   onSourceChange(null);
+                  onTemperatureChange(null);
                 }}
                 className="text-xs"
               >
