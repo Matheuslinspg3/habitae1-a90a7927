@@ -288,8 +288,14 @@ export default function Settings() {
   ];
 
   const handleChangeRole = async (memberId: string, newRole: string) => {
-    const { error } = await supabase.from("user_roles").update({ role: newRole as any }).eq("user_id", memberId);
-    if (error) {
+    // Usar delete + insert para consistência com Administration.tsx
+    const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", memberId);
+    if (deleteError) {
+      toast.error("Erro ao alterar cargo");
+      return;
+    }
+    const { error: insertError } = await supabase.from("user_roles").insert({ user_id: memberId, role: newRole as any });
+    if (insertError) {
       toast.error("Erro ao alterar cargo");
       return;
     }
