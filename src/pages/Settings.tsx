@@ -25,6 +25,7 @@ import { UnifiedPlanSection } from "@/components/settings/UnifiedPlanSection";
 import { VerificationSection } from "@/components/settings/VerificationSection";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { PasswordResetRequestForm } from "@/components/auth/PasswordResetRequestForm";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -54,7 +55,6 @@ export default function Settings() {
   const [verifyingCreci, setVerifyingCreci] = useState(false);
 
   // Password state
-  const [sendingResetLink, setSendingResetLink] = useState(false);
   const [resetLinkSent, setResetLinkSent] = useState(false);
 
   // Company state
@@ -217,22 +217,6 @@ export default function Settings() {
     } else {
       toast.success("Perfil atualizado com sucesso");
       refreshProfile();
-    }
-  };
-
-  const handleSendPasswordReset = async () => {
-    const userEmail = user?.email;
-    if (!userEmail) return toast.error("E-mail não encontrado");
-    setSendingResetLink(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
-      redirectTo: window.location.origin + "/configuracoes",
-    });
-    setSendingResetLink(false);
-    if (error) {
-      toast.error("Erro ao enviar link de redefinição: " + error.message);
-    } else {
-      setResetLinkSent(true);
-      toast.success("Link de redefinição enviado para " + userEmail);
     }
   };
 
@@ -441,13 +425,15 @@ export default function Settings() {
                       <span>Link enviado! Verifique sua caixa de entrada e spam.</span>
                     </div>
                   )}
-                  <div className="flex justify-end">
-                    <Button variant="outline" onClick={handleSendPasswordReset} disabled={sendingResetLink}>
-                      {sendingResetLink && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      <Mail className="h-4 w-4 mr-2" />
-                      Enviar link de redefinição
-                    </Button>
-                  </div>
+                  <PasswordResetRequestForm
+                    initialEmail={user?.email || ""}
+                    redirectPath="/redefinir-senha"
+                    onSuccess={() => {
+                      setResetLinkSent(true);
+                      toast.success(`Link de redefinição enviado para ${user?.email}`);
+                    }}
+                    onError={(message) => toast.error(`Erro ao enviar link de redefinição: ${message}`)}
+                  />
                 </CardContent>
               </Card>
 
