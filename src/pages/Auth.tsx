@@ -8,6 +8,15 @@ import { Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  getLockoutMessage,
+  getSafeAuthErrorMessage,
+  isCurrentlyLocked,
+  normalizeEmailForAudit,
+  shouldRequireCaptcha,
+  type AuthRiskStatus,
+} from "@/lib/authProtection";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -21,6 +30,23 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sessionId] = useState(() => {
+    const existing = sessionStorage.getItem("auth_session_id");
+    if (existing) {
+      return existing;
+    }
+    const generated = crypto.randomUUID();
+    sessionStorage.setItem("auth_session_id", generated);
+    return generated;
+  });
+  const [captchaA, setCaptchaA] = useState(() => Math.ceil(Math.random() * 9));
+  const [captchaB, setCaptchaB] = useState(() => Math.ceil(Math.random() * 9));
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [riskStatus, setRiskStatus] = useState<AuthRiskStatus>({
+    failedAttemptsSession: Number(sessionStorage.getItem("auth_failed_attempts") || 0),
+    failedAttemptsIpWindow: 0,
+    lockoutUntil: sessionStorage.getItem("auth_lockout_until"),
+  });
 
   useEffect(() => {
     if (user && !loading) {
@@ -50,19 +76,87 @@ export default function Auth() {
       return;
     }
 
+    const normalizedEmail = normalizeEmailForAudit(loginForm.email);
+
+    const { data: statusData } = await supabase.functions.invoke("auth-security", {
+      body: {
+        action: "get_status",
+        email: normalizedEmail,
+        sessionId,
+      },
+    });
+
+    if (statusData) {
+      setRiskStatus(statusData);
+      sessionStorage.setItem("auth_failed_attempts", String(statusData.failedAttemptsSession));
+      if (statusData.lockoutUntil) {
+        sessionStorage.setItem("auth_lockout_until", statusData.lockoutUntil);
+      } else {
+        sessionStorage.removeItem("auth_lockout_until");
+      }
+    }
+
+    if (statusData?.lockoutUntil && isCurrentlyLocked(statusData.lockoutUntil)) {
+      toast({
+        variant: "destructive",
+        title: "Acesso temporariamente bloqueado",
+        description: getLockoutMessage(statusData.lockoutUntil),
+      });
+      return;
+    }
+
+    const shouldShowCaptcha = shouldRequireCaptcha(statusData ?? riskStatus);
+    if (shouldShowCaptcha && Number(captchaAnswer) !== captchaA + captchaB) {
+      setErrors((prev) => ({ ...prev, captcha: "Resolva o CAPTCHA para continuar." }));
+      return;
+    }
+
     setIsLoading(true);
     const { error } = await signIn(loginForm.email, loginForm.password);
     setIsLoading(false);
 
     if (error) {
+      const { data: failureData } = await supabase.functions.invoke("auth-security", {
+        body: {
+          action: "record_attempt",
+          email: normalizedEmail,
+          success: false,
+          reason: "invalid_credentials",
+          sessionId,
+        },
+      });
+
+      if (failureData) {
+        setRiskStatus(failureData);
+        sessionStorage.setItem("auth_failed_attempts", String(failureData.failedAttemptsSession));
+        if (failureData.lockoutUntil) {
+          sessionStorage.setItem("auth_lockout_until", failureData.lockoutUntil);
+        }
+      }
+
+      setCaptchaA(Math.ceil(Math.random() * 9));
+      setCaptchaB(Math.ceil(Math.random() * 9));
+      setCaptchaAnswer("");
       toast({
         variant: "destructive",
         title: "Erro ao entrar",
-        description: error.message === "Invalid login credentials"
-          ? "Email ou senha incorretos"
-          : error.message,
+        description: getSafeAuthErrorMessage(),
       });
+      return;
     }
+
+    await supabase.functions.invoke("auth-security", {
+      body: {
+        action: "record_attempt",
+        email: normalizedEmail,
+        success: true,
+        reason: "login_success",
+        sessionId,
+      },
+    });
+
+    sessionStorage.setItem("auth_failed_attempts", "0");
+    sessionStorage.removeItem("auth_lockout_until");
   };
 
   if (loading) {
@@ -172,6 +266,31 @@ export default function Auth() {
               />
               {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
             </div>
+
+            {shouldRequireCaptcha(riskStatus) && (
+              <div className="space-y-1.5">
+                <Label htmlFor="login-captcha" className="editorial-label-muted">
+                  Verificação de segurança
+                </Label>
+                <Input
+                  id="login-captcha"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder={`Quanto é ${captchaA} + ${captchaB}?`}
+                  value={captchaAnswer}
+                  onChange={(e) => {
+                    setCaptchaAnswer(e.target.value);
+                    if (errors.captcha) {
+                      setErrors((prev) => ({ ...prev, captcha: "" }));
+                    }
+                  }}
+                  aria-invalid={!!errors.captcha}
+                  aria-describedby={errors.captcha ? "login-captcha-error" : undefined}
+                  className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                />
+                {errors.captcha && <p id="login-captcha-error" role="alert" className="text-xs text-destructive mt-1">{errors.captcha}</p>}
+              </div>
+            )}
 
             <Button
               type="submit"
