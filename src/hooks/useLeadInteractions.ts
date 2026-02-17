@@ -29,7 +29,7 @@ export function useLeadInteractions(leadId: string | null) {
         .from('lead_interactions')
         .select('*')
         .eq('lead_id', leadId)
-        .order('created_at', { ascending: false });
+        .order('occurred_at', { ascending: false });
 
       if (error) throw error;
       return data as LeadInteraction[];
@@ -38,7 +38,7 @@ export function useLeadInteractions(leadId: string | null) {
   });
 
   const createInteraction = useMutation({
-    mutationFn: async (input: { type: InteractionType; description: string }) => {
+    mutationFn: async (input: { type: InteractionType; description: string; occurred_at?: string }) => {
       if (!user || !leadId) throw new Error('Dados insuficientes');
 
       const { data, error } = await supabase
@@ -48,6 +48,7 @@ export function useLeadInteractions(leadId: string | null) {
           created_by: user.id,
           type: input.type,
           description: input.description,
+          ...(input.occurred_at ? { occurred_at: input.occurred_at } : {}),
         })
         .select()
         .single();
