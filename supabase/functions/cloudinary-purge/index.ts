@@ -115,7 +115,23 @@ Deno.serve(async (req) => {
     }
 
     const userId = user.id;
-    const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', userId);
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', userId)
+      .single();
+
+    if (profileError || !profile?.organization_id) {
+      return new Response(JSON.stringify({ error: 'Contexto de organização inválido' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('organization_id', profile.organization_id);
     const isDev = roles?.some((r: any) => r.role === 'developer');
     if (!isDev) {
       return new Response(JSON.stringify({ error: 'Acesso negado' }), {

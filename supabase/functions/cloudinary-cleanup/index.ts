@@ -35,7 +35,19 @@ async function verifyDeveloper(req: Request) {
   if (error || !claimsData?.claims) throw new Error('Não autenticado');
   const user = { id: claimsData.claims.sub as string };
 
-  const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (profileError || !profile?.organization_id) throw new Error('Contexto de organização inválido');
+
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('organization_id', profile.organization_id);
   if (!roles?.some(r => r.role === 'developer')) throw new Error('Acesso negado');
 
   return user;
