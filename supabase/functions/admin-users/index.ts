@@ -49,7 +49,31 @@ Deno.serve(async (req) => {
 
     if (!devRole) throw new Error("Forbidden: developer role required");
 
+    const logRequest = async (statusCode: number, outcome: string, metadata: Record<string, unknown> = {}) => {
+      await adminClient.rpc("log_public_function_request", {
+        p_function_name: "admin-users",
+        p_status_code: statusCode,
+        p_outcome: outcome,
+        p_principal: `user:${user.id}`,
+        p_metadata: metadata,
+      });
+    };
+
     if (req.method === "GET") {
+      const { data: quota } = await adminClient.rpc("consume_public_function_rate_limit", {
+        p_function_name: "admin-users",
+        p_principal: `user:${user.id}:get`,
+        p_limit: 120,
+        p_window_seconds: 60,
+      });
+      if (!quota?.[0]?.allowed) {
+        await logRequest(429, "rate_limited_get");
+        return new Response(JSON.stringify({ error: "Muitas requisições" }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // List all users with emails
       const { data: { users }, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       if (error) throw error;
@@ -60,12 +84,28 @@ Deno.serve(async (req) => {
         created_at: u.created_at,
       }));
 
+      await logRequest(200, "list_users_success", { count: simplifiedUsers.length });
+
       return new Response(JSON.stringify(simplifiedUsers), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (req.method === "DELETE") {
+      const { data: quota } = await adminClient.rpc("consume_public_function_rate_limit", {
+        p_function_name: "admin-users",
+        p_principal: `user:${user.id}:delete`,
+        p_limit: 10,
+        p_window_seconds: 60,
+      });
+      if (!quota?.[0]?.allowed) {
+        await logRequest(429, "rate_limited_delete");
+        return new Response(JSON.stringify({ error: "Muitas requisições" }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { user_id } = await req.json();
       if (!user_id) throw new Error("user_id required");
       if (user_id === user.id) throw new Error("Cannot delete yourself");
@@ -94,6 +134,8 @@ Deno.serve(async (req) => {
 
       const { error } = await adminClient.auth.admin.deleteUser(user_id);
       if (error) throw new Error(`Delete user failed: ${error.message}`);
+
+      await logRequest(200, "delete_user_success", { deleted_user_id: user_id });
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

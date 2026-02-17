@@ -100,3 +100,36 @@ Revisão: Mensal
 - Revisão mensal em reunião de confiabilidade.
 - SLOs ajustados com base em dados reais após 90 dias de coleta.
 - Novos serviços devem ter SLO definido antes de ir para produção.
+
+---
+
+## Alertas de abuso — funções públicas (`verify_jwt=false`)
+
+### Métricas base
+
+Fonte: tabela `public.function_request_logs` (Edge Functions).
+
+- `public_function_requests_total{function_name}`: total de requests no intervalo.
+- `public_function_errors_total{function_name}`: total com status >= 400.
+- `public_function_rate_limited_total{function_name}`: total com status = 429.
+- `public_function_unique_principals{function_name}`: contagem de `principal` distintos no intervalo.
+
+### Regras de alerta recomendadas
+
+1. **Pico de volume (Warning)**
+   - Condição: `total_requests >= 100` em 15 minutos.
+2. **Erro anômalo (Critical)**
+   - Condição: `error_rate >= 20%` em 15 minutos.
+3. **Rate limit elevado (Warning)**
+   - Condição: `status_429 >= 20` em 15 minutos.
+
+### Consulta operacional pronta
+
+Executar periodicamente (cron/Scheduled Function) usando:
+
+```sql
+select *
+from public.get_public_function_anomaly_candidates('15 minutes');
+```
+
+Se houver linhas retornadas, disparar alerta para canal de on-call (Slack/PagerDuty/e-mail).
