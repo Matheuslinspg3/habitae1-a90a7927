@@ -4,9 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -21,6 +22,9 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
 
   useEffect(() => {
     if (user && !loading) {
@@ -41,7 +45,6 @@ export default function Auth() {
         }
       });
       setErrors(fieldErrors);
-      // A-02: Focus first invalid field
       const firstErrorField = result.error.errors[0]?.path[0] as string;
       if (firstErrorField) {
         const el = document.getElementById(`login-${firstErrorField}`);
@@ -62,6 +65,30 @@ export default function Auth() {
           ? "Email ou senha incorretos"
           : error.message,
       });
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail.trim()) return;
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
+      redirectTo: window.location.origin + "/auth",
+    });
+    setSendingReset(false);
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Link enviado",
+        description: "Verifique sua caixa de entrada para redefinir sua senha.",
+      });
+      setShowForgotPassword(false);
+      setResetEmail("");
     }
   };
 
@@ -138,57 +165,114 @@ export default function Auth() {
           {/* Colorful section divider */}
           <hr className="section-divider" />
 
-          {/* Login form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-1.5">
-              <Label htmlFor="login-email" className="editorial-label-muted">
-                Email
-              </Label>
-              <Input
-                id="login-email"
-                type="email"
-                placeholder="seu@email.com"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                aria-invalid={!!errors.email}
-                aria-describedby={errors.email ? "login-email-error" : undefined}
-                className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
-              />
-              {errors.email && <p id="login-email-error" role="alert" className="text-xs text-destructive mt-1">{errors.email}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="login-password" className="editorial-label-muted">
-                Senha
-              </Label>
-              <Input
-                id="login-password"
-                type="password"
-                placeholder="••••••••"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? "login-password-error" : undefined}
-                className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
-              />
-              {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
-            </div>
+          {showForgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar ao login
+                </button>
+                <h2 className="font-display text-xl font-bold text-foreground">Recuperar senha</h2>
+                <p className="text-sm text-muted-foreground">
+                  Informe seu e-mail e enviaremos um link para redefinir sua senha.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reset-email" className="editorial-label-muted">
+                  Email
+                </Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                  autoFocus
+                />
+              </div>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full h-14 rounded-xl text-base font-semibold transition-all duration-300"
+                disabled={sendingReset || !resetEmail.trim()}
+              >
+                {sendingReset ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  "Enviar link de recuperação"
+                )}
+              </Button>
+            </form>
+          ) : (
+            <>
+              {/* Login form */}
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email" className="editorial-label-muted">
+                    Email
+                  </Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={loginForm.email}
+                    onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                    aria-invalid={!!errors.email}
+                    aria-describedby={errors.email ? "login-email-error" : undefined}
+                    className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                  />
+                  {errors.email && <p id="login-email-error" role="alert" className="text-xs text-destructive mt-1">{errors.email}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-password" className="editorial-label-muted">
+                    Senha
+                  </Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    aria-invalid={!!errors.password}
+                    aria-describedby={errors.password ? "login-password-error" : undefined}
+                    className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                  />
+                  {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
+                </div>
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full h-14 rounded-xl text-base font-semibold group glow-primary-hover transition-all duration-300"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  Entrar
-                  <ArrowRight className="h-5 w-5 ml-2 transition-transform duration-300 group-hover:translate-x-1.5" />
-                </>
-              )}
-            </Button>
-          </form>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgotPassword(true); setResetEmail(loginForm.email); }}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full h-14 rounded-xl text-base font-semibold group glow-primary-hover transition-all duration-300"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <>
+                      Entrar
+                      <ArrowRight className="h-5 w-5 ml-2 transition-transform duration-300 group-hover:translate-x-1.5" />
+                    </>
+                  )}
+                </Button>
+              </form>
+            </>
+          )}
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground/60 tracking-widest uppercase">

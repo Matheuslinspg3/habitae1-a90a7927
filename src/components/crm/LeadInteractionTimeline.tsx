@@ -136,7 +136,7 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">{typeInfo?.label || interaction.type}</span>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date((interaction as any).occurred_at || interaction.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                      {format(new Date(interaction.occurred_at || interaction.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
