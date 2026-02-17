@@ -39,15 +39,32 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Check if caller has developer role
-    const { data: devRole } = await adminClient
-      .from("user_roles")
-      .select("role")
+    // Check if caller is platform-authorized within their own organization scope
+    const { data: profileData, error: profileError } = await adminClient
+      .from("profiles")
+      .select("organization_id")
       .eq("user_id", user.id)
-      .eq("role", "developer")
       .maybeSingle();
 
-    if (!devRole) throw new Error("Forbidden: developer role required");
+    if (profileError) throw new Error("Unauthorized");
+    const organizationId = profileData?.organization_id;
+    if (!organizationId) throw new Error("Forbidden: missing organization scope");
+
+    const [{ data: isOrgDeveloper, error: isOrgDeveloperError }, { data: isOrgLeader, error: isOrgLeaderError }] = await Promise.all([
+      adminClient.rpc("has_role_in_org", {
+        _user_id: user.id,
+        _org_id: organizationId,
+        _role: "developer",
+      }),
+      adminClient.rpc("has_role_in_org", {
+        _user_id: user.id,
+        _org_id: organizationId,
+        _role: "leader",
+      }),
+    ]);
+
+    if (isOrgDeveloperError || isOrgLeaderError) throw new Error("Unauthorized");
+    if (!isOrgDeveloper && !isOrgLeader) throw new Error("Forbidden: platform authorization required");
 
     if (req.method === "GET") {
       // List all users with emails
