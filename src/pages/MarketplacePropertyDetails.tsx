@@ -15,7 +15,7 @@ import { useState, useCallback, useEffect } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import {
   ArrowLeft, MapPin, Bed, Bath, Car, Maximize, Building2,
-  DollarSign, Phone, Star, Ruler, Tag, Share2, ChevronRight,
+  Phone, Star, Ruler, Tag, Share2, ChevronRight,
   ChevronLeft, ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -421,12 +421,6 @@ export default function MarketplacePropertyDetails() {
                 <Button variant="outline" className="w-full" size="sm" onClick={handleShare}>
                   <Share2 className="h-4 w-4 mr-2" /> Compartilhar
                 </Button>
-                {property.commission_percentage && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground pt-1">
-                    <DollarSign className="h-4 w-4" />
-                    <span>Comissão: {property.commission_percentage}%</span>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
