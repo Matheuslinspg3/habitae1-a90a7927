@@ -1,0 +1,1 @@
+ALTER TABLE public.lead_interactions ADD COLUMN occurred_at timestamp with time zone NOT NULL DEFAULT now();

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -9,7 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Phone, Mail, MapPin, MessageCircle, Users, FileText, Plus, Loader2 } from 'lucide-react';
+import { Phone, Mail, MapPin, MessageCircle, Users, FileText, Plus, Loader2, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -31,11 +33,16 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState<InteractionType>('ligacao');
   const [description, setDescription] = useState('');
+  const [occurredAt, setOccurredAt] = useState(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  });
 
   const handleSubmit = () => {
     if (!description.trim()) return;
     createInteraction(
-      { type, description: description.trim() },
+      { type, description: description.trim(), occurred_at: new Date(occurredAt).toISOString() },
       {
         onSuccess: () => {
           setDescription('');
@@ -74,6 +81,18 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
               ))}
             </SelectContent>
           </Select>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Data e horário
+            </Label>
+            <Input
+              type="datetime-local"
+              value={occurredAt}
+              onChange={(e) => setOccurredAt(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -117,7 +136,7 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium">{typeInfo?.label || interaction.type}</span>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(interaction.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                      {format(new Date((interaction as any).occurred_at || interaction.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">

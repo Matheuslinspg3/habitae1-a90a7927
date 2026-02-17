@@ -990,6 +990,7 @@ export type Database = {
           description: string
           id: string
           lead_id: string
+          occurred_at: string
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Insert: {
@@ -998,6 +999,7 @@ export type Database = {
           description: string
           id?: string
           lead_id: string
+          occurred_at?: string
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Update: {
@@ -1006,6 +1008,7 @@ export type Database = {
           description?: string
           id?: string
           lead_id?: string
+          occurred_at?: string
           type?: Database["public"]["Enums"]["interaction_type"]
         }
         Relationships: [
