@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 
 const POLLING_INTERVAL_MS = 3000;
-const STALE_THRESHOLD_MS = 90_000; // 90 seconds without progress = stale
+const STALE_THRESHOLD_MS = 90_000;
 const MAX_AUTO_RETRIES = 3;
 
 export interface ImportProgress {
@@ -14,7 +14,7 @@ export interface ImportProgress {
   success: number;
   errors: number;
   imagesProcessed: number;
-  status: 'idle' | 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'idle' | 'pending' | 'processing' | 'completed' | 'failed' | 'paused' | 'cancelled';
   sourceProvider: string;
 }
 
@@ -26,10 +26,15 @@ export interface RetryParams {
 
 interface ImportProgressContextType {
   activeImport: ImportProgress | null;
+  queuedImport: ImportProgress | null;
   startTracking: (runId: string, total: number, sourceProvider?: string, retryParams?: RetryParams) => void;
   stopTracking: () => void;
   clearImport: () => void;
   cancelActiveImport: (runId: string) => Promise<void>;
+  pauseImport: (runId: string) => Promise<void>;
+  resumeImport: (runId: string) => Promise<void>;
+  deleteImport: (runId: string) => Promise<void>;
+  cancelQueuedImport: (runId: string) => Promise<void>;
   isTracking: boolean;
 }
 
@@ -39,32 +44,35 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeImport, setActiveImport] = useState<ImportProgress | null>(null);
+  const [queuedImport, setQueuedImport] = useState<ImportProgress | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  // Auto-retry state
   const retryParamsRef = useRef<RetryParams | null>(null);
   const lastProgressRef = useRef<{ current: number; timestamp: number }>({ current: 0, timestamp: Date.now() });
   const autoRetryCountRef = useRef(0);
 
-  const stopTracking = useCallback(() => {
+  const stopPolling = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
-    retryParamsRef.current = null;
-    autoRetryCountRef.current = 0;
-    setActiveImport(null);
   }, []);
 
-  const clearImport = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
+  const stopTracking = useCallback(() => {
+    stopPolling();
     retryParamsRef.current = null;
     autoRetryCountRef.current = 0;
     setActiveImport(null);
-  }, []);
+    setQueuedImport(null);
+  }, [stopPolling]);
+
+  const clearImport = useCallback(() => {
+    stopPolling();
+    retryParamsRef.current = null;
+    autoRetryCountRef.current = 0;
+    setActiveImport(null);
+    setQueuedImport(null);
+  }, [stopPolling]);
 
   const cancelActiveImport = useCallback(async (runId: string) => {
     try {
@@ -73,137 +81,241 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
         .update({ status: 'cancelled', finished_at: new Date().toISOString() })
         .eq('id', runId);
 
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-
-      setActiveImport(prev => prev ? { ...prev, status: 'failed' } : null);
-      retryParamsRef.current = null;
-      autoRetryCountRef.current = 0;
-
+      setActiveImport(prev => prev?.runId === runId ? { ...prev, status: 'cancelled' } : prev);
+      
       toast({ title: 'Sincronização cancelada', description: 'A importação foi interrompida.' });
       await queryClient.invalidateQueries({ queryKey: ['properties'] });
+      await queryClient.invalidateQueries({ queryKey: ['import-runs'] });
     } catch (err) {
       console.error('[ImportProgress] Error cancelling import:', err);
       toast({ title: 'Erro ao cancelar', description: 'Não foi possível cancelar a sincronização.', variant: 'destructive' });
     }
   }, [queryClient, toast]);
 
-  // Auto-retry: re-invoke edge function when stale
+  const pauseImport = useCallback(async (runId: string) => {
+    try {
+      await supabase
+        .from('import_runs')
+        .update({ status: 'paused' })
+        .eq('id', runId);
+
+      setActiveImport(prev => prev?.runId === runId ? { ...prev, status: 'paused' } : prev);
+      
+      toast({ title: 'Sincronização pausada', description: 'A importação foi pausada.' });
+      await queryClient.invalidateQueries({ queryKey: ['import-runs'] });
+    } catch (err) {
+      console.error('[ImportProgress] Error pausing import:', err);
+      toast({ title: 'Erro ao pausar', description: 'Não foi possível pausar a sincronização.', variant: 'destructive' });
+    }
+  }, [queryClient, toast]);
+
+  const resumeImport = useCallback(async (runId: string) => {
+    try {
+      await supabase
+        .from('import_runs')
+        .update({ status: 'processing' })
+        .eq('id', runId);
+
+      setActiveImport(prev => prev?.runId === runId ? { ...prev, status: 'processing' } : prev);
+
+      // Re-invoke the edge function to continue processing
+      const params = retryParamsRef.current;
+      if (params) {
+        await supabase.functions.invoke('imobzi-process', {
+          body: {
+            api_key: params.apiKey,
+            run_id: runId,
+          },
+        });
+      }
+      
+      toast({ title: 'Sincronização retomada', description: 'A importação foi retomada.' });
+      await queryClient.invalidateQueries({ queryKey: ['import-runs'] });
+    } catch (err) {
+      console.error('[ImportProgress] Error resuming import:', err);
+      toast({ title: 'Erro ao retomar', description: 'Não foi possível retomar a sincronização.', variant: 'destructive' });
+    }
+  }, [queryClient, toast]);
+
+  const deleteImport = useCallback(async (runId: string) => {
+    try {
+      // First delete items, then the run
+      await supabase
+        .from('import_run_items')
+        .delete()
+        .eq('run_id', runId);
+
+      await supabase
+        .from('import_runs')
+        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+        .eq('id', runId);
+
+      setActiveImport(prev => prev?.runId === runId ? null : prev);
+      setQueuedImport(prev => prev?.runId === runId ? null : prev);
+
+      toast({ title: 'Sincronização removida', description: 'A importação foi removida.' });
+      await queryClient.invalidateQueries({ queryKey: ['properties'] });
+      await queryClient.invalidateQueries({ queryKey: ['import-runs'] });
+    } catch (err) {
+      console.error('[ImportProgress] Error deleting import:', err);
+      toast({ title: 'Erro ao remover', description: 'Não foi possível remover a sincronização.', variant: 'destructive' });
+    }
+  }, [queryClient, toast]);
+
+  const cancelQueuedImport = useCallback(async (runId: string) => {
+    try {
+      await supabase
+        .from('import_runs')
+        .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+        .eq('id', runId);
+
+      setQueuedImport(prev => prev?.runId === runId ? null : prev);
+      
+      toast({ title: 'Sincronização pendente cancelada', description: 'A importação em fila foi cancelada.' });
+      await queryClient.invalidateQueries({ queryKey: ['import-runs'] });
+    } catch (err) {
+      console.error('[ImportProgress] Error cancelling queued import:', err);
+      toast({ title: 'Erro ao cancelar', description: 'Não foi possível cancelar a sincronização pendente.', variant: 'destructive' });
+    }
+  }, [queryClient, toast]);
+
   const attemptAutoRetry = useCallback(async (runId: string) => {
     const params = retryParamsRef.current;
-    if (!params || autoRetryCountRef.current >= MAX_AUTO_RETRIES) {
-      if (autoRetryCountRef.current >= MAX_AUTO_RETRIES) {
-        console.warn('[ImportProgress] Max auto-retries reached');
-      }
-      return;
-    }
+    if (!params || autoRetryCountRef.current >= MAX_AUTO_RETRIES) return;
 
     autoRetryCountRef.current++;
     console.log(`[ImportProgress] Auto-retry #${autoRetryCountRef.current} for run ${runId}`);
 
     try {
-      const { error } = await supabase.functions.invoke('imobzi-process', {
+      await supabase.functions.invoke('imobzi-process', {
         body: {
           api_key: params.apiKey,
           run_id: runId,
-          organization_id: params.organizationId,
-          user_id: params.userId,
         },
       });
-
-      if (error) {
-        console.error('[ImportProgress] Auto-retry invoke failed:', error);
-      } else {
-        console.log('[ImportProgress] Auto-retry invoked successfully');
-        // Reset stale timer
-        lastProgressRef.current = { current: lastProgressRef.current.current, timestamp: Date.now() };
-      }
+      lastProgressRef.current = { current: lastProgressRef.current.current, timestamp: Date.now() };
     } catch (err) {
       console.error('[ImportProgress] Auto-retry exception:', err);
     }
   }, []);
 
-  const poll = useCallback(async (runId: string) => {
+  const poll = useCallback(async () => {
     try {
-      const { data: run, error } = await supabase
+      // Fetch up to 2 active/pending runs
+      const { data: runs, error } = await supabase
         .from('import_runs')
-        .select('status, total_properties, imported, errors, images_processed, source_provider')
-        .eq('id', runId)
-        .single();
+        .select('id, status, total_properties, imported, errors, images_processed, source_provider')
+        .in('status', ['pending', 'processing', 'running', 'starting', 'paused'])
+        .order('created_at', { ascending: true })
+        .limit(2);
 
       if (error) {
         console.error('[ImportProgress] Polling error:', error);
         return;
       }
 
-      const currentProgress = (run.imported || 0) + (run.errors || 0);
+      if (!runs || runs.length === 0) {
+        // Check if there's a recently completed one
+        const { data: recentRun } = await supabase
+          .from('import_runs')
+          .select('id, status, total_properties, imported, errors, images_processed, source_provider')
+          .in('status', ['completed', 'failed'])
+          .order('finished_at', { ascending: false })
+          .limit(1);
 
-      const progress: ImportProgress = {
-        runId,
-        current: currentProgress,
-        total: run.total_properties || 0,
-        success: run.imported || 0,
-        errors: run.errors || 0,
-        imagesProcessed: run.images_processed || 0,
-        status: run.status as ImportProgress['status'],
-        sourceProvider: run.source_provider || 'imobzi',
+        if (recentRun && recentRun.length > 0) {
+          const run = recentRun[0];
+          const currentProgress = (run.imported || 0) + (run.errors || 0);
+          const progress: ImportProgress = {
+            runId: run.id,
+            current: currentProgress,
+            total: run.total_properties || 0,
+            success: run.imported || 0,
+            errors: run.errors || 0,
+            imagesProcessed: run.images_processed || 0,
+            status: run.status as ImportProgress['status'],
+            sourceProvider: run.source_provider || 'imobzi',
+          };
+
+          setActiveImport(prev => {
+            // Only update if it's the same run we're tracking
+            if (prev && prev.runId === run.id) return progress;
+            return prev;
+          });
+        }
+
+        setQueuedImport(null);
+        return;
+      }
+
+      // Classify runs: active (processing/running/starting/paused) vs pending
+      const activeRun = runs.find(r => ['processing', 'running', 'starting', 'paused'].includes(r.status));
+      const pendingRun = runs.find(r => r.status === 'pending');
+
+      const mapRun = (run: typeof runs[0]): ImportProgress => {
+        const currentProgress = (run.imported || 0) + (run.errors || 0);
+        return {
+          runId: run.id,
+          current: currentProgress,
+          total: run.total_properties || 0,
+          success: run.imported || 0,
+          errors: run.errors || 0,
+          imagesProcessed: run.images_processed || 0,
+          status: run.status as ImportProgress['status'],
+          sourceProvider: run.source_provider || 'imobzi',
+        };
       };
 
-      setActiveImport(progress);
+      if (activeRun) {
+        const progress = mapRun(activeRun);
+        setActiveImport(progress);
 
-      // ===== STALE DETECTION & AUTO-RETRY =====
-      if (run.status === 'processing' || run.status === 'pending' || run.status === 'running' || run.status === 'starting') {
-        if (currentProgress !== lastProgressRef.current.current) {
-          // Progress changed - reset stale timer and retry counter
-          lastProgressRef.current = { current: currentProgress, timestamp: Date.now() };
-          autoRetryCountRef.current = 0;
-        } else {
-          // No progress - check if stale
-          const staleDuration = Date.now() - lastProgressRef.current.timestamp;
-          if (staleDuration > STALE_THRESHOLD_MS && retryParamsRef.current) {
-            console.warn(`[ImportProgress] Stale for ${Math.round(staleDuration / 1000)}s, attempting auto-retry`);
-            attemptAutoRetry(runId);
+        // Stale detection for active processing
+        if (['processing', 'running', 'starting'].includes(activeRun.status)) {
+          const currentProgress = (activeRun.imported || 0) + (activeRun.errors || 0);
+          if (currentProgress !== lastProgressRef.current.current) {
+            lastProgressRef.current = { current: currentProgress, timestamp: Date.now() };
+            autoRetryCountRef.current = 0;
+          } else {
+            const staleDuration = Date.now() - lastProgressRef.current.timestamp;
+            if (staleDuration > STALE_THRESHOLD_MS && retryParamsRef.current) {
+              attemptAutoRetry(activeRun.id);
+            }
           }
         }
-      }
 
-      // Check if completed
-      if (run.status === 'completed' || run.status === 'failed') {
-        console.log(`[ImportProgress] Import ${run.status}`);
-
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
+        // Check if completed
+        if (['completed', 'failed'].includes(activeRun.status)) {
+          retryParamsRef.current = null;
+          autoRetryCountRef.current = 0;
+          await queryClient.invalidateQueries({ queryKey: ['properties'] });
+          toast({
+            title: activeRun.status === 'completed' ? 'Importação concluída' : 'Importação com erros',
+            description: progress.errors > 0
+              ? `${progress.success} importado(s), ${progress.errors} erro(s). ${progress.imagesProcessed} imagens.`
+              : `${progress.success} importado(s). ${progress.imagesProcessed} imagens.`,
+            variant: progress.errors > 0 && progress.success === 0 ? 'destructive' : 'default',
+          });
+          setTimeout(() => setActiveImport(null), 5000);
         }
-
-        retryParamsRef.current = null;
-        autoRetryCountRef.current = 0;
-
-        await queryClient.invalidateQueries({ queryKey: ['properties'] });
-
-        toast({
-          title: run.status === 'completed' ? 'Importação concluída' : 'Importação com erros',
-          description: progress.errors > 0
-            ? `${progress.success} importado(s), ${progress.errors} erro(s). ${progress.imagesProcessed} imagens.`
-            : `${progress.success} importado(s). ${progress.imagesProcessed} imagens.`,
-          variant: progress.errors > 0 && progress.success === 0 ? 'destructive' : 'default',
-        });
-
-        setTimeout(() => setActiveImport(null), 5000);
+      } else {
+        setActiveImport(null);
       }
+
+      if (pendingRun) {
+        setQueuedImport(mapRun(pendingRun));
+      } else {
+        setQueuedImport(null);
+      }
+
     } catch (err) {
       console.error('[ImportProgress] Polling exception:', err);
     }
   }, [queryClient, toast, attemptAutoRetry]);
 
   const startTracking = useCallback((runId: string, total: number, sourceProvider = 'imobzi', retryParams?: RetryParams) => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-    }
+    stopPolling();
 
-    // Store retry params for auto-retry
     if (retryParams) {
       retryParamsRef.current = retryParams;
     }
@@ -221,16 +333,14 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
       sourceProvider,
     });
 
-    poll(runId);
-    pollingRef.current = setInterval(() => poll(runId), POLLING_INTERVAL_MS);
-  }, [poll]);
+    poll();
+    pollingRef.current = setInterval(poll, POLLING_INTERVAL_MS);
+  }, [poll, stopPolling]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
@@ -238,18 +348,22 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkRunningImports = async () => {
       try {
-        const { data: run } = await supabase
+        const { data: runs } = await supabase
           .from('import_runs')
           .select('id, status, total_properties, imported, errors, images_processed, source_provider')
-          .in('status', ['pending', 'processing', 'running', 'starting'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .in('status', ['pending', 'processing', 'running', 'starting', 'paused'])
+          .order('created_at', { ascending: true })
+          .limit(2);
 
-        if (run) {
-          console.log('[ImportProgress] Resuming tracking for:', run.id);
-          startTracking(run.id, run.total_properties || 0, run.source_provider || 'imobzi');
-          // Note: no retryParams on resume - user needs to be on integrations page for auto-retry
+        if (runs && runs.length > 0) {
+          const activeRun = runs.find(r => ['processing', 'running', 'starting', 'paused'].includes(r.status));
+          if (activeRun) {
+            console.log('[ImportProgress] Resuming tracking for:', activeRun.id);
+            startTracking(activeRun.id, activeRun.total_properties || 0, activeRun.source_provider || 'imobzi');
+          } else if (runs[0]) {
+            // Only pending runs
+            startTracking(runs[0].id, runs[0].total_properties || 0, runs[0].source_provider || 'imobzi');
+          }
         }
       } catch (err) {
         console.error('[ImportProgress] Error checking running imports:', err);
@@ -262,11 +376,17 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
   return (
     <ImportProgressContext.Provider value={{
       activeImport,
+      queuedImport,
       startTracking,
       stopTracking,
       clearImport,
       cancelActiveImport,
-      isTracking: activeImport !== null && ['pending', 'processing'].includes(activeImport.status),
+      pauseImport,
+      resumeImport,
+      deleteImport,
+      cancelQueuedImport,
+      isTracking: (activeImport !== null && ['pending', 'processing', 'running', 'starting'].includes(activeImport.status)) ||
+                  (queuedImport !== null && queuedImport.status === 'pending'),
     }}>
       {children}
     </ImportProgressContext.Provider>
