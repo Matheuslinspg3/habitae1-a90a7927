@@ -32,7 +32,7 @@ export function MobileBottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border/50 safe-area-bottom slide-up-enter">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-around h-[72px] px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = "path" in item ? isActive(item.path) : false;
@@ -42,7 +42,7 @@ export function MobileBottomNav() {
               key={item.label}
               onClick={() => handleItemClick(item)}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-1 min-w-[56px] min-h-[44px] px-3 py-2 rounded-xl",
+                "relative flex flex-col items-center justify-center gap-1.5 min-w-[64px] min-h-[48px] px-3 py-2.5 rounded-xl",
                 "transition-all duration-200 ease-out-expo",
                 "active:scale-90 touch-manipulation",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -54,17 +54,17 @@ export function MobileBottomNav() {
               aria-current={active ? "page" : undefined}
             >
               <Icon className={cn(
-                "h-5 w-5 transition-all duration-200 ease-out-expo",
+                "h-6 w-6 transition-all duration-200 ease-out-expo",
                 active && "stroke-[2.5px] scale-110"
               )} />
               <span className={cn(
-                "text-[10px] leading-none transition-all duration-200",
+                "text-[11px] leading-none transition-all duration-200",
                 active ? "font-semibold" : "font-medium"
               )}>
                 {item.label}
               </span>
               {active && (
-                <div className="absolute bottom-1 w-4 h-0.5 rounded-full bg-primary nav-indicator scale-pop" />
+                <div className="absolute bottom-1.5 w-5 h-0.5 rounded-full bg-primary nav-indicator scale-pop" />
               )}
             </button>
           );

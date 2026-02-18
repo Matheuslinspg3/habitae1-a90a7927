@@ -54,13 +54,13 @@ export function QuickActions() {
   };
 
   return (
-    <div className="flex flex-wrap gap-2 sm:gap-3">
+    <div className="flex flex-wrap gap-2.5 sm:gap-3">
       {quickActions.map((action) => (
         <Button
           key={action.label}
           variant="outline"
-          size="sm"
-          className="gap-2 rounded-full border-border/50 hover:border-primary/40 hover:bg-primary/5 press-scale transition-all"
+          size="default"
+          className="gap-2 rounded-full border-border/50 hover:border-primary/40 hover:bg-primary/5 press-scale transition-all min-h-[44px] px-4"
           onClick={() => handleAction(action)}
         >
           <span className={action.dotClass} />
