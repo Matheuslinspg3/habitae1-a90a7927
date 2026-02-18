@@ -75,28 +75,28 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, onClick, i
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className={colorSet.dot} />
-            <span className="editorial-label-muted text-[10px]">
+            <span className="editorial-label-muted text-[11px] sm:text-[10px]">
               {title}
             </span>
           </div>
           <div
-            className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center group-hover:scale-110 transition-all duration-300 shrink-0"
+            className="h-9 w-9 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center group-hover:scale-110 transition-all duration-300 shrink-0"
             style={{ background: colorSet.accent }}
           >
-            <Icon className="h-4 w-4 text-primary" />
+            <Icon className="h-4 w-4 sm:h-4 sm:w-4 text-primary" />
           </div>
         </div>
 
         {isLoading ? (
           <div className="h-9 w-24 animate-shimmer rounded-lg" />
         ) : (
-          <div className="text-3xl sm:text-4xl font-extrabold font-display text-foreground tracking-tight leading-none">
+          <div className="text-2xl sm:text-4xl font-extrabold font-display text-foreground tracking-tight leading-none">
             {value}
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          <p className="text-[10px] sm:text-xs text-muted-foreground truncate flex-1">{subtitle}</p>
+        <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+          <p className="text-[11px] sm:text-xs text-muted-foreground truncate flex-1">{subtitle}</p>
           {trend && (
             <PillBadge
               size="sm"

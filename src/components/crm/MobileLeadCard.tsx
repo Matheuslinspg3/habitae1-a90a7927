@@ -61,47 +61,47 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); handleLongPress(); }}
     >
-      <CardContent className="p-3 flex items-center gap-3">
+      <CardContent className="p-4 flex items-center gap-3">
         {/* Checkbox - always visible when in selection mode */}
         {(selectionMode || isSelected) && (
-          <div className="shrink-0" onClick={handleCheckboxClick}>
+          <div className="shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center" onClick={handleCheckboxClick}>
             <Checkbox
               checked={!!isSelected}
-              className="data-[state=checked]:bg-primary"
+              className="data-[state=checked]:bg-primary h-5 w-5"
             />
           </div>
         )}
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium text-sm truncate">{lead.name}</p>
             {TempIcon && (
-              <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0 rounded-full shrink-0 ${tempStyle.badgeClass}`}>
-                <TempIcon className="h-2.5 w-2.5" />
+              <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${tempStyle.badgeClass}`}>
+                <TempIcon className="h-3 w-3" />
                 {tempStyle.label}
               </span>
             )}
             {lead.lead_type && (
               <Badge 
                 variant="secondary" 
-                className="text-[10px] px-1.5 py-0 shrink-0"
+                className="text-[11px] px-2 py-0.5 shrink-0"
                 style={{ backgroundColor: lead.lead_type.color || undefined }}
               >
                 {lead.lead_type.name}
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             {lead.phone && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Phone className="h-3 w-3" />
-                <span className="truncate max-w-[100px]">{lead.phone}</span>
+                <Phone className="h-3.5 w-3.5" />
+                <span className="truncate max-w-[120px]">{lead.phone}</span>
               </div>
             )}
             <span className="text-xs text-muted-foreground">• {timeAgo}</span>
             {lead.source && (
-              <span className="text-[10px] text-muted-foreground bg-muted/60 px-1 rounded">
+              <span className="text-[11px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
                 {lead.source}
               </span>
             )}
@@ -111,11 +111,11 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0">
           {formattedValue && (
-            <span className="text-xs font-semibold text-foreground">
+            <span className="text-sm font-semibold text-foreground">
               {formattedValue}
             </span>
           )}
-          {!selectionMode && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          {!selectionMode && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
         </div>
       </CardContent>
     </Card>
