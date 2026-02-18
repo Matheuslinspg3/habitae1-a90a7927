@@ -8,7 +8,7 @@ import { OwnerForm } from "@/components/owners/OwnerForm";
 import { OwnerDetails } from "@/components/owners/OwnerDetails";
 
 export default function Owners() {
-  const { owners, isLoading, createOwner, updateOwner, deleteOwner, isCreating, isUpdating } = useOwners();
+  const { owners, isLoading, createOwner, updateOwner, deleteOwner, bulkDeleteOwners, isCreating, isUpdating } = useOwners();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingOwner, setEditingOwner] = useState<OwnerWithDetails | null>(null);
@@ -108,6 +108,7 @@ export default function Owners() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onAdd={handleAdd}
+        onBulkDelete={bulkDeleteOwners}
       />
 
       {/* Form dialog */}
