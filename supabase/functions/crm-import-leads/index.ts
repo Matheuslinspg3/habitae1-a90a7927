@@ -195,8 +195,8 @@ async function fetchImobziLeads(
   try {
     const apiSecret = apiKey.api_key;
 
-    // Helper: paginate through an Imobzi endpoint
-    async function fetchAllFromEndpoint(endpoint: string, listKey: string): Promise<any[]> {
+    // Helper: paginate through Imobzi contacts endpoint with specific filters
+    async function fetchAllContacts(params: Record<string, string>, label: string): Promise<any[]> {
       const all: any[] = [];
       let cursor: string | undefined = undefined;
       const maxPages = 100;
@@ -204,8 +204,11 @@ async function fetchImobziLeads(
 
       while (pageCount < maxPages) {
         pageCount++;
-        const url = new URL(`https://api.imobzi.app/v1/${endpoint}`);
-        url.searchParams.set("limit", "50");
+        const url = new URL("https://api.imobzi.app/v1/contacts");
+        // Apply filters
+        for (const [key, value] of Object.entries(params)) {
+          url.searchParams.set(key, value);
+        }
         if (cursor) {
           url.searchParams.set("cursor", cursor);
         }
@@ -219,13 +222,12 @@ async function fetchImobziLeads(
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`[crm-import-leads] ${endpoint} API error:`, response.status, errorText);
+          console.error(`[crm-import-leads] ${label} API error:`, response.status, errorText);
           break;
         }
 
         const data = await response.json();
-        // Try multiple possible list keys
-        const items = data[listKey] || data.data || data.items || data.results || [];
+        const items = data.contacts || data.data || data.items || data.results || [];
         const pageItems = Array.isArray(items) ? items : [];
 
         all.push(...pageItems);
@@ -238,22 +240,22 @@ async function fetchImobziLeads(
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      console.log(`[crm-import-leads] Fetched ${all.length} from /${endpoint} in ${pageCount} pages`);
+      console.log(`[crm-import-leads] Fetched ${all.length} ${label} in ${pageCount} pages`);
       return all;
     }
 
-    // Fetch from both /contacts and /leads endpoints in parallel
-    const [contactsResult, leadsResult] = await Promise.allSettled([
-      fetchAllFromEndpoint("contacts", "contacts"),
-      fetchAllFromEndpoint("leads", "leads"),
+    // Fetch leads (contact_type=lead, smart_list=all) and contacts/owners (smart_list=my_contacts)
+    const [leadsResult, contactsResult] = await Promise.allSettled([
+      fetchAllContacts({ contact_type: "lead", smart_list: "all" }, "leads"),
+      fetchAllContacts({ smart_list: "my_contacts" }, "contacts/owners"),
     ]);
 
-    const contacts = contactsResult.status === "fulfilled" ? contactsResult.value : [];
     const leads = leadsResult.status === "fulfilled" ? leadsResult.value : [];
+    const contacts = contactsResult.status === "fulfilled" ? contactsResult.value : [];
 
-    console.log(`[crm-import-leads] Total: ${contacts.length} contacts + ${leads.length} leads`);
+    console.log(`[crm-import-leads] Total: ${leads.length} leads + ${contacts.length} contacts/owners`);
 
-    // Merge and deduplicate by external_id
+    // Merge and deduplicate by external_id — leads first (higher priority)
     const seenIds = new Set<string>();
     const allEntries: any[] = [];
 
