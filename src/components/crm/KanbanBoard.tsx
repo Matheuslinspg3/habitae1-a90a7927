@@ -14,6 +14,7 @@ import { KanbanColumn } from './KanbanColumn';
 import { LeadCard } from './LeadCard';
 import { LeadForm } from './LeadForm';
 import { LeadDetails } from './LeadDetails';
+import { PropertySuggestionsDialog } from './PropertySuggestionsDialog';
 import { LeadFilters } from './LeadFilters';
 import { LeadMetrics } from './LeadMetrics';
 import { LeadAssignmentDialog } from './LeadAssignmentDialog';
@@ -99,6 +100,8 @@ export function KanbanBoard() {
   const [importOpen, setImportOpen] = useState(false);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [assigningLead, setAssigningLead] = useState<Lead | null>(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [lastCreatedLeadData, setLastCreatedLeadData] = useState<CreateLeadInput | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -275,7 +278,17 @@ export function KanbanBoard() {
       });
     } else {
       await new Promise<void>((resolve, reject) => {
-        createLead(data, { onSuccess: () => resolve(), onError: reject });
+        createLead(data, {
+          onSuccess: () => {
+            // Show property suggestions after creating a new lead with interests
+            if (data.transaction_interest) {
+              setLastCreatedLeadData(data);
+              setSuggestionsOpen(true);
+            }
+            resolve();
+          },
+          onError: reject,
+        });
       });
     }
   };
@@ -531,6 +544,19 @@ export function KanbanBoard() {
         onOpenChange={setImportOpen}
         onImportComplete={() => refetch()}
       />
+
+      {lastCreatedLeadData && (
+        <PropertySuggestionsDialog
+          open={suggestionsOpen}
+          onOpenChange={(open) => {
+            setSuggestionsOpen(open);
+            if (!open) setLastCreatedLeadData(null);
+          }}
+          leadName={lastCreatedLeadData.name}
+          leadInterests={lastCreatedLeadData}
+          properties={properties}
+        />
+      )}
     </div>
   );
 }
