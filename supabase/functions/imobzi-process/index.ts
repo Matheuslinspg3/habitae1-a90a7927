@@ -484,30 +484,18 @@ async function updateRunProgressBatch(
   chunkErrors: number,
   chunkImages: number
 ) {
-  // Use a single query to get current totals
-  const { data: run } = await supabase
-    .from('import_runs')
-    .select('imported, errors, images_processed')
-    .eq('id', runId)
-    .single();
-
-  const newImported = (run?.imported || 0) + chunkSuccess;
-  const newErrors = (run?.errors || 0) + chunkErrors;
-  const newImages = (run?.images_processed || 0) + chunkImages;
-
-  const { error } = await supabase
-    .from('import_runs')
-    .update({
-      imported: newImported,
-      errors: newErrors,
-      images_processed: newImages,
-    })
-    .eq('id', runId);
+  // Atomic increment via RPC — prevents race conditions between parallel invocations
+  const { error } = await supabase.rpc('increment_import_run_progress', {
+    p_run_id: runId,
+    p_imported: chunkSuccess,
+    p_errors: chunkErrors,
+    p_images_processed: chunkImages,
+  });
 
   if (error) {
     console.error(`[PROCESS] ⚠ Progress update failed:`, error.message);
   } else {
-    console.log(`[PROCESS] 📊 Progress: ${newImported} ok, ${newErrors} err, ${newImages} imgs`);
+    console.log(`[PROCESS] 📊 Progress: +${chunkSuccess} ok, +${chunkErrors} err, +${chunkImages} imgs`);
   }
 }
 
