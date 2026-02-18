@@ -47,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
+import { LeadSuggestedProperties } from './LeadSuggestedProperties';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface LeadDetailsProps {
@@ -365,6 +366,10 @@ export function LeadDetails({
               </AlertDialogContent>
             </AlertDialog>
           </div>
+
+          <Separator />
+
+          <LeadSuggestedProperties lead={lead} />
         </div>
       </SheetContent>
     </Sheet>
