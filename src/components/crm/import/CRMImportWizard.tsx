@@ -14,10 +14,14 @@ import { ApiConnectTab } from './tabs/ApiConnectTab';
 interface CRMImportWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onImportComplete?: () => void;
 }
 
-export function CRMImportWizard({ open, onOpenChange }: CRMImportWizardProps) {
-  const handleClose = () => onOpenChange(false);
+export function CRMImportWizard({ open, onOpenChange, onImportComplete }: CRMImportWizardProps) {
+  const handleClose = () => {
+    onOpenChange(false);
+    onImportComplete?.();
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
