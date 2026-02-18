@@ -79,6 +79,22 @@ export function useLeads() {
   const queryClient = useQueryClient();
   const { leadStages: dynamicStages, isLoading: isLoadingStages } = useLeadStages();
 
+  // Check if current user is a "corretor" (broker-only view)
+  const { data: userRoles = [] } = useQuery({
+    queryKey: ['user-roles-leads', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      return (data || []).map((r: { role: string }) => r.role);
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isBrokerOnly = userRoles.length > 0 && userRoles.every(r => r === 'corretor' || r === 'assistente');
+
   // Determine which stages to use
   const leadStages = isDemoMode ? DEMO_STAGES : dynamicStages;
 
@@ -182,11 +198,17 @@ export function useLeads() {
         }
       }
       
-      return data.map(lead => ({
+      const mapped = data.map(lead => ({
         ...lead,
         property: lead.property_id ? propertiesMap[lead.property_id] || null : null,
         broker: lead.broker_id ? brokersMap[lead.broker_id] || null : null,
       })) as Lead[];
+
+      // Brokers only see their own leads
+      if (isBrokerOnly && user) {
+        return mapped.filter(l => l.broker_id === user.id);
+      }
+      return mapped;
     },
     enabled: !!user,
   });
