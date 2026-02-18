@@ -318,19 +318,19 @@ export default function Settings() {
       
       <div className="relative flex-1 p-4 sm:p-6">
         <Tabs defaultValue="profile" className="space-y-6">
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0">
-              <TabsTrigger value="profile" className="gap-2 min-h-[44px]"><User className="h-4 w-4" /><span className="hidden sm:inline">Perfil</span></TabsTrigger>
-              <TabsTrigger value="company" className="gap-2 min-h-[44px]"><Building2 className="h-4 w-4" /><span className="hidden sm:inline">Empresa</span></TabsTrigger>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 h-auto flex-wrap sm:flex-nowrap gap-1 p-1">
+              <TabsTrigger value="profile" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><User className="h-4 w-4 shrink-0" /><span>Perfil</span></TabsTrigger>
+              <TabsTrigger value="company" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Building2 className="h-4 w-4 shrink-0" /><span>Empresa</span></TabsTrigger>
               {isAdminOrAbove && (
-                <TabsTrigger value="team" className="gap-2 min-h-[44px]"><Users className="h-4 w-4" /><span className="hidden sm:inline">Equipe</span></TabsTrigger>
+                <TabsTrigger value="team" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Users className="h-4 w-4 shrink-0" /><span>Equipe</span></TabsTrigger>
               )}
-              <TabsTrigger value="appearance" className="gap-2 min-h-[44px]"><Palette className="h-4 w-4" /><span className="hidden sm:inline">Aparência</span></TabsTrigger>
+              <TabsTrigger value="appearance" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Palette className="h-4 w-4 shrink-0" /><span>Aparência</span></TabsTrigger>
               {isAdminOrAbove && (
-                <TabsTrigger value="changelog" className="gap-2 min-h-[44px]"><History className="h-4 w-4" /><span className="hidden sm:inline">Histórico</span></TabsTrigger>
+                <TabsTrigger value="changelog" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><History className="h-4 w-4 shrink-0" /><span>Histórico</span></TabsTrigger>
               )}
               {isDeveloperOrLeader && (
-                <TabsTrigger value="clients" className="gap-2 min-h-[44px]"><Megaphone className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
+                <TabsTrigger value="clients" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Megaphone className="h-4 w-4 shrink-0" /><span>Clientes</span></TabsTrigger>
               )}
             </TabsList>
           </div>
@@ -653,22 +653,22 @@ export default function Settings() {
                         const canChangeRole = (isAdmin || isDeveloper) && !isCurrentUser && !isSystemRole && !(isMemberAdmin && !isDeveloper);
 
                         return (
-                          <div key={member.user_id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
+                          <div key={member.user_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border rounded-lg">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className="h-10 w-10 shrink-0">
                                 <AvatarFallback>{getInitials(member.full_name)}</AvatarFallback>
                               </Avatar>
-                              <div>
-                                <p className="font-medium">{member.full_name}</p>
-                                <p className="text-xs text-muted-foreground">
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm truncate">{member.full_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">
                                   {member.email}{isCurrentUser && " (você)"}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 pl-13 sm:pl-0 shrink-0">
                               {canChangeRole ? (
                                 <Select value={member.role} onValueChange={(val) => handleChangeRole(member.user_id, val)}>
-                                  <SelectTrigger className="w-[140px] h-8 text-sm">
+                                  <SelectTrigger className="w-full sm:w-[140px] min-h-[40px] sm:min-h-[32px] text-sm">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>

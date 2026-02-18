@@ -168,13 +168,13 @@ export function ChangelogSection() {
 
   return (
     <div className="grid gap-6 max-w-4xl">
-      <Tabs defaultValue="timeline" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="timeline" className="gap-2">
+      <Tabs defaultValue="timeline" className="space-y-4 sm:space-y-6">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="timeline" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
             <History className="h-4 w-4" />
             Timeline
           </TabsTrigger>
-          <TabsTrigger value="brokers" className="gap-2">
+          <TabsTrigger value="brokers" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
             <Users className="h-4 w-4" />
             Por Corretor
           </TabsTrigger>
@@ -182,47 +182,45 @@ export function ChangelogSection() {
 
         <TabsContent value="timeline">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Activity className="h-5 w-5" />
-                    Histórico de Atividades
-                  </CardTitle>
-                  <CardDescription>Todas as ações e interações na plataforma</CardDescription>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Select value={brokerFilter} onValueChange={setBrokerFilter}>
-                    <SelectTrigger className="w-44">
-                      <SelectValue placeholder="Todos os membros" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os membros</SelectItem>
-                      {teamMembers.map(m => (
-                        <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={entityFilter} onValueChange={setEntityFilter}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Filtrar por tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos os tipos</SelectItem>
-                      <SelectItem value="lead">Leads</SelectItem>
-                      <SelectItem value="property">Imóveis</SelectItem>
-                      <SelectItem value="task">Tarefas</SelectItem>
-                      <SelectItem value="contract">Contratos</SelectItem>
-                      <SelectItem value="appointment">Agendamentos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <CardHeader className="space-y-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-base">
+                  <Activity className="h-5 w-5" />
+                  Histórico de Atividades
+                </CardTitle>
+                <CardDescription className="mt-1">Todas as ações e interações na plataforma</CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Select value={brokerFilter} onValueChange={setBrokerFilter}>
+                  <SelectTrigger className="w-full sm:w-48 min-h-[44px] sm:min-h-[36px]">
+                    <SelectValue placeholder="Todos os membros" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os membros</SelectItem>
+                    {teamMembers.map(m => (
+                      <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={entityFilter} onValueChange={setEntityFilter}>
+                  <SelectTrigger className="w-full sm:w-44 min-h-[44px] sm:min-h-[36px]">
+                    <SelectValue placeholder="Filtrar por tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os tipos</SelectItem>
+                    <SelectItem value="lead">Leads</SelectItem>
+                    <SelectItem value="property">Imóveis</SelectItem>
+                    <SelectItem value="task">Tarefas</SelectItem>
+                    <SelectItem value="contract">Contratos</SelectItem>
+                    <SelectItem value="appointment">Agendamentos</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="space-y-3">
-                  {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+                  {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full" />)}
                 </div>
               ) : allItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhuma atividade registrada ainda.</p>
@@ -232,12 +230,12 @@ export function ChangelogSection() {
                     const Icon = item.action_type === "interaction" ? MessageCircle : item.action_type === "viewed" ? Eye : (entityIcons[item.entity_type] || CheckCircle);
                     const colorClass = actionColors[item.action_type] || "bg-muted text-muted-foreground";
                     return (
-                      <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div className={`mt-0.5 p-1.5 rounded-md ${colorClass}`}>
-                          <Icon className="h-3.5 w-3.5" />
+                      <div key={item.id} className="flex items-start gap-3 p-3 sm:p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                        <div className={`mt-0.5 p-2 sm:p-1.5 rounded-md shrink-0 ${colorClass}`}>
+                          <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm">
+                          <p className="text-sm sm:text-sm leading-relaxed">
                             <span className="font-medium">{entityLabels[item.entity_type] || item.entity_type}</span>
                             {" "}
                             <span className="text-muted-foreground">{actionLabels[item.action_type] || item.action_type}</span>
@@ -248,11 +246,11 @@ export function ChangelogSection() {
                               <span className="font-medium">: {item.entity_name}</span>
                             )}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             por <span className="font-medium">{String(item.author)}</span> · {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: ptBR })}
                           </p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 hidden sm:block">
                           {format(new Date(item.created_at), "dd/MM HH:mm")}
                         </span>
                       </div>
@@ -261,7 +259,7 @@ export function ChangelogSection() {
                   {hasNextPage && (
                     <Button
                       variant="ghost"
-                      className="w-full mt-2"
+                      className="w-full mt-2 min-h-[44px]"
                       onClick={() => fetchNextPage()}
                       disabled={isFetchingNextPage}
                     >
@@ -278,7 +276,7 @@ export function ChangelogSection() {
         <TabsContent value="brokers">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-base">
                 <Eye className="h-5 w-5" />
                 Atividade por Membro
               </CardTitle>
@@ -292,37 +290,36 @@ export function ChangelogSection() {
                   {brokerStats.map((broker) => (
                     <div
                       key={broker.user_id}
-                      className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer"
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer"
                       onClick={() => {
                         setBrokerFilter(broker.user_id);
-                        // Switch to timeline tab
                         const timelineTab = document.querySelector('[data-state][value="timeline"]') as HTMLButtonElement;
                         timelineTab?.click();
                       }}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-medium truncate">{broker.full_name}</p>
-                          <Badge variant="secondary" className="text-[10px]">
+                          <Badge variant="secondary" className="text-xs">
                             {roleLabel(broker.role)}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {broker.activeLeads} leads ativos
                         </p>
                       </div>
-                      <div className="flex gap-3 text-center shrink-0">
-                        <div className="px-3 py-1.5 rounded-md bg-muted/50">
+                      <div className="flex gap-2 sm:gap-3 text-center shrink-0">
+                        <div className="flex-1 sm:flex-initial px-3 py-2 sm:py-1.5 rounded-md bg-muted/50">
                           <p className="text-lg font-bold">{broker.totalActions}</p>
-                          <p className="text-[10px] text-muted-foreground">Ações</p>
+                          <p className="text-xs sm:text-[10px] text-muted-foreground">Ações</p>
                         </div>
-                        <div className="px-3 py-1.5 rounded-md bg-muted/50">
+                        <div className="flex-1 sm:flex-initial px-3 py-2 sm:py-1.5 rounded-md bg-muted/50">
                           <p className="text-lg font-bold">{broker.leadActions}</p>
-                          <p className="text-[10px] text-muted-foreground">Leads</p>
+                          <p className="text-xs sm:text-[10px] text-muted-foreground">Leads</p>
                         </div>
-                        <div className="px-3 py-1.5 rounded-md bg-muted/50">
+                        <div className="flex-1 sm:flex-initial px-3 py-2 sm:py-1.5 rounded-md bg-muted/50">
                           <p className="text-lg font-bold">{broker.propertyActions}</p>
-                          <p className="text-[10px] text-muted-foreground">Imóveis</p>
+                          <p className="text-xs sm:text-[10px] text-muted-foreground">Imóveis</p>
                         </div>
                       </div>
                     </div>
