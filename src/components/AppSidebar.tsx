@@ -59,9 +59,23 @@ export function AppSidebar() {
   const { state, setOpenMobile, isMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { signOut, user, organizationType } = useAuth();
+  const { signOut, user, profile, organizationType } = useAuth();
   const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
+
+  const [orgName, setOrgName] = React.useState<string>("");
+  React.useEffect(() => {
+    if (!profile?.organization_id) return;
+    const load = async () => {
+      const { data } = await (await import("@/integrations/supabase/client")).supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", profile.organization_id!)
+        .maybeSingle();
+      if (data?.name) setOrgName(data.name);
+    };
+    load();
+  }, [profile?.organization_id]);
 
   const isActive = (path: string) => currentPath.startsWith(path);
 
@@ -247,7 +261,7 @@ export function AppSidebar() {
               {user.user_metadata?.full_name || user.email}
             </p>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            {organizationType && (
+             {organizationType && (
               <PillBadge
                 size="sm"
                 variant={organizationType === 'imobiliaria' ? 'warning' : 'muted'}
@@ -256,6 +270,9 @@ export function AppSidebar() {
               >
                 {organizationType === 'imobiliaria' ? 'Imobiliária' : 'Corretor Individual'}
               </PillBadge>
+            )}
+            {orgName && (
+              <p className="text-xs text-muted-foreground truncate mt-1">{orgName}</p>
             )}
           </div>
         )}
