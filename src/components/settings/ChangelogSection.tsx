@@ -229,7 +229,7 @@ export function ChangelogSection() {
               ) : (
                 <div className="space-y-1">
                   {allItems.map((item) => {
-                    const Icon = item.action_type === "interaction" ? MessageCircle : (entityIcons[item.entity_type] || CheckCircle);
+                    const Icon = item.action_type === "interaction" ? MessageCircle : item.action_type === "viewed" ? Eye : (entityIcons[item.entity_type] || CheckCircle);
                     const colorClass = actionColors[item.action_type] || "bg-muted text-muted-foreground";
                     return (
                       <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
