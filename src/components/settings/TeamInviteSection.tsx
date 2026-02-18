@@ -35,19 +35,22 @@ export function TeamInviteSection() {
     enabled: !!profile?.organization_id,
   });
 
-  const { data: orgCode } = useQuery({
-    queryKey: ["org-invite-code", profile?.organization_id],
+  const { data: orgInfo } = useQuery({
+    queryKey: ["org-invite-info", profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return null;
       const { data } = await supabase
         .from("organizations")
-        .select("invite_code")
+        .select("invite_code, name")
         .eq("id", profile.organization_id)
         .single();
-      return data?.invite_code || null;
+      return data || null;
     },
     enabled: !!profile?.organization_id,
   });
+
+  const orgCode = orgInfo?.invite_code || null;
+  const orgName = orgInfo?.name || null;
 
   const createInvite = useMutation({
     mutationFn: async () => {
@@ -69,12 +72,32 @@ export function TeamInviteSection() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const link = `${window.location.origin}/convite/${data.id}`;
       navigator.clipboard.writeText(link);
-      toast.success("Link de convite copiado para a área de transferência!");
+      const email = inviteEmail.trim().toLowerCase();
       setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["organization-invites"] });
+
+      // Send email
+      try {
+        const { error } = await supabase.functions.invoke("send-invite-email", {
+          body: {
+            to: email,
+            type: "team",
+            invite_link: link,
+            org_name: orgName || undefined,
+            org_code: orgCode || undefined,
+            inviter_name: profile?.full_name || undefined,
+          },
+        });
+        // Fetch org name for the email
+        if (error) throw error;
+        toast.success(`Email de convite enviado para ${email}!`);
+      } catch (e) {
+        console.error("Email send failed:", e);
+        toast.success("Link copiado! (email não pôde ser enviado)");
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erro ao criar convite");

@@ -54,13 +54,30 @@ export function PlatformInviteSection() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       const link = `${window.location.origin}/cadastro/${data.id}`;
       navigator.clipboard.writeText(link);
-      toast.success("Link de convite copiado para a área de transferência!");
       setInviteName("");
+      const email = inviteEmail.trim().toLowerCase();
       setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["platform-invites"] });
+
+      // Send email
+      try {
+        const { error } = await supabase.functions.invoke("send-invite-email", {
+          body: {
+            to: email,
+            type: "platform",
+            invite_link: link,
+            inviter_name: profile?.full_name || undefined,
+          },
+        });
+        if (error) throw error;
+        toast.success(`Email de convite enviado para ${email}!`);
+      } catch (e) {
+        console.error("Email send failed:", e);
+        toast.success("Link copiado! (email não pôde ser enviado)");
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erro ao criar convite");
