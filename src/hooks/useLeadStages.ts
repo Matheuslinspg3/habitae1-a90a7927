@@ -68,10 +68,10 @@ export function useLeadStages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-stages'] });
-      toast({ title: 'Estágio criado', description: 'O estágio foi criado com sucesso.' });
+      toast({ title: 'Tipo criado', description: 'O tipo foi criado com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao criar estágio', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao criar tipo', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -94,10 +94,10 @@ export function useLeadStages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-stages'] });
-      toast({ title: 'Estágio atualizado', description: 'O estágio foi atualizado com sucesso.' });
+      toast({ title: 'Tipo atualizado', description: 'O tipo foi atualizado com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao atualizar estágio', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao atualizar tipo', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -118,10 +118,10 @@ export function useLeadStages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-stages'] });
-      toast({ title: 'Estágio removido', description: 'O estágio foi removido com sucesso.' });
+      toast({ title: 'Tipo removido', description: 'O tipo foi removido com sucesso.' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao remover estágio', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao remover tipo', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -149,7 +149,7 @@ export function useLeadStages() {
       if (context?.previous) {
         queryClient.setQueryData(['lead-stages', profile?.organization_id], context.previous);
       }
-      toast({ title: 'Erro ao reordenar estágios', description: _error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao reordenar tipos', description: _error.message, variant: 'destructive' });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-stages'] });

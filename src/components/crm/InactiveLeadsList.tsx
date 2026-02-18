@@ -111,9 +111,9 @@ export function InactiveLeadsList({
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead className="hidden sm:table-cell">Contato</TableHead>
-              <TableHead className="hidden md:table-cell">Tipo</TableHead>
+              <TableHead className="hidden md:table-cell">Estágio</TableHead>
               <TableHead className="hidden lg:table-cell">Valor</TableHead>
-              <TableHead className="hidden sm:table-cell">Último Estágio</TableHead>
+              <TableHead className="hidden sm:table-cell">Último Tipo</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
@@ -176,7 +176,7 @@ export function InactiveLeadsList({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Reativar lead?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            O lead "{lead.name}" voltará para o Kanban no estágio "{stage?.name}".
+                            O lead "{lead.name}" voltará para o Kanban no tipo "{stage?.name}".
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

@@ -302,7 +302,7 @@ export function LeadForm({
                     name="lead_type_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tipo de Lead</FormLabel>
+                        <FormLabel>Estágio de Lead</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>

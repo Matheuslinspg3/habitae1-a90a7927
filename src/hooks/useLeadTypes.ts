@@ -51,13 +51,13 @@ export function useLeadTypes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-types'] });
       toast({
-        title: 'Tipo criado',
-        description: 'O tipo de lead foi criado com sucesso.',
+        title: 'Estágio criado',
+        description: 'O estágio de lead foi criado com sucesso.',
       });
     },
     onError: (error) => {
       toast({
-        title: 'Erro ao criar tipo',
+        title: 'Erro ao criar estágio',
         description: error.message,
         variant: 'destructive',
       });
@@ -79,13 +79,13 @@ export function useLeadTypes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-types'] });
       toast({
-        title: 'Tipo atualizado',
-        description: 'O tipo de lead foi atualizado com sucesso.',
+        title: 'Estágio atualizado',
+        description: 'O estágio de lead foi atualizado com sucesso.',
       });
     },
     onError: (error) => {
       toast({
-        title: 'Erro ao atualizar tipo',
+        title: 'Erro ao atualizar estágio',
         description: error.message,
         variant: 'destructive',
       });
@@ -104,13 +104,13 @@ export function useLeadTypes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-types'] });
       toast({
-        title: 'Tipo removido',
-        description: 'O tipo de lead foi removido com sucesso.',
+        title: 'Estágio removido',
+        description: 'O estágio de lead foi removido com sucesso.',
       });
     },
     onError: (error) => {
       toast({
-        title: 'Erro ao remover tipo',
+        title: 'Erro ao remover estágio',
         description: error.message,
         variant: 'destructive',
       });

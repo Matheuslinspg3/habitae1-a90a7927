@@ -80,10 +80,10 @@ export function LeadFilters({
             onValueChange={(value) => onTypeChange(value === 'all' ? null : value)}
           >
             <SelectTrigger className="flex-1 sm:w-[160px]">
-              <SelectValue placeholder="Tipo" />
+              <SelectValue placeholder="Estágio" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="all">Todos os estágios</SelectItem>
               {leadTypes.map((type) => (
                 <SelectItem key={type.id} value={type.id}>
                   <div className="flex items-center gap-2">
@@ -117,10 +117,10 @@ export function LeadFilters({
               onValueChange={(value) => onStageChange(value === 'all' ? null : value)}
             >
               <SelectTrigger className="flex-1 sm:w-[160px]">
-                <SelectValue placeholder="Estágio" />
+                <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os estágios</SelectItem>
+                <SelectItem value="all">Todos os tipos</SelectItem>
                 {leadStages.map((stage) => (
                   <SelectItem key={stage.id} value={stage.id}>
                     <div className="flex items-center gap-2">
