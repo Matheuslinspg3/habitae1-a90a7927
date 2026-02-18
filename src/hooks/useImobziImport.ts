@@ -45,7 +45,7 @@ export function useImobziImport() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { activeImport, startTracking, stopTracking, isTracking } = useImportProgress();
+  const { activeImport, startTracking, stopTracking, isTracking, queuedImport } = useImportProgress();
   
   const [apiKeys, setApiKeys] = useState<ApiKeyEntry[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
@@ -249,6 +249,33 @@ export function useImobziImport() {
     cancelledRef.current = false;
 
     try {
+      // Validate queue rules before proceeding
+      const { data: queueResult, error: queueError } = await supabase
+        .rpc('validate_sync_queue', {
+          p_organization_id: profile.organization_id,
+          p_source_provider: 'imobzi',
+        });
+
+      if (queueError) {
+        console.error('[IMPORT] Queue validation error:', queueError);
+      } else if (queueResult) {
+        const result = queueResult as { action: string; message: string; cancelled_id?: string };
+        if (result.action === 'blocked') {
+          toast({
+            title: 'Fila cheia',
+            description: 'Já existe uma sincronização em andamento e outra na fila. Aguarde ou cancele uma delas.',
+            variant: 'destructive',
+          });
+          return { imported: 0, errors: 0 };
+        }
+        if (result.action === 'cancelled_pending') {
+          toast({
+            title: 'Sincronização anterior cancelada',
+            description: 'A sincronização pendente do mesmo tipo foi cancelada para dar lugar à nova.',
+          });
+        }
+      }
+
       // Create import run record with pending_property_ids
       const { data: runData, error: runError } = await supabase
         .from('import_runs')

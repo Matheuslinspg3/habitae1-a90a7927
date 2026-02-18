@@ -3599,6 +3599,10 @@ export type Database = {
         Args: { p_code: string; p_org_id: string }
         Returns: boolean
       }
+      validate_sync_queue: {
+        Args: { p_organization_id: string; p_source_provider?: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

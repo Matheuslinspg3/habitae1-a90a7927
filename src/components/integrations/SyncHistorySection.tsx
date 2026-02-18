@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -34,10 +34,15 @@ import {
   Loader2,
   History,
   AlertTriangle,
+  Pause,
+  Play,
+  Trash2,
+  Ban,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useImobziImport } from "@/hooks/useImobziImport";
+import { useImportProgress } from "@/contexts/ImportProgressContext";
 import { useToast } from "@/hooks/use-toast";
 
 interface ImportRun {
@@ -69,6 +74,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   running: { label: "Executando", variant: "secondary" },
   starting: { label: "Iniciando", variant: "outline" },
   cancelled: { label: "Cancelado", variant: "destructive" },
+  paused: { label: "Pausado", variant: "outline" },
 };
 
 function RunStatusBadge({ status }: { status: string }) {
@@ -189,13 +195,124 @@ function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; 
   );
 }
 
+function SyncActionButtons({ run, onAction, isLoading }: { 
+  run: ImportRun; 
+  onAction: (action: string, runId: string) => void;
+  isLoading: string | null;
+}) {
+  const isActive = ["processing", "running", "starting"].includes(run.status);
+  const isPaused = run.status === "paused";
+  const isPending = run.status === "pending";
+
+  if (!isActive && !isPaused && !isPending) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+      {/* Active sync: Pause / Delete */}
+      {isActive && (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAction('pause', run.id)}
+                disabled={isLoading === run.id}
+                className="gap-1 h-7 text-xs"
+              >
+                <Pause className="h-3 w-3" />
+                Pausar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Pausar a sincronização em andamento</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onAction('delete', run.id)}
+                disabled={isLoading === run.id}
+                className="gap-1 h-7 text-xs"
+              >
+                <Trash2 className="h-3 w-3" />
+                Deletar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Deletar a sincronização</TooltipContent>
+          </Tooltip>
+        </>
+      )}
+
+      {/* Paused sync: Continue / Delete */}
+      {isPaused && (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => onAction('resume', run.id)}
+                disabled={isLoading === run.id}
+                className="gap-1 h-7 text-xs"
+              >
+                <Play className="h-3 w-3" />
+                Continuar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Retomar a sincronização pausada</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onAction('delete', run.id)}
+                disabled={isLoading === run.id}
+                className="gap-1 h-7 text-xs"
+              >
+                <Trash2 className="h-3 w-3" />
+                Deletar
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Deletar a sincronização</TooltipContent>
+          </Tooltip>
+        </>
+      )}
+
+      {/* Pending/queued sync: Cancel */}
+      {isPending && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onAction('cancel_queued', run.id)}
+              disabled={isLoading === run.id}
+              className="gap-1 h-7 text-xs"
+            >
+              <Ban className="h-3 w-3" />
+              Cancelar fila
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Cancelar a sincronização pendente na fila</TooltipContent>
+        </Tooltip>
+      )}
+
+      {isLoading === run.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+    </div>
+  );
+}
+
 export function SyncHistorySection() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const { retryFailedProperties, isRetrying, apiKeys, loadApiKeys } = useImobziImport();
+  const { pauseImport, resumeImport, deleteImport, cancelQueuedImport } = useImportProgress();
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const { data: runs = [], isLoading } = useQuery({
+  const { data: runs = [], isLoading, refetch } = useQuery({
     queryKey: ["import-runs", profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
@@ -209,10 +326,36 @@ export function SyncHistorySection() {
       return data as ImportRun[];
     },
     enabled: !!profile?.organization_id,
+    refetchInterval: 5000, // Auto-refresh to show live status
   });
 
   // Load API keys on mount
   useState(() => { loadApiKeys(); });
+
+  const handleAction = async (action: string, runId: string) => {
+    setActionLoading(runId);
+    try {
+      switch (action) {
+        case 'pause':
+          await pauseImport(runId);
+          break;
+        case 'resume':
+          await resumeImport(runId);
+          break;
+        case 'delete':
+          await deleteImport(runId);
+          break;
+        case 'cancel_queued':
+          await cancelQueuedImport(runId);
+          break;
+      }
+      await refetch();
+    } catch (err) {
+      console.error(`[SyncHistory] Error performing ${action}:`, err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleRetryItems = async (items: ImportRunItem[]) => {
     const key = apiKeys[0];
@@ -221,11 +364,9 @@ export function SyncHistorySection() {
       return;
     }
     
-    // Show which properties are being retried
     const names = items.map(i => i.source_title || i.source_property_id).join(", ");
     toast({ title: "Reimportando imóveis", description: `Reimportando: ${names}` });
     
-    // Create a focused retry with just these property IDs
     if (!profile?.organization_id) return;
     
     const propertyIds = items.map(i => i.source_property_id);
@@ -255,8 +396,6 @@ export function SyncHistorySection() {
     }));
     await supabase.from("import_run_items").insert(itemsToInsert);
 
-    const { useImportProgress } = await import("@/contexts/ImportProgressContext");
-    
     await supabase.functions.invoke("imobzi-process", {
       body: {
         api_key: key.api_key,
@@ -298,7 +437,7 @@ export function SyncHistorySection() {
               ? Math.round(((run.imported || 0) + (run.errors || 0)) / run.total_properties * 100)
               : 0;
             const isExpanded = expandedRunId === run.id;
-            const isActive = ["processing", "pending", "running", "starting"].includes(run.status);
+            const isActive = ["processing", "pending", "running", "starting", "paused"].includes(run.status);
 
             return (
               <Collapsible key={run.id} open={isExpanded} onOpenChange={() => setExpandedRunId(isExpanded ? null : run.id)}>
@@ -332,14 +471,27 @@ export function SyncHistorySection() {
                               </span>
                               <span className="text-muted-foreground">/ {run.total_properties || 0}</span>
                             </div>
+                            
+                            {/* Action buttons for active/pending syncs */}
+                            <SyncActionButtons 
+                              run={run} 
+                              onAction={handleAction} 
+                              isLoading={actionLoading} 
+                            />
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {isActive && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                          {["processing", "running", "starting"].includes(run.status) && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                          {run.status === "paused" && <Pause className="h-4 w-4 text-muted-foreground" />}
                           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                         </div>
                       </div>
-                      {isActive && <Progress value={progress} className="h-1 mt-2" />}
+                      {isActive && run.status !== "paused" && <Progress value={progress} className="h-1 mt-2" />}
+                      {run.status === "paused" && (
+                        <div className="mt-2">
+                          <Progress value={progress} className="h-1 opacity-50" />
+                        </div>
+                      )}
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
