@@ -630,7 +630,7 @@ serve(async (req) => {
     const organization_id = runMeta.organization_id;
     const user_id = callerUserId;
 
-    if (runMeta.status === 'cancelled' || runMeta.status === 'failed' || runMeta.status === 'completed') {
+    if (['cancelled', 'failed', 'completed', 'paused'].includes(runMeta.status)) {
       console.log(`[PROCESS] Run is ${runMeta.status}, skipping`);
       return new Response(
         JSON.stringify({ success: true, message: `Run already ${runMeta.status}` }),
@@ -740,23 +740,57 @@ serve(async (req) => {
     if (hasRemaining) {
       console.log(`[PROCESS] ${processed} done this chunk, ${remainingCount} remaining. Chaining...`);
 
-      // ===== FIRE-AND-FORGET CHAIN =====
-      const functionUrl = `${supabaseUrl}/functions/v1/imobzi-process`;
-      // AH-01: Chain only passes api_key and run_id; org/user resolved from DB
-      const chainPromise = fetch(functionUrl, {
-        method: 'POST',
-        headers: {
+      // Re-check status before chaining (could have been paused/cancelled during processing)
+      const { data: statusCheck } = await supabase
+        .from('import_runs')
+        .select('status')
+        .eq('id', run_id)
+        .single();
+
+      if (statusCheck && ['paused', 'cancelled'].includes(statusCheck.status)) {
+        console.log(`[PROCESS] Run became ${statusCheck.status} during processing, stopping chain`);
+      } else {
+        // ===== RELIABLE CHAIN WITH RETRY =====
+        const functionUrl = `${supabaseUrl}/functions/v1/imobzi-process`;
+        const chainBody = JSON.stringify({ api_key, run_id });
+        const chainHeaders = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseServiceKey}`,
-        },
-        body: JSON.stringify({ api_key, run_id }),
-      }).then(r => {
-        console.log(`[PROCESS] Chain response: ${r.status}`);
-      }).catch(e => {
-        console.error(`[PROCESS] ❌ Chain failed: ${(e as Error).message}`);
-      });
+        };
 
-      EdgeRuntime.waitUntil(chainPromise);
+        let chainOk = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const chainResp = await fetch(functionUrl, {
+              method: 'POST',
+              headers: chainHeaders,
+              body: chainBody,
+            });
+            // Consume body to prevent resource leak
+            const chainText = await chainResp.text();
+            if (chainResp.ok) {
+              console.log(`[PROCESS] ✅ Chain accepted (attempt ${attempt}): ${chainResp.status}`);
+              chainOk = true;
+              break;
+            } else {
+              console.error(`[PROCESS] ⚠ Chain attempt ${attempt} returned ${chainResp.status}: ${chainText.substring(0, 200)}`);
+            }
+          } catch (e) {
+            console.error(`[PROCESS] ⚠ Chain attempt ${attempt} failed: ${(e as Error).message}`);
+          }
+          // Wait 2s before retry
+          if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+        }
+
+        if (!chainOk) {
+          console.error(`[PROCESS] ❌ All 3 chain attempts failed! ${remainingCount} properties left unprocessed.`);
+          // Mark run as failed so frontend can detect and offer manual retry
+          await supabase.from('import_runs').update({
+            status: 'failed',
+            error_message: `Encadeamento falhou após 3 tentativas. ${remainingCount} imóveis pendentes. Use "Tentar novamente" para continuar.`,
+          }).eq('id', run_id);
+        }
+      }
     } else {
       // All done - finalize
       const { data: finalRun } = await supabase

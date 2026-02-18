@@ -344,25 +344,47 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Resume tracking on mount
+  // Resume tracking on mount — also recover api_key from DB for auto-retry
   useEffect(() => {
     const checkRunningImports = async () => {
       try {
         const { data: runs } = await supabase
           .from('import_runs')
-          .select('id, status, total_properties, imported, errors, images_processed, source_provider')
+          .select('id, status, total_properties, imported, errors, images_processed, source_provider, organization_id')
           .in('status', ['pending', 'processing', 'running', 'starting', 'paused'])
           .order('created_at', { ascending: true })
           .limit(2);
 
         if (runs && runs.length > 0) {
           const activeRun = runs.find(r => ['processing', 'running', 'starting', 'paused'].includes(r.status));
-          if (activeRun) {
-            console.log('[ImportProgress] Resuming tracking for:', activeRun.id);
-            startTracking(activeRun.id, activeRun.total_properties || 0, activeRun.source_provider || 'imobzi');
-          } else if (runs[0]) {
-            // Only pending runs
-            startTracking(runs[0].id, runs[0].total_properties || 0, runs[0].source_provider || 'imobzi');
+          const targetRun = activeRun || runs[0];
+          
+          if (targetRun) {
+            console.log('[ImportProgress] Resuming tracking for:', targetRun.id);
+
+            // Try to recover api_key for auto-retry
+            let recoveredParams: RetryParams | undefined;
+            if (targetRun.organization_id) {
+              const { data: keyData } = await supabase
+                .from('imobzi_api_keys' as any)
+                .select('api_key')
+                .eq('organization_id', targetRun.organization_id)
+                .order('created_at', { ascending: false })
+                .limit(1);
+              
+              const { data: userData } = await supabase.auth.getUser();
+              const apiKey = (keyData as any)?.[0]?.api_key;
+              
+              if (apiKey && userData?.user?.id) {
+                recoveredParams = {
+                  apiKey: apiKey,
+                  organizationId: targetRun.organization_id,
+                  userId: userData.user.id,
+                };
+              }
+            }
+
+            startTracking(targetRun.id, targetRun.total_properties || 0, targetRun.source_provider || 'imobzi', recoveredParams);
           }
         }
       } catch (err) {
