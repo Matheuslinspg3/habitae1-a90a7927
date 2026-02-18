@@ -198,28 +198,42 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsItems.map((item) => {
-                const active = isActive(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={active}
-                      tooltip={item.title}
-                      className={active ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+              {isAdminOrAbove && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={isActive("/integracoes")}
+                    tooltip="Integrações"
+                    className={isActive("/integracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+                  >
+                    <NavLink 
+                      to="/integracoes" 
+                      className="flex items-center gap-3"
+                      activeClassName="text-primary font-medium"
                     >
-                      <NavLink 
-                        to={item.url} 
-                        className="flex items-center gap-3"
-                        activeClassName="text-primary font-medium"
-                      >
-                        <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+                      <Plug className={`h-4 w-4 ${isActive("/integracoes") ? "text-primary" : ""}`} />
+                      <span>Integrações</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive("/configuracoes")}
+                  tooltip="Configurações"
+                  className={isActive("/configuracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+                >
+                  <NavLink 
+                    to="/configuracoes" 
+                    className="flex items-center gap-3"
+                    activeClassName="text-primary font-medium"
+                  >
+                    <Settings className={`h-4 w-4 ${isActive("/configuracoes") ? "text-primary" : ""}`} />
+                    <span>Configurações</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

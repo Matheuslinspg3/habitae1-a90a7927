@@ -40,7 +40,7 @@ interface TeamMember {
 
 export default function Settings() {
   const { user, profile, refreshProfile, organizationType } = useAuth();
-  const { hasRole, isDeveloperOrLeader, isAdmin, isDeveloper } = useUserRoles();
+  const { hasRole, isDeveloperOrLeader, isAdmin, isDeveloper, isAdminOrAbove } = useUserRoles();
   const { theme, setTheme } = useTheme();
   const { uploadImage, isUploading: isUploadingAvatar } = useImageUpload();
   const queryClient = useQueryClient();
@@ -242,7 +242,8 @@ export default function Settings() {
     }
   };
 
-  const canEditCompany = organizationType === 'imobiliaria' ? isAdmin : true;
+  const isBrokerOrAssistant = !isAdminOrAbove;
+  const canEditCompany = isAdminOrAbove;
 
   const handleSaveCompany = async () => {
     if (!profile?.organization_id || !canEditCompany) return;
@@ -321,9 +322,13 @@ export default function Settings() {
             <TabsList className="inline-flex w-auto min-w-full sm:min-w-0">
               <TabsTrigger value="profile" className="gap-2 min-h-[44px]"><User className="h-4 w-4" /><span className="hidden sm:inline">Perfil</span></TabsTrigger>
               <TabsTrigger value="company" className="gap-2 min-h-[44px]"><Building2 className="h-4 w-4" /><span className="hidden sm:inline">Empresa</span></TabsTrigger>
-              <TabsTrigger value="team" className="gap-2 min-h-[44px]"><Users className="h-4 w-4" /><span className="hidden sm:inline">Equipe</span></TabsTrigger>
+              {isAdminOrAbove && (
+                <TabsTrigger value="team" className="gap-2 min-h-[44px]"><Users className="h-4 w-4" /><span className="hidden sm:inline">Equipe</span></TabsTrigger>
+              )}
               <TabsTrigger value="appearance" className="gap-2 min-h-[44px]"><Palette className="h-4 w-4" /><span className="hidden sm:inline">Aparência</span></TabsTrigger>
-              <TabsTrigger value="changelog" className="gap-2 min-h-[44px]"><History className="h-4 w-4" /><span className="hidden sm:inline">Histórico</span></TabsTrigger>
+              {isAdminOrAbove && (
+                <TabsTrigger value="changelog" className="gap-2 min-h-[44px]"><History className="h-4 w-4" /><span className="hidden sm:inline">Histórico</span></TabsTrigger>
+              )}
               {isDeveloperOrLeader && (
                 <TabsTrigger value="clients" className="gap-2 min-h-[44px]"><Megaphone className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
               )}
@@ -477,10 +482,10 @@ export default function Settings() {
 
           <TabsContent value="company">
             <div className="grid gap-6 max-w-2xl">
-              {!canEditCompany && organizationType === 'imobiliaria' && (
+              {!canEditCompany && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted text-sm text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 shrink-0" />
-                  Apenas o dono (admin) da imobiliária pode alterar estes dados.
+                  Apenas donos e sub-donos podem alterar os dados da empresa.
                 </div>
               )}
               <Card>

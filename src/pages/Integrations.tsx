@@ -3,8 +3,18 @@ import { ImobziIntegrationCard } from "@/components/integrations/ImobziIntegrati
 import { SyncHistorySection } from "@/components/integrations/SyncHistorySection";
 import { PortalFeedsSection } from "@/components/integrations/PortalFeedsSection";
 import { Separator } from "@/components/ui/separator";
+import { useUserRoles } from "@/hooks/useUserRole";
+import { Navigate } from "react-router-dom";
 
 export default function Integrations() {
+  const { isAdminOrAbove, isLoading } = useUserRoles();
+
+  if (isLoading) return null;
+
+  if (!isAdminOrAbove) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen relative page-enter">
       <div className="absolute inset-0 bg-gradient-mesh-vibrant pointer-events-none" />
