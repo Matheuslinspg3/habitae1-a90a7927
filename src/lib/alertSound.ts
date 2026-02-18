@@ -1,49 +1,90 @@
 /**
- * Plays a civil-defense–style alert siren using the Web Audio API.
- * Two-tone alternating pattern (common in emergency sirens).
- * No external files needed — pure synthesized audio.
+ * Plays a notification alert sound using the Web Audio API.
+ * Handles browser autoplay restrictions by resuming suspended AudioContext.
+ * Uses a pleasant two-tone chime instead of a siren.
  */
-export function playAlertSound(volume = 0.7) {
+
+let sharedCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext {
+  if (!sharedCtx || sharedCtx.state === "closed") {
+    sharedCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return sharedCtx;
+}
+
+// Pre-warm AudioContext on first user interaction so future plays work
+function warmUpAudio() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
+  } catch {
+    // ignore
+  }
+}
 
-    const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-    gainNode.connect(ctx.destination);
+// Attach listeners once to unlock audio on first user gesture
+if (typeof window !== "undefined") {
+  const events = ["click", "touchstart", "keydown"];
+  const unlock = () => {
+    warmUpAudio();
+    events.forEach((e) => document.removeEventListener(e, unlock, true));
+  };
+  events.forEach((e) => document.addEventListener(e, unlock, { once: true, capture: true }));
+}
 
-    // Two-tone siren: alternates between two frequencies
-    const toneA = 880;  // Hz — high tone
-    const toneB = 660;  // Hz — low tone
-    const cycleDuration = 0.25; // seconds per tone
-    const totalCycles = 3;
-    const totalDuration = totalCycles * 2 * cycleDuration; // 1.5s total
+export async function playAlertSound(volume = 0.7) {
+  try {
+    const ctx = getAudioContext();
 
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.connect(gainNode);
-
-    // Schedule frequency alternation
-    for (let i = 0; i < totalCycles * 2; i++) {
-      const time = ctx.currentTime + i * cycleDuration;
-      const freq = i % 2 === 0 ? toneA : toneB;
-      osc.frequency.setValueAtTime(freq, time);
+    // Resume if suspended (autoplay policy)
+    if (ctx.state === "suspended") {
+      await ctx.resume();
     }
 
-    // Fade out at the end for a clean finish
-    gainNode.gain.setValueAtTime(volume, ctx.currentTime + totalDuration - 0.15);
-    gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + totalDuration);
+    const gainNode = ctx.createGain();
+    gainNode.connect(ctx.destination);
 
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + totalDuration);
+    // Pleasant notification chime: two ascending tones
+    const tones = [
+      { freq: 587.33, start: 0, duration: 0.15 },     // D5
+      { freq: 880, start: 0.18, duration: 0.25 },      // A5
+    ];
 
-    // Cleanup
-    osc.onended = () => {
-      osc.disconnect();
+    const totalDuration = 0.5;
+
+    tones.forEach(({ freq, start, duration }) => {
+      const osc = ctx.createOscillator();
+      const toneGain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+
+      // Envelope: quick attack, sustain, smooth release
+      toneGain.gain.setValueAtTime(0, ctx.currentTime + start);
+      toneGain.gain.linearRampToValueAtTime(volume, ctx.currentTime + start + 0.02);
+      toneGain.gain.setValueAtTime(volume, ctx.currentTime + start + duration - 0.08);
+      toneGain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + duration);
+
+      osc.connect(toneGain);
+      toneGain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration);
+
+      osc.onended = () => {
+        osc.disconnect();
+        toneGain.disconnect();
+      };
+    });
+
+    // Cleanup gain after total duration
+    setTimeout(() => {
       gainNode.disconnect();
-      ctx.close();
-    };
+    }, totalDuration * 1000 + 100);
   } catch (e) {
-    // Silently fail if AudioContext not available
     console.warn("Alert sound not supported:", e);
   }
 }
