@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Home, User, Clock, AlertTriangle, Flame, Snowflake, Sun, Zap } from 'lucide-react';
+import { Home, User, Clock, AlertTriangle, Flame, Snowflake, Sun, Zap, UserX } from 'lucide-react';
 import { LeadQuickActions } from './LeadQuickActions';
 import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -120,6 +120,12 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
                 style={{ backgroundColor: lead.lead_type.color || undefined }}
               >
                 {lead.lead_type.name}
+              </Badge>
+            )}
+            {!lead.broker_id && (
+              <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5 py-0 border-amber-400 text-amber-600 dark:text-amber-400">
+                <UserX className="h-2.5 w-2.5" />
+                Sem corretor
               </Badge>
             )}
             {isStale && (
