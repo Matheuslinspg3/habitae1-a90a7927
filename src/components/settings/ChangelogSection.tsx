@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Home, FileText, Calendar, CheckCircle, Users, History, Loader2, Eye, MousePointer, Activity } from "lucide-react";
+import { User, Home, FileText, Calendar, CheckCircle, Users, History, Loader2, Eye, MousePointer, Activity, MessageCircle } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ const entityLabels: Record<string, string> = {
 const actionLabels: Record<string, string> = {
   created: "criado", completed: "concluído", updated: "atualizado", deleted: "removido",
   viewed: "visualizado", assigned: "atribuído", stage_changed: "etapa alterada",
+  interaction: "interação registrada",
 };
 
 const actionColors: Record<string, string> = {
@@ -35,6 +36,7 @@ const actionColors: Record<string, string> = {
   viewed: "bg-muted text-muted-foreground",
   assigned: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
   stage_changed: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  interaction: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
 };
 
 export function ChangelogSection() {
@@ -227,7 +229,7 @@ export function ChangelogSection() {
               ) : (
                 <div className="space-y-1">
                   {allItems.map((item) => {
-                    const Icon = entityIcons[item.entity_type] || CheckCircle;
+                    const Icon = item.action_type === "interaction" ? MessageCircle : (entityIcons[item.entity_type] || CheckCircle);
                     const colorClass = actionColors[item.action_type] || "bg-muted text-muted-foreground";
                     return (
                       <div key={item.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
@@ -239,6 +241,9 @@ export function ChangelogSection() {
                             <span className="font-medium">{entityLabels[item.entity_type] || item.entity_type}</span>
                             {" "}
                             <span className="text-muted-foreground">{actionLabels[item.action_type] || item.action_type}</span>
+                            {item.action_type === "interaction" && (item.metadata as any)?.interaction_label && (
+                              <span className="text-muted-foreground"> ({(item.metadata as any).interaction_label})</span>
+                            )}
                             {item.entity_name && (
                               <span className="font-medium">: {item.entity_name}</span>
                             )}
