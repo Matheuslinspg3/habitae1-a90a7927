@@ -193,29 +193,65 @@ async function fetchImobziLeads(
   }
 
   try {
-    const response = await fetch("https://api.imobzi.app/v1/contacts?limit=200", {
-      headers: {
-        "X-Imobzi-Secret": apiKey.api_key,
-        Accept: "application/json",
-      },
-    });
+    const allLeads: any[] = [];
+    let cursor: string | undefined = undefined;
+    const maxPages = 100;
+    let pageCount = 0;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Imobzi API error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: `Erro na API do Imobzi: ${response.status}` }),
-        {
-          status: response.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Paginate through all contacts
+    while (pageCount < maxPages) {
+      pageCount++;
+      const url = new URL("https://api.imobzi.app/v1/contacts");
+      url.searchParams.set("limit", "50");
+      if (cursor) {
+        url.searchParams.set("cursor", cursor);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          "X-Imobzi-Secret": apiKey.api_key,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Imobzi API error:", response.status, errorText);
+        // If we already have some leads, return what we have
+        if (allLeads.length > 0) {
+          console.warn(`[crm-import-leads] Partial fetch: got ${allLeads.length} leads before error on page ${pageCount}`);
+          break;
         }
-      );
+        return new Response(
+          JSON.stringify({ error: `Erro na API do Imobzi: ${response.status}` }),
+          {
+            status: response.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const data = await response.json();
+      const contacts = data.contacts || data.data || data || [];
+      const pageContacts = Array.isArray(contacts) ? contacts : [];
+
+      allLeads.push(...pageContacts);
+
+      // Check for next page cursor
+      cursor = data.cursor || undefined;
+      if (!cursor || pageContacts.length === 0) {
+        break;
+      }
+
+      // Small delay to avoid rate limiting
+      if (cursor) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
     }
 
-    const data = await response.json();
-    const contacts = data.contacts || data.data || data || [];
+    console.log(`[crm-import-leads] Fetched ${allLeads.length} contacts in ${pageCount} pages`);
 
-    const transformedLeads = (Array.isArray(contacts) ? contacts : [])
+    const transformedLeads = allLeads
       .filter((contact: any) => contact.active !== false)
       .map((contact: any) => {
         // Extract phone from phones array
@@ -243,7 +279,7 @@ async function fetchImobziLeads(
         };
       });
 
-    return new Response(JSON.stringify({ leads: transformedLeads }), {
+    return new Response(JSON.stringify({ leads: transformedLeads, total: transformedLeads.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (fetchError) {
