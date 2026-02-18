@@ -87,11 +87,6 @@ function LeadListItem({ lead, stage, onClick, isSelected, onToggleSelect, select
                   {tempStyle.label}
                 </span>
               )}
-              {lead.lead_type && (
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0" style={{ backgroundColor: lead.lead_type.color || undefined }}>
-                  {lead.lead_type.name}
-                </Badge>
-              )}
             </div>
 
             <div className="flex items-center gap-3 mt-1 flex-wrap">

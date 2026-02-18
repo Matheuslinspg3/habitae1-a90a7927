@@ -125,14 +125,6 @@ export function LeadDetails({
             <div>
               <SheetTitle className="text-xl">{lead.name}</SheetTitle>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {lead.lead_type && (
-                  <Badge
-                    variant="secondary"
-                    style={{ backgroundColor: lead.lead_type.color || undefined }}
-                  >
-                    {lead.lead_type.name}
-                  </Badge>
-                )}
                 {stage && (
                   <Badge variant="outline" className="flex items-center gap-1">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
