@@ -3435,6 +3435,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_import_run_progress: {
+        Args: {
+          p_errors?: number
+          p_images_processed?: number
+          p_imported?: number
+          p_run_id: string
+        }
+        Returns: undefined
+      }
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
