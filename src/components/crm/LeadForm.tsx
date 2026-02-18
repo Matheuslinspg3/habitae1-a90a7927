@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,7 +31,8 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, Flame, Snowflake, Sun, Zap } from 'lucide-react';
+import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LEAD_SOURCES, TEMPERATURES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
@@ -42,8 +43,8 @@ import { usePropertyLocations } from '@/hooks/usePropertyLocations';
 const formSchema = z.object({
   // Dados básicos
   name: z.string().min(1, 'Nome é obrigatório'),
-  phone: z.string().min(1, 'Telefone é obrigatório'),
-  email: z.string().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
+  phone: z.string().optional(),
+  email: z.string().optional(),
   source: z.string().optional(),
   custom_source: z.string().optional(),
   broker_id: z.string().optional(),
@@ -64,9 +65,28 @@ const formSchema = z.object({
   preferred_cities: z.array(z.string()).optional(),
   transaction_interest: z.enum(['venda', 'aluguel', 'ambos'], { required_error: 'Interesse é obrigatório' }),
   additional_requirements: z.string().optional(),
+}).refine((data) => {
+  // At least phone or email must be provided
+  return (data.phone && data.phone.trim().length > 0) || (data.email && data.email.trim().length > 0);
+}, {
+  message: 'Informe pelo menos um telefone ou e-mail',
+  path: ['phone'],
+}).refine((data) => {
+  // If email is provided, it must be valid
+  if (data.email && data.email.trim().length > 0) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email);
+  }
+  return true;
+}, {
+  message: 'E-mail inválido',
+  path: ['email'],
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+// Fields belonging to each tab for error detection
+const BASIC_FIELDS = ['name', 'phone', 'email', 'source', 'custom_source', 'broker_id', 'lead_stage_id', 'temperature', 'notes'];
+const INTEREST_FIELDS = ['transaction_interest', 'interested_property_type_id', 'interested_property_type_ids', 'property_id', 'estimated_value', 'bedrooms', 'bathrooms', 'parking', 'area', 'preferred_neighborhoods', 'preferred_cities', 'additional_requirements'];
 
 interface LeadFormProps {
   open: boolean;
@@ -99,6 +119,7 @@ export function LeadForm({
   const isEditing = !!lead;
   const [showCustomSource, setShowCustomSource] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -127,9 +148,12 @@ export function LeadForm({
     },
   });
 
+  const errors = form.formState.errors;
+  const hasBasicErrors = BASIC_FIELDS.some((f) => f in errors);
+  const hasInterestErrors = INTEREST_FIELDS.some((f) => f in errors);
+
   useEffect(() => {
     if (lead) {
-      // Check if the source is a custom one (not in predefined list)
       const isCustomSource = lead.source && !LEAD_SOURCES.some(s => s.id === lead.source);
       setShowCustomSource(isCustomSource || lead.source === 'outro');
       
@@ -194,8 +218,45 @@ export function LeadForm({
     }
   };
 
+  const scrollToFirstError = useCallback((errs: typeof errors) => {
+    // Determine which tab has the first error and switch to it
+    const basicHasError = BASIC_FIELDS.some((f) => f in errs);
+    const interestHasError = INTEREST_FIELDS.some((f) => f in errs);
+
+    const targetTab = basicHasError ? 'basic' : interestHasError ? 'interest' : activeTab;
+
+    if (targetTab !== activeTab) {
+      setActiveTab(targetTab);
+      // Wait for tab to render then scroll
+      setTimeout(() => {
+        const firstErrorEl = formRef.current?.querySelector('[aria-invalid="true"]');
+        if (firstErrorEl) {
+          firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (firstErrorEl as HTMLElement).focus?.();
+        }
+      }, 150);
+    } else {
+      const firstErrorEl = formRef.current?.querySelector('[aria-invalid="true"]');
+      if (firstErrorEl) {
+        firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (firstErrorEl as HTMLElement).focus?.();
+      }
+    }
+
+    // Count errors
+    const errorCount = Object.keys(errs).length;
+    const errorMessages: string[] = [];
+    if (basicHasError) errorMessages.push('Dados do Lead');
+    if (interestHasError) errorMessages.push('Interesse em Imóvel');
+
+    toast.error(`${errorCount} campo(s) obrigatório(s) pendente(s)`, {
+      description: errorMessages.length > 0
+        ? `Verifique a(s) aba(s): ${errorMessages.join(', ')}`
+        : 'Preencha os campos destacados em vermelho',
+    });
+  }, [activeTab]);
+
   const handleSubmit = async (data: FormData) => {
-    // Determine the final source value
     const finalSource = data.source === 'outro' && data.custom_source 
       ? data.custom_source 
       : data.source;
@@ -226,6 +287,11 @@ export function LeadForm({
     onOpenChange(false);
   };
 
+  const phoneValue = form.watch('phone');
+  const emailValue = form.watch('email');
+  const hasPhone = phoneValue && phoneValue.trim().length > 0;
+  const hasEmail = emailValue && emailValue.trim().length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
@@ -234,11 +300,25 @@ export function LeadForm({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            ref={formRef}
+            onSubmit={form.handleSubmit(handleSubmit, scrollToFirstError)}
+            className="space-y-4"
+          >
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <TabsTrigger value="basic">Dados do Lead</TabsTrigger>
-                <TabsTrigger value="interest">Interesse em Imóvel</TabsTrigger>
+                <TabsTrigger value="basic" className="flex items-center gap-1.5">
+                  Dados do Lead
+                  {hasBasicErrors && (
+                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="interest" className="flex items-center gap-1.5">
+                  Interesse em Imóvel
+                  {hasInterestErrors && (
+                    <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                  )}
+                </TabsTrigger>
                 {isEditing && <TabsTrigger value="interactions">Interações</TabsTrigger>}
               </TabsList>
 
@@ -264,7 +344,12 @@ export function LeadForm({
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Telefone *</FormLabel>
+                        <FormLabel>
+                          Telefone {!hasEmail ? '*' : ''}
+                          {hasEmail && (
+                            <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
+                          )}
+                        </FormLabel>
                         <FormControl>
                           <Input placeholder="(00) 00000-0000" {...field} />
                         </FormControl>
@@ -278,7 +363,12 @@ export function LeadForm({
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>E-mail *</FormLabel>
+                        <FormLabel>
+                          E-mail {!hasPhone ? '*' : ''}
+                          {hasPhone && (
+                            <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
+                          )}
+                        </FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="email@exemplo.com" {...field} />
                         </FormControl>
@@ -287,6 +377,13 @@ export function LeadForm({
                     )}
                   />
                 </div>
+
+                {!hasPhone && !hasEmail && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Informe pelo menos um telefone ou e-mail para contato.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
