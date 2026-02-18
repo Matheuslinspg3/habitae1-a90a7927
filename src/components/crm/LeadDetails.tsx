@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -46,6 +47,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
+import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface LeadDetailsProps {
   open: boolean;
@@ -86,6 +88,19 @@ export function LeadDetails({
   isDeleting,
   isInactivating,
 }: LeadDetailsProps) {
+  const { logActivity } = useActivityLogger();
+
+  useEffect(() => {
+    if (open && lead) {
+      logActivity({
+        actionType: 'viewed',
+        entityType: 'lead',
+        entityId: lead.id,
+        entityName: lead.name,
+      });
+    }
+  }, [open, lead?.id]);
+
   if (!lead) return null;
 
   const stage = leadStages.find(s => s.id === lead.lead_stage_id);

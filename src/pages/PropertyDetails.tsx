@@ -18,6 +18,7 @@ import { PropertyForm } from "@/components/properties/PropertyForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 import {
   ArrowLeft,
   Edit,
@@ -89,6 +90,19 @@ export default function PropertyDetails() {
   const [qrOpen, setQrOpen] = useState(false);
 
   const property = properties.find((p) => p.id === id);
+  const { logActivity } = useActivityLogger();
+
+  // Log property view
+  useEffect(() => {
+    if (property && id) {
+      logActivity({
+        actionType: 'viewed',
+        entityType: 'property',
+        entityId: id,
+        entityName: property.title || '',
+      });
+    }
+  }, [id]);
 
   // Auto-open edit form from ?edit=true
   useEffect(() => {
