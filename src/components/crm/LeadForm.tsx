@@ -35,7 +35,6 @@ import { Loader2, X, Flame, Snowflake, Sun, Zap } from 'lucide-react';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LEAD_SOURCES, TEMPERATURES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import type { LeadStage } from '@/hooks/useLeadStages';
-import { type LeadType } from '@/hooks/useLeadTypes';
 import { type Broker } from '@/hooks/useBrokers';
 import { type PropertyType } from '@/hooks/usePropertyTypes';
 import { usePropertyLocations } from '@/hooks/usePropertyLocations';
@@ -45,7 +44,6 @@ const formSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   phone: z.string().optional(),
   email: z.string().email('E-mail inválido').optional().or(z.literal('')),
-  lead_type_id: z.string().optional(),
   source: z.string().optional(),
   custom_source: z.string().optional(),
   broker_id: z.string().optional(),
@@ -74,7 +72,6 @@ interface LeadFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead?: Lead | null;
-  leadTypes: LeadType[];
   leadStages: LeadStage[];
   brokers: Broker[];
   properties: { id: string; title: string }[];
@@ -87,7 +84,6 @@ export function LeadForm({
   open,
   onOpenChange,
   lead,
-  leadTypes,
   leadStages,
   brokers,
   properties,
@@ -110,7 +106,6 @@ export function LeadForm({
       name: '',
       phone: '',
       email: '',
-      lead_type_id: '',
       source: '',
       custom_source: '',
       broker_id: '',
@@ -142,7 +137,6 @@ export function LeadForm({
         name: lead.name,
         phone: lead.phone || '',
         email: lead.email || '',
-        lead_type_id: lead.lead_type_id || '',
         source: isCustomSource ? 'outro' : (lead.source || ''),
         custom_source: isCustomSource ? lead.source || '' : '',
         broker_id: lead.broker_id || '',
@@ -169,7 +163,6 @@ export function LeadForm({
         name: '',
         phone: '',
         email: '',
-        lead_type_id: '',
         source: '',
         custom_source: '',
         broker_id: '',
@@ -211,7 +204,6 @@ export function LeadForm({
       name: data.name,
       phone: data.phone || undefined,
       email: data.email || undefined,
-      lead_type_id: data.lead_type_id || undefined,
       source: finalSource || undefined,
       interested_property_type_id: data.interested_property_type_ids?.[0] || data.interested_property_type_id || undefined,
       interested_property_type_ids: data.interested_property_type_ids?.length ? data.interested_property_type_ids : undefined,
@@ -297,37 +289,6 @@ export function LeadForm({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="lead_type_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Estágio de Lead</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {leadTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: type.color || '#6366f1' }}
-                                  />
-                                  {type.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <FormField
                     control={form.control}
                     name="source"

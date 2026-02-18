@@ -41,7 +41,6 @@ const UNCLASSIFIED_STAGE: LeadStage = {
 };
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLeads, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
-import { useLeadTypes } from '@/hooks/useLeadTypes';
 import { useBrokers } from '@/hooks/useBrokers';
 import { useProperties } from '@/hooks/useProperties';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
@@ -80,14 +79,12 @@ export function KanbanBoard() {
     isInactivating,
   } = useLeads();
 
-  const { leadTypes } = useLeadTypes();
+
   const { brokers } = useBrokers();
   const { properties } = useProperties();
   const { propertyTypes } = usePropertyTypes();
 
   const [search, setSearch] = useState('');
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedTemperature, setSelectedTemperature] = useState<string | null>(null);
@@ -120,12 +117,6 @@ export function KanbanBoard() {
             lead.phone?.includes(search)
         );
       }
-      if (selectedTypeId) {
-        stageLeads = stageLeads.filter((lead) => lead.lead_type_id === selectedTypeId);
-      }
-      if (selectedStage && stageId !== selectedStage) {
-        return [];
-      }
       if (selectedBrokerId) {
         stageLeads = stageLeads.filter((lead) => lead.broker_id === selectedBrokerId);
       }
@@ -147,7 +138,7 @@ export function KanbanBoard() {
     result['__unclassified__'] = applyFilters(leadsByStage['__unclassified__'] || [], '__unclassified__');
 
     return result;
-  }, [leadsByStage, leadStages, search, selectedTypeId, selectedStage, selectedBrokerId, selectedSource, selectedTemperature]);
+  }, [leadsByStage, leadStages, search, selectedBrokerId, selectedSource, selectedTemperature]);
 
   const filteredStageStats = useMemo(() => {
     const allStageIds = [...leadStages.map(s => s.id), '__unclassified__'];
@@ -362,12 +353,6 @@ export function KanbanBoard() {
         <LeadFilters
           search={search}
           onSearchChange={setSearch}
-          selectedTypeId={selectedTypeId}
-          onTypeChange={setSelectedTypeId}
-          leadTypes={leadTypes}
-          selectedStage={selectedStage}
-          onStageChange={setSelectedStage}
-          leadStages={leadStages}
           selectedBrokerId={selectedBrokerId}
           onBrokerChange={setSelectedBrokerId}
           brokers={brokers}
@@ -514,7 +499,6 @@ export function KanbanBoard() {
         open={formOpen}
         onOpenChange={setFormOpen}
         lead={editingLead}
-        leadTypes={leadTypes}
         leadStages={leadStages}
         brokers={brokers}
         properties={propertyOptions}

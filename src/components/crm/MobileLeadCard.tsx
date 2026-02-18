@@ -82,15 +82,6 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
                 {tempStyle.label}
               </span>
             )}
-            {lead.lead_type && (
-              <Badge 
-                variant="secondary" 
-                className="text-[11px] px-2 py-0.5 shrink-0"
-                style={{ backgroundColor: lead.lead_type.color || undefined }}
-              >
-                {lead.lead_type.name}
-              </Badge>
-            )}
           </div>
           <div className="flex items-center gap-2 mt-1.5">
             {lead.phone && (
