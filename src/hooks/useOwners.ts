@@ -194,6 +194,47 @@ export function useOwners() {
     },
   });
 
+  const bulkDeleteOwners = async (ids: string[]) => {
+    const isSilent = ids.length > 10;
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const id of ids) {
+      try {
+        await supabase
+          .from("property_owners")
+          .update({ owner_id: null })
+          .eq("owner_id", id);
+
+        const { error } = await supabase.from("owners").delete().eq("id", id);
+        if (error) throw error;
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["owners"] });
+    queryClient.invalidateQueries({ queryKey: ["property-owners"] });
+
+    if (isSilent) {
+      toast({
+        title: `${successCount} proprietário(s) removido(s)`,
+        description: errorCount > 0 ? `${errorCount} erro(s) durante a exclusão.` : undefined,
+        variant: errorCount > 0 ? "destructive" : "default",
+      });
+    } else {
+      if (errorCount > 0) {
+        toast({
+          title: `${successCount} removido(s), ${errorCount} erro(s)`,
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: `${successCount} proprietário(s) removido(s) com sucesso.` });
+      }
+    }
+  };
+
   /**
    * Find or create owner by phone. Central deduplication logic.
    * Returns the owner_id.
@@ -322,6 +363,7 @@ export function useOwners() {
     createOwner,
     updateOwner,
     deleteOwner,
+    bulkDeleteOwners,
     findOrCreateByPhone,
     getOwnerProperties,
     isCreating: createOwner.isPending,
