@@ -42,8 +42,8 @@ import { usePropertyLocations } from '@/hooks/usePropertyLocations';
 const formSchema = z.object({
   // Dados básicos
   name: z.string().min(1, 'Nome é obrigatório'),
-  phone: z.string().optional(),
-  email: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  phone: z.string().min(1, 'Telefone é obrigatório'),
+  email: z.string().min(1, 'E-mail é obrigatório').email('E-mail inválido'),
   source: z.string().optional(),
   custom_source: z.string().optional(),
   broker_id: z.string().optional(),
@@ -62,7 +62,7 @@ const formSchema = z.object({
   area: z.coerce.number().optional(),
   preferred_neighborhoods: z.array(z.string()).optional(),
   preferred_cities: z.array(z.string()).optional(),
-  transaction_interest: z.enum(['venda', 'aluguel', 'ambos']).optional(),
+  transaction_interest: z.enum(['venda', 'aluguel', 'ambos'], { required_error: 'Interesse é obrigatório' }),
   additional_requirements: z.string().optional(),
 });
 
@@ -264,7 +264,7 @@ export function LeadForm({
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Telefone</FormLabel>
+                        <FormLabel>Telefone *</FormLabel>
                         <FormControl>
                           <Input placeholder="(00) 00000-0000" {...field} />
                         </FormControl>
@@ -278,7 +278,7 @@ export function LeadForm({
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>E-mail</FormLabel>
+                        <FormLabel>E-mail *</FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="email@exemplo.com" {...field} />
                         </FormControl>
@@ -464,7 +464,7 @@ export function LeadForm({
                     name="transaction_interest"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Interesse</FormLabel>
+                        <FormLabel>Interesse *</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>

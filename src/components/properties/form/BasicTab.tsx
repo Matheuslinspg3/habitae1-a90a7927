@@ -39,7 +39,7 @@ export function BasicTab({ form }: BasicTabProps) {
           name="property_type_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tipo de Imóvel</FormLabel>
+              <FormLabel>Tipo de Imóvel *</FormLabel>
               {showNewTypeInput ? (
                 <div className="flex gap-2">
                   <Input
