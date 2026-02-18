@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications, type Notification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -17,17 +18,27 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   contract: FileText,
 };
 
+const entityRouteMap: Record<string, (id: string) => string> = {
+  lead: (id) => `/crm?lead=${id}`,
+  property: (id) => `/imoveis/${id}`,
+  contract: (id) => `/contratos?id=${id}`,
+  appointment: (id) => `/agenda?id=${id}`,
+};
+
 function NotificationItem({
   notification,
   onRead,
+  onNavigate,
 }: {
   notification: Notification;
   onRead: (id: string) => void;
+  onNavigate: (notification: Notification) => void;
 }) {
   const Icon = iconMap[notification.type] || Bell;
 
   const handleClick = () => {
     if (!notification.read) onRead(notification.id);
+    onNavigate(notification);
   };
 
   return (
@@ -57,6 +68,21 @@ function NotificationItem({
 
 export function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+
+  const handleNavigate = (notification: Notification) => {
+    if (notification.entity_id && notification.entity_type) {
+      const routeFn = entityRouteMap[notification.entity_type];
+      if (routeFn) {
+        navigate(routeFn(notification.entity_id));
+        return;
+      }
+    }
+    // Fallback by notification type
+    if (notification.type === "new_property" && notification.entity_id) {
+      navigate(`/imoveis/${notification.entity_id}`);
+    }
+  };
 
   return (
     <Popover>
@@ -89,7 +115,7 @@ export function NotificationBell() {
           ) : (
             <div className="p-1 space-y-0.5">
               {notifications.map((n) => (
-                <NotificationItem key={n.id} notification={n} onRead={markAsRead} />
+                <NotificationItem key={n.id} notification={n} onRead={markAsRead} onNavigate={handleNavigate} />
               ))}
             </div>
           )}
