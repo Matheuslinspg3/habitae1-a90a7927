@@ -36,8 +36,45 @@ export function useNotifications() {
       return data as Notification[];
     },
     enabled: !!user,
-    refetchInterval: 30000,
+    refetchInterval: 60000, // fallback only, realtime handles instant updates
   });
+
+  // Realtime subscription for instant notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`notifications-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["notifications", user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
