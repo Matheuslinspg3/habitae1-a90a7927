@@ -57,12 +57,14 @@ function parseImportWarnings(raw: unknown): string[] {
 
 const warningLabels: Record<string, { label: string; icon: typeof Image; color: string }> = {
   sem_fotos: { label: 'Sem fotos', icon: Image, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  fotos_ausentes: { label: 'Sem fotos', icon: Image, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
   poucas_fotos: { label: 'Poucas fotos', icon: Image, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
   sem_metragem: { label: 'Sem metragem', icon: Ruler, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
   metragem_ausente: { label: 'Sem metragem', icon: Ruler, color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
   sem_descricao: { label: 'Sem descrição', icon: FileText, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
   descricao_gerada: { label: 'Descrição gerada', icon: FileText, color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
   sem_proprietario: { label: 'Sem proprietário', icon: AlertTriangle, color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' },
+  endereco_duplicado: { label: 'Endereço duplicado', icon: AlertTriangle, color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' },
 };
 
 export default function ImportPendencies() {
@@ -252,10 +254,13 @@ export default function ImportPendencies() {
           <SelectContent>
             <SelectItem value="all">Todos os problemas</SelectItem>
             <SelectItem value="sem_fotos">Sem fotos</SelectItem>
+            <SelectItem value="fotos_ausentes">Fotos ausentes</SelectItem>
             <SelectItem value="poucas_fotos">Poucas fotos</SelectItem>
             <SelectItem value="sem_metragem">Sem metragem</SelectItem>
+            <SelectItem value="metragem_ausente">Metragem ausente</SelectItem>
             <SelectItem value="descricao_gerada">Descrição gerada</SelectItem>
             <SelectItem value="sem_proprietario">Sem proprietário</SelectItem>
+            <SelectItem value="endereco_duplicado">Endereço duplicado</SelectItem>
           </SelectContent>
         </Select>
       </div>
