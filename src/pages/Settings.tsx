@@ -372,6 +372,12 @@ export default function Settings() {
                     <div>
                       <p className="font-medium">{fullName || "Usuário"}</p>
                       <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      {companyName && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Building2 className="h-3 w-3" />
+                          {companyName}
+                        </p>
+                      )}
                     </div>
                   </div>
 
