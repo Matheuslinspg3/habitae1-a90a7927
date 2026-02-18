@@ -173,15 +173,15 @@ export function LeadStageManager() {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="icon" title="Gerenciar estágios do funil">
+          <Button variant="outline" size="icon" title="Gerenciar tipos do funil">
             <Layers className="h-4 w-4" />
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md max-h-[80vh] [display:flex] flex-col p-0">
           <DialogHeader className="p-4 sm:p-6 pb-2 shrink-0">
-            <DialogTitle>Gerenciar Estágios do Funil</DialogTitle>
+            <DialogTitle>Gerenciar Tipos do Funil</DialogTitle>
             <DialogDescription>
-              Arraste para reordenar. Crie, edite ou remova estágios.
+              Arraste para reordenar. Crie, edite ou remova tipos.
             </DialogDescription>
           </DialogHeader>
 
@@ -218,9 +218,9 @@ export function LeadStageManager() {
           <div className="p-4 sm:px-6 border-t shrink-0">
             {showAddForm ? (
               <div className="space-y-3">
-                <Label>Novo Estágio</Label>
+                <Label>Novo Tipo</Label>
                 <ColorPicker value={newColor} onChange={setNewColor} />
-                <Input placeholder="Nome do estágio" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
+                <Input placeholder="Nome do tipo" value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleCreate} disabled={!newName.trim() || isCreating}>
                     {isCreating ? 'Salvando...' : 'Salvar'}
@@ -233,7 +233,7 @@ export function LeadStageManager() {
             ) : (
               <Button variant="outline" className="w-full" onClick={() => setShowAddForm(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Adicionar Estágio
+                Adicionar Tipo
               </Button>
             )}
           </div>
@@ -245,7 +245,7 @@ export function LeadStageManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este estágio? Leads neste estágio precisarão ser movidos manualmente para outro estágio.
+              Tem certeza que deseja excluir este tipo? Leads com este tipo precisarão ser movidos manualmente para outro tipo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
