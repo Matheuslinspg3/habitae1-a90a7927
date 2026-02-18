@@ -1,4 +1,4 @@
-import { Bell, CheckCheck, Store, Home, FileText } from "lucide-react";
+import { Bell, CheckCheck, Home, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,10 +10,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications, type Notification } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  new_marketplace_property: Store,
   new_property: Home,
   contract: FileText,
 };
@@ -25,14 +24,10 @@ function NotificationItem({
   notification: Notification;
   onRead: (id: string) => void;
 }) {
-  const navigate = useNavigate();
   const Icon = iconMap[notification.type] || Bell;
 
   const handleClick = () => {
     if (!notification.read) onRead(notification.id);
-    if (notification.entity_type === "marketplace_property") {
-      navigate("/marketplace");
-    }
   };
 
   return (
