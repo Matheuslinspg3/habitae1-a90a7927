@@ -72,17 +72,35 @@ function extractPhotosArray(details: any): Array<{ url?: string; position?: numb
 
 // ===== API CALLS =====
 
-async function fetchPropertyDetails(propertyId: string, apiKey: string): Promise<any> {
+async function fetchPropertyDetails(propertyId: string, apiKey: string, maxRetries = 3): Promise<any> {
   const url = `${IMOBZI_API_BASE}/property/${propertyId}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: { 'X-IMOBZI-SECRET': apiKey, 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) {
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-IMOBZI-SECRET': apiKey, 'Content-Type': 'application/json' },
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+
     const errorText = await response.text();
+
+    // Rate limit or server error → retry with exponential backoff
+    if ((response.status === 429 || response.status === 401 && errorText.includes('Rate limit')) || response.status >= 500) {
+      if (attempt < maxRetries) {
+        const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000); // 2s, 4s, 8s... max 15s
+        console.log(`[PROCESS] ⏳ Rate limited on ${propertyId}, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+    }
+
     throw new Error(`API ${response.status}: ${errorText.substring(0, 200)}`);
   }
-  return await response.json();
+
+  throw new Error(`API fetch failed after ${maxRetries} retries`);
 }
 
 async function downloadImage(imageUrl: string): Promise<{ data: ArrayBuffer; checksum: string } | null> {

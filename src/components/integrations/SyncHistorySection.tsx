@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,9 +96,11 @@ function formatDuration(start: string, end: string | null): string {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-const MAX_RETRY_ITEMS = 5;
+
 
 function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; onRetry: (items: ImportRunItem[]) => void; isRetrying: boolean; hasApiKey: boolean }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["import-run-items", runId],
     queryFn: async () => {
@@ -117,42 +120,87 @@ function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; 
   const errorItems = items.filter(i => i.status === "error");
   const successCount = items.filter(i => i.status === "complete").length;
   const pendingCount = items.filter(i => i.status === "pending").length;
-  const retryItems = errorItems.slice(0, MAX_RETRY_ITEMS);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === errorItems.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(errorItems.map(i => i.id)));
+    }
+  };
+
+  const selectedItems = errorItems.filter(i => selectedIds.has(i.id));
 
   return (
     <div className="p-4 space-y-3 border-t">
       {errorItems.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h4 className="text-sm font-medium flex items-center gap-1.5">
               <XCircle className="h-4 w-4 text-destructive" />
               {errorItems.length} com erro
             </h4>
             {hasApiKey && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onRetry(retryItems)}
-                    disabled={isRetrying}
-                    className="gap-1.5"
-                  >
-                    {isRetrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                    Reimportar {retryItems.length} mais recentes
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Reimporta até {MAX_RETRY_ITEMS} imóveis com erro mais recentes
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onRetry(errorItems)}
+                      disabled={isRetrying}
+                      className="gap-1.5"
+                    >
+                      {isRetrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                      Reimportar Todos ({errorItems.length})
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reimportar todos os imóveis com erro</TooltipContent>
+                </Tooltip>
+                {selectedIds.size > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => onRetry(selectedItems)}
+                        disabled={isRetrying}
+                        className="gap-1.5"
+                      >
+                        {isRetrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                        Reimportar Selecionados ({selectedIds.size})
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reimportar apenas os itens selecionados</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             )}
           </div>
           
+          <div className="flex items-center gap-2 mb-1">
+            <Checkbox
+              checked={selectedIds.size === errorItems.length && errorItems.length > 0}
+              onCheckedChange={toggleAll}
+            />
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : "Selecionar todos"}
+            </span>
+          </div>
+
           <div className="rounded-md border max-h-60 overflow-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead>Imóvel</TableHead>
                   <TableHead>ID Fonte</TableHead>
                   <TableHead>Erro</TableHead>
@@ -160,7 +208,13 @@ function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; 
               </TableHeader>
               <TableBody>
                 {errorItems.slice(0, 20).map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className={selectedIds.has(item.id) ? "bg-primary/5" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(item.id)}
+                        onCheckedChange={() => toggleSelect(item.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium text-sm">{item.source_title || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{item.source_property_id}</TableCell>
                     <TableCell className="text-destructive text-xs max-w-xs truncate">
@@ -170,7 +224,7 @@ function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; 
                 ))}
                 {errorItems.length > 20 && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
                       ... e mais {errorItems.length - 20} erros
                     </TableCell>
                   </TableRow>
@@ -178,13 +232,6 @@ function RunDetails({ runId, onRetry, isRetrying, hasApiKey }: { runId: string; 
               </TableBody>
             </Table>
           </div>
-
-          {errorItems.length > MAX_RETRY_ITEMS && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Apenas os {MAX_RETRY_ITEMS} mais recentes serão reimportados por vez.
-            </p>
-          )}
         </div>
       )}
       
