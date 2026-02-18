@@ -3444,6 +3444,18 @@ export type Database = {
         }
         Returns: undefined
       }
+      insert_notification: {
+        Args: {
+          p_entity_id?: string
+          p_entity_type?: string
+          p_message: string
+          p_organization_id: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
