@@ -3332,6 +3332,13 @@ export type Database = {
           name: string
         }[]
       }
+      get_org_member_emails: {
+        Args: { org_id: string }
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       get_org_name_for_invite: {
         Args: { p_invite_id: string }
         Returns: string

@@ -34,6 +34,7 @@ const BRAZILIAN_STATES = [
 interface TeamMember {
   user_id: string;
   full_name: string;
+  email: string;
   role: string;
 }
 
@@ -130,11 +131,16 @@ export default function Settings() {
           .select("user_id, role")
           .in("user_id", userIds);
 
+        const { data: emails } = await supabase
+          .rpc("get_org_member_emails", { org_id: profile.organization_id! });
+
         const members: TeamMember[] = profiles.map((p) => {
           const userRole = roles?.find((r) => r.user_id === p.user_id);
+          const memberEmail = (emails as any[])?.find((e: any) => e.user_id === p.user_id)?.email || "";
           return {
             user_id: p.user_id,
             full_name: p.full_name,
+            email: memberEmail,
             role: userRole?.role || "corretor",
           };
         });
@@ -644,7 +650,7 @@ export default function Settings() {
                               <div>
                                 <p className="font-medium">{member.full_name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {isCurrentUser && "(você)"}
+                                  {member.email}{isCurrentUser && " (você)"}
                                 </p>
                               </div>
                             </div>
