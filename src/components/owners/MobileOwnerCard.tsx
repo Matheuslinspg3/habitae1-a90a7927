@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Home, Pencil, Trash2 } from "lucide-react";
 import type { OwnerWithDetails } from "@/hooks/useOwners";
 
@@ -9,13 +10,24 @@ interface MobileOwnerCardProps {
   onSelect: (owner: OwnerWithDetails) => void;
   onEdit: (owner: OwnerWithDetails) => void;
   onDelete: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export function MobileOwnerCard({ owner, onSelect, onEdit, onDelete }: MobileOwnerCardProps) {
+export function MobileOwnerCard({ owner, onSelect, onEdit, onDelete, selected, onToggleSelect }: MobileOwnerCardProps) {
   return (
-    <Card className="cursor-pointer active:scale-[0.98] transition-transform" onClick={() => onSelect(owner)}>
+    <Card className={`cursor-pointer active:scale-[0.98] transition-transform ${selected ? "ring-2 ring-primary/40 bg-primary/5" : ""}`} onClick={() => onSelect(owner)}>
       <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          {onToggleSelect && (
+            <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={selected}
+                onCheckedChange={onToggleSelect}
+                aria-label={`Selecionar ${owner.primary_name}`}
+              />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="font-semibold truncate">{owner.primary_name}</p>
             {owner.aliases.length > 1 && (
