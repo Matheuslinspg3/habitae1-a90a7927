@@ -26,12 +26,15 @@ import { CRMImportWizard } from './import/CRMImportWizard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare, HelpCircle } from 'lucide-react';
+import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare, HelpCircle, ArrowLeftRight } from 'lucide-react';
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove as sortableArrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { LeadStage } from '@/hooks/useLeadStages';
+import { useLeadStages } from '@/hooks/useLeadStages';
 
 const UNCLASSIFIED_STAGE: LeadStage = {
   id: '__unclassified__',
-  name: 'Não Classificados',
+  name: 'Sem classificação',
   color: '#9ca3af',
   position: -1,
   organization_id: null,
@@ -53,6 +56,21 @@ const TEMP_CHIPS = [
   { value: 'morno', label: 'Morno', icon: Sun, activeClass: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-700' },
   { value: 'frio', label: 'Frio', icon: Snowflake, activeClass: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' },
 ] as const;
+
+function SortableColumnWrapper({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'grab',
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 export function KanbanBoard() {
   const { toast } = useToast();
@@ -80,7 +98,7 @@ export function KanbanBoard() {
     isInactivating,
   } = useLeads();
 
-
+  const { reorderStages } = useLeadStages();
   const { brokers } = useBrokers();
   const { properties } = useProperties();
   const { propertyTypes } = usePropertyTypes();
@@ -90,6 +108,7 @@ export function KanbanBoard() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedTemperature, setSelectedTemperature] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [columnReorderMode, setColumnReorderMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -106,6 +125,16 @@ export function KanbanBoard() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
+
+  const handleColumnDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = leadStages.findIndex(s => s.id === active.id);
+    const newIndex = leadStages.findIndex(s => s.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(leadStages, oldIndex, newIndex);
+    reorderStages(reordered.map((s, i) => ({ id: s.id, position: i })));
+  }, [leadStages, reorderStages]);
 
   // Filter leads
   const filteredLeadsByStage = useMemo(() => {
@@ -395,6 +424,17 @@ export function KanbanBoard() {
               <List className="h-4 w-4" />
             </Button>
           </div>
+          {viewMode === 'kanban' && !isMobile && (
+            <Button
+              variant={columnReorderMode ? 'default' : 'outline'}
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setColumnReorderMode(!columnReorderMode)}
+              title="Reordenar colunas"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant={selectionMode ? 'default' : 'outline'}
             size="icon"
@@ -474,6 +514,34 @@ export function KanbanBoard() {
           onToggleSelect={toggleSelect}
           selectionMode={selectionMode}
         />
+      ) : columnReorderMode ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragEnd={handleColumnDragEnd}
+        >
+          <SortableContext items={leadStages.map(s => s.id)} strategy={horizontalListSortingStrategy}>
+            <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+              <KanbanColumn
+                key="__unclassified__"
+                stage={UNCLASSIFIED_STAGE}
+                leads={filteredLeadsByStage['__unclassified__'] || []}
+                stats={filteredStageStats['__unclassified__'] || { count: 0, totalValue: 0 }}
+                onLeadClick={handleLeadClick}
+              />
+              {leadStages.map((stage) => (
+                <SortableColumnWrapper key={stage.id} id={stage.id}>
+                  <KanbanColumn
+                    stage={stage}
+                    leads={filteredLeadsByStage[stage.id] || []}
+                    stats={filteredStageStats[stage.id] || { count: 0, totalValue: 0 }}
+                    onLeadClick={handleLeadClick}
+                  />
+                </SortableColumnWrapper>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       ) : (
         <DndContext
           sensors={sensors}
@@ -482,21 +550,19 @@ export function KanbanBoard() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 -mx-2 px-2">
-            {(filteredLeadsByStage['__unclassified__']?.length > 0) && (
-              <KanbanColumn
-                key="__unclassified__"
-                stage={UNCLASSIFIED_STAGE}
-                leads={filteredLeadsByStage['__unclassified__'] || []}
-                stats={filteredStageStats['__unclassified__']}
-                onLeadClick={handleLeadClick}
-              />
-            )}
+            <KanbanColumn
+              key="__unclassified__"
+              stage={UNCLASSIFIED_STAGE}
+              leads={filteredLeadsByStage['__unclassified__'] || []}
+              stats={filteredStageStats['__unclassified__'] || { count: 0, totalValue: 0 }}
+              onLeadClick={handleLeadClick}
+            />
             {leadStages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
                 leads={filteredLeadsByStage[stage.id] || []}
-                stats={filteredStageStats[stage.id]}
+                stats={filteredStageStats[stage.id] || { count: 0, totalValue: 0 }}
                 onLeadClick={handleLeadClick}
               />
             ))}
