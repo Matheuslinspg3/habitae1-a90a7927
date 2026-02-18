@@ -411,8 +411,7 @@ export function SyncHistorySection() {
       return;
     }
     
-    const names = items.map(i => i.source_title || i.source_property_id).join(", ");
-    toast({ title: "Reimportando imóveis", description: `Reimportando: ${names}` });
+    toast({ title: "Reimportando imóveis", description: `${items.length} imóvel(is) sendo reimportado(s).` });
     
     if (!profile?.organization_id) return;
     
