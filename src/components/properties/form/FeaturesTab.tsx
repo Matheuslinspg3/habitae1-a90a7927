@@ -14,7 +14,7 @@ export function FeaturesTab({ form }: FeaturesTabProps) {
     <div className="space-y-4 mt-4">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {(["bedrooms", "suites", "bathrooms", "parking_spots"] as const).map((name) => {
-          const labels: Record<string, string> = { bedrooms: "Quartos", suites: "Suítes", bathrooms: "Banheiros", parking_spots: "Vagas" };
+          const labels: Record<string, string> = { bedrooms: "Quartos *", suites: "Suítes", bathrooms: "Banheiros *", parking_spots: "Vagas" };
           return (
             <FormField key={name} control={form.control} name={name} render={({ field }) => (
               <FormItem>
@@ -33,7 +33,7 @@ export function FeaturesTab({ form }: FeaturesTabProps) {
         <h4 className="font-medium text-sm text-muted-foreground">MEDIDAS</h4>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(["area_useful", "area_total", "area_built"] as const).map((name) => {
-            const labels: Record<string, string> = { area_useful: "Área Útil (m²)", area_total: "Área Total (m²)", area_built: "Área Construída (m²)" };
+            const labels: Record<string, string> = { area_useful: "Área Útil (m²) *", area_total: "Área Total (m²)", area_built: "Área Construída (m²)" };
             return (
               <FormField key={name} control={form.control} name={name} render={({ field }) => (
                 <FormItem>

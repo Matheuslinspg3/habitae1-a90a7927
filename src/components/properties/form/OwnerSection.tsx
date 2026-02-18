@@ -22,7 +22,7 @@ interface OwnerSectionProps {
 
 export function OwnerSection({ form }: OwnerSectionProps) {
   const { owners: existingOwners } = usePropertyOwners();
-  const [showOwnerSection, setShowOwnerSection] = useState(false);
+  const [showOwnerSection, setShowOwnerSection] = useState(true);
   const [ownerPopoverOpen, setOwnerPopoverOpen] = useState(false);
 
   const handleSelectOwner = (owner: PropertyOwner) => {
@@ -51,7 +51,7 @@ export function OwnerSection({ form }: OwnerSectionProps) {
         <div className="px-4 pb-4 space-y-4">
           <FormField control={form.control} name="owner_name" render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Nome do Proprietário</FormLabel>
+              <FormLabel>Nome do Proprietário *</FormLabel>
               <Popover open={ownerPopoverOpen} onOpenChange={setOwnerPopoverOpen}>
                 <PopoverTrigger asChild>
                   <FormControl>
