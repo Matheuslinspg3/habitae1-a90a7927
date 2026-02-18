@@ -193,65 +193,79 @@ async function fetchImobziLeads(
   }
 
   try {
-    const allLeads: any[] = [];
-    let cursor: string | undefined = undefined;
-    const maxPages = 100;
-    let pageCount = 0;
+    const apiSecret = apiKey.api_key;
 
-    // Paginate through all contacts
-    while (pageCount < maxPages) {
-      pageCount++;
-      const url = new URL("https://api.imobzi.app/v1/contacts");
-      url.searchParams.set("limit", "50");
-      if (cursor) {
-        url.searchParams.set("cursor", cursor);
-      }
+    // Helper: paginate through an Imobzi endpoint
+    async function fetchAllFromEndpoint(endpoint: string, listKey: string): Promise<any[]> {
+      const all: any[] = [];
+      let cursor: string | undefined = undefined;
+      const maxPages = 100;
+      let pageCount = 0;
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          "X-Imobzi-Secret": apiKey.api_key,
-          Accept: "application/json",
-        },
-      });
+      while (pageCount < maxPages) {
+        pageCount++;
+        const url = new URL(`https://api.imobzi.app/v1/${endpoint}`);
+        url.searchParams.set("limit", "50");
+        if (cursor) {
+          url.searchParams.set("cursor", cursor);
+        }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Imobzi API error:", response.status, errorText);
-        // If we already have some leads, return what we have
-        if (allLeads.length > 0) {
-          console.warn(`[crm-import-leads] Partial fetch: got ${allLeads.length} leads before error on page ${pageCount}`);
+        const response = await fetch(url.toString(), {
+          headers: {
+            "X-Imobzi-Secret": apiSecret,
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[crm-import-leads] ${endpoint} API error:`, response.status, errorText);
           break;
         }
-        return new Response(
-          JSON.stringify({ error: `Erro na API do Imobzi: ${response.status}` }),
-          {
-            status: response.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
 
-      const data = await response.json();
-      const contacts = data.contacts || data.data || data || [];
-      const pageContacts = Array.isArray(contacts) ? contacts : [];
+        const data = await response.json();
+        // Try multiple possible list keys
+        const items = data[listKey] || data.data || data.items || data.results || [];
+        const pageItems = Array.isArray(items) ? items : [];
 
-      allLeads.push(...pageContacts);
+        all.push(...pageItems);
 
-      // Check for next page cursor
-      cursor = data.cursor || undefined;
-      if (!cursor || pageContacts.length === 0) {
-        break;
-      }
+        cursor = data.cursor || undefined;
+        if (!cursor || pageItems.length === 0) {
+          break;
+        }
 
-      // Small delay to avoid rate limiting
-      if (cursor) {
         await new Promise(resolve => setTimeout(resolve, 50));
       }
+
+      console.log(`[crm-import-leads] Fetched ${all.length} from /${endpoint} in ${pageCount} pages`);
+      return all;
     }
 
-    console.log(`[crm-import-leads] Fetched ${allLeads.length} contacts in ${pageCount} pages`);
+    // Fetch from both /contacts and /leads endpoints in parallel
+    const [contactsResult, leadsResult] = await Promise.allSettled([
+      fetchAllFromEndpoint("contacts", "contacts"),
+      fetchAllFromEndpoint("leads", "leads"),
+    ]);
 
-    const transformedLeads = allLeads
+    const contacts = contactsResult.status === "fulfilled" ? contactsResult.value : [];
+    const leads = leadsResult.status === "fulfilled" ? leadsResult.value : [];
+
+    console.log(`[crm-import-leads] Total: ${contacts.length} contacts + ${leads.length} leads`);
+
+    // Merge and deduplicate by external_id
+    const seenIds = new Set<string>();
+    const allEntries: any[] = [];
+
+    // Process leads first (higher priority)
+    for (const entry of [...leads, ...contacts]) {
+      const externalId = String(entry.contact_id || entry.lead_id || entry.code || entry.id || entry.db_id || "");
+      if (!externalId || seenIds.has(externalId)) continue;
+      seenIds.add(externalId);
+      allEntries.push(entry);
+    }
+
+    const transformedLeads = allEntries
       .filter((contact: any) => contact.active !== false)
       .map((contact: any) => {
         // Extract phone from phones array
@@ -267,11 +281,11 @@ async function fetchImobziLeads(
         const tags = Array.isArray(contact.tags) ? contact.tags.join(", ") : null;
 
         return {
-          external_id: contact.contact_id || contact.code || contact.id || String(contact.db_id),
+          external_id: contact.contact_id || contact.lead_id || contact.code || contact.id || String(contact.db_id),
           name: contact.fullname || contact.name || "Sem nome",
           email: contact.email || null,
           phone,
-          source: contact.media_source || "Imobzi",
+          source: contact.media_source || contact.source || "Imobzi",
           external_source: "imobzi",
           notes: tags,
           contact_type: contact.contact_type || null,
