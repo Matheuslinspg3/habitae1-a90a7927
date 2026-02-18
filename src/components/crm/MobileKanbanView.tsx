@@ -31,10 +31,25 @@ function MobileKanbanViewComponent({
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
   const visibleStages = useMemo(() => {
-    return leadStages.filter(stage => {
+    const unclassifiedCount = leadsByStage['__unclassified__']?.length || 0;
+    const unclassifiedStage: LeadStage = {
+      id: '__unclassified__',
+      name: 'Não Classificados',
+      color: '#9ca3af',
+      position: -1,
+      organization_id: null,
+      is_default: false,
+      is_win: false,
+      is_loss: false,
+      created_at: '',
+    };
+    
+    const regular = leadStages.filter(stage => {
       const hasLeads = (leadsByStage[stage.id]?.length || 0) > 0;
       return hasLeads || (!stage.is_win && !stage.is_loss);
     });
+
+    return unclassifiedCount > 0 ? [unclassifiedStage, ...regular] : regular;
   }, [leadStages, leadsByStage]);
 
   const handleLeadClick = useCallback((lead: Lead) => {

@@ -25,7 +25,20 @@ import { CRMImportWizard } from './import/CRMImportWizard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare } from 'lucide-react';
+import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare, HelpCircle } from 'lucide-react';
+import type { LeadStage } from '@/hooks/useLeadStages';
+
+const UNCLASSIFIED_STAGE: LeadStage = {
+  id: '__unclassified__',
+  name: 'Não Classificados',
+  color: '#9ca3af',
+  position: -1,
+  organization_id: null,
+  is_default: false,
+  is_win: false,
+  is_loss: false,
+  created_at: '',
+};
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useLeads, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
 import { useLeadTypes } from '@/hooks/useLeadTypes';
@@ -51,6 +64,7 @@ export function KanbanBoard() {
     leadsByStage,
     stageStats,
     isLoading,
+    refetch,
     createLead,
     updateLead,
     updateLeadStage,
@@ -97,9 +111,7 @@ export function KanbanBoard() {
   const filteredLeadsByStage = useMemo(() => {
     const searchLower = search.toLowerCase();
     
-    return leadStages.reduce((acc, stage) => {
-      let stageLeads = leadsByStage[stage.id] || [];
-      
+    const applyFilters = (stageLeads: Lead[], stageId: string) => {
       if (search) {
         stageLeads = stageLeads.filter(
           (lead) =>
@@ -108,39 +120,40 @@ export function KanbanBoard() {
             lead.phone?.includes(search)
         );
       }
-      
       if (selectedTypeId) {
         stageLeads = stageLeads.filter((lead) => lead.lead_type_id === selectedTypeId);
       }
-
-      if (selectedStage) {
-        if (stage.id !== selectedStage) {
-          acc[stage.id] = [];
-          return acc;
-        }
+      if (selectedStage && stageId !== selectedStage) {
+        return [];
       }
-
       if (selectedBrokerId) {
         stageLeads = stageLeads.filter((lead) => lead.broker_id === selectedBrokerId);
       }
-
       if (selectedSource) {
         stageLeads = stageLeads.filter((lead) => lead.source === selectedSource);
       }
-
       if (selectedTemperature) {
         stageLeads = stageLeads.filter((lead) => lead.temperature === selectedTemperature);
       }
-      
-      acc[stage.id] = stageLeads;
+      return stageLeads;
+    };
+
+    const result = leadStages.reduce((acc, stage) => {
+      acc[stage.id] = applyFilters(leadsByStage[stage.id] || [], stage.id);
       return acc;
     }, {} as Record<string, Lead[]>);
+
+    // Include unclassified leads
+    result['__unclassified__'] = applyFilters(leadsByStage['__unclassified__'] || [], '__unclassified__');
+
+    return result;
   }, [leadsByStage, leadStages, search, selectedTypeId, selectedStage, selectedBrokerId, selectedSource, selectedTemperature]);
 
   const filteredStageStats = useMemo(() => {
-    return leadStages.reduce((acc, stage) => {
-      const stageLeads = filteredLeadsByStage[stage.id] || [];
-      acc[stage.id] = {
+    const allStageIds = [...leadStages.map(s => s.id), '__unclassified__'];
+    return allStageIds.reduce((acc, stageId) => {
+      const stageLeads = filteredLeadsByStage[stageId] || [];
+      acc[stageId] = {
         count: stageLeads.length,
         totalValue: stageLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0),
       };
@@ -471,6 +484,15 @@ export function KanbanBoard() {
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-3 lg:gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+            {(filteredLeadsByStage['__unclassified__']?.length > 0) && (
+              <KanbanColumn
+                key="__unclassified__"
+                stage={UNCLASSIFIED_STAGE}
+                leads={filteredLeadsByStage['__unclassified__'] || []}
+                stats={filteredStageStats['__unclassified__']}
+                onLeadClick={handleLeadClick}
+              />
+            )}
             {leadStages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
@@ -523,6 +545,7 @@ export function KanbanBoard() {
       <CRMImportWizard
         open={importOpen}
         onOpenChange={setImportOpen}
+        onImportComplete={() => refetch()}
       />
     </div>
   );

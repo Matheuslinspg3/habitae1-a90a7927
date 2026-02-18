@@ -466,6 +466,12 @@ export function useLeads() {
     return acc;
   }, {} as Record<string, Lead[]>);
 
+  // Add unclassified leads (null lead_stage_id)
+  const unclassifiedLeads = leads
+    .filter(lead => !lead.lead_stage_id || !leadStages.some(s => s.id === lead.lead_stage_id))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  leadsByStage['__unclassified__'] = unclassifiedLeads;
+
   // Calculate stats per stage
   const stageStats = leadStages.reduce((acc, stage) => {
     const stageLeads = leadsByStage[stage.id] || [];
@@ -475,6 +481,11 @@ export function useLeads() {
     };
     return acc;
   }, {} as Record<string, { count: number; totalValue: number }>);
+  // Stats for unclassified
+  stageStats['__unclassified__'] = {
+    count: unclassifiedLeads.length,
+    totalValue: unclassifiedLeads.reduce((sum, lead) => sum + (lead.estimated_value || 0), 0),
+  };
 
   return {
     leads,
