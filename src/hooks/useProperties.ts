@@ -359,6 +359,8 @@ export function useProperties() {
         supabase.from('property_partnerships').delete().eq('property_id', id),
         supabase.from('property_landing_content').delete().eq('property_id', id),
         supabase.from('import_run_items').delete().eq('property_id', id),
+        supabase.from('marketplace_contact_access').delete().eq('marketplace_property_id', id),
+        supabase.from('marketplace_properties').delete().eq('id', id),
       ]);
 
       // Limpar referências em leads, contracts e appointments (setar null ao invés de deletar)
@@ -435,6 +437,8 @@ export function useProperties() {
           supabase.from('property_partnerships').delete().in('property_id', chunk),
           supabase.from('property_landing_content').delete().in('property_id', chunk),
           supabase.from('import_run_items').delete().in('property_id', chunk),
+          supabase.from('marketplace_contact_access').delete().in('marketplace_property_id', chunk),
+          supabase.from('marketplace_properties').delete().in('id', chunk),
         ]);
         
         // Log any dependency deletion failures but don't block
