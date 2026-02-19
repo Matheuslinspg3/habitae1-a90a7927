@@ -1,121 +1,78 @@
 
-# Plano: Diagnosticar e Corrigir Push Notifications
 
-## Situacao Atual
+# Plano: Corrigir URLs Absolutas no Payload FCM + Diagnostico Local
 
-O backend esta funcionando corretamente - FCM aceita a mensagem e retorna `sent: 1`. O problema esta no lado do cliente: o Service Worker nao esta exibindo a notificacao.
+## Problema Identificado
 
-Existem 3 possiveis causas restantes que vamos atacar de uma vez:
+O FCM retorna `sent: 1` (mensagem aceita pelo Google), mas o navegador nao exibe. Apos analise detalhada, identifiquei a causa raiz:
 
----
+**O campo `webpush.fcm_options.link` e `webpush.notification.icon` no payload FCM estao usando URLs relativas (`/dashboard`, `/pwa-192x192.png`).** A API FCM v1 para Web Push exige URLs absolutas HTTPS. Com URLs relativas, o navegador descarta silenciosamente a notificacao.
 
-## Causa 1: Workbox SW consumindo push events
+## Alteracoes
 
-O VitePWA gera um Service Worker Workbox no escopo `/` que pode estar interceptando os eventos de push antes do Firebase SW. Solucao: configurar o Workbox para ignorar push events.
+### 1. Edge Function `supabase/functions/send-push/index.ts`
 
-### Alteracao em `vite.config.ts`
-Adicionar `ignoreURLParametersMatching` e desabilitar o handler de push no Workbox:
+Converter todas as URLs para absolutas usando a URL do app publicado:
 
 ```typescript
-workbox: {
-  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-  navigateFallbackDenylist: [/^\/~oauth/, /^\/firebase-cloud-messaging-push-scope/],
-  // ... resto fica igual
-}
-```
+// Adicionar no inicio da funcao handler:
+const APP_URL = Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
 
----
-
-## Causa 2: FCM payload precisa incluir `webpush.notification`
-
-Mensagens puramente data-only nao disparam automaticamente o evento `push` em todos os navegadores. A solucao e enviar um payload hibrido: `notification` para o navegador mostrar + `data` para deep linking.
-
-### Alteracao em `supabase/functions/send-push/index.ts`
-
-Restaurar o campo `notification` no payload FCM junto com `data`:
-
-```typescript
-body: JSON.stringify({
-  message: {
-    token: sub.fcm_token,
-    notification: {
-      title,
-      body: message || "",
-    },
-    webpush: {
-      notification: {
-        icon: "/pwa-192x192.png",
-        badge: "/pwa-192x192.png",
-        vibrate: [200, 100, 200],
-        tag: notification_type || "default",
-        renotify: true,
-      },
-      fcm_options: {
-        link: entity_type && entity_id
-          ? getEntityLink(entity_type, entity_id)
-          : "/dashboard",
-      },
-    },
-    data: {
-      ...notificationData,
-      title,
-      message: message || "",
-    },
+// No payload webpush:
+webpush: {
+  notification: {
+    icon: `${APP_URL}/pwa-192x192.png`,
+    badge: `${APP_URL}/pwa-192x192.png`,
+    vibrate: [200, 100, 200],
+    tag: notification_type || "default",
+    renotify: true,
   },
-}),
+  fcm_options: {
+    link: entity_type && entity_id
+      ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
+      : `${APP_URL}/dashboard`,
+  },
+},
 ```
 
-A chave `webpush.notification` forca o navegador a exibir a notificacao de sistema, mesmo sem interacao do Service Worker. O campo `data` mantem o deep linking.
+### 2. Botao de Teste Local `src/components/developer/PushTestCard.tsx`
 
----
-
-## Causa 3: SW Firebase nao esta registrado/ativo
-
-Pode ser que o SW nao esteja ativo no momento do push. Vamos adicionar uma verificacao visual no PushTestCard.
-
-### Alteracao em `src/components/developer/PushTestCard.tsx`
-
-Adicionar botao "Verificar SW" que checa se o Service Worker do Firebase esta ativo:
+Adicionar um botao "Teste Local" que cria uma notificacao diretamente pelo browser (sem FCM) para isolar se o problema e no navegador ou no FCM:
 
 ```typescript
-const checkSW = async () => {
-  const reg = await navigator.serviceWorker.getRegistration(
-    "/firebase-cloud-messaging-push-scope/"
-  );
-  if (reg?.active) {
-    toast.success(`SW ativo (state: ${reg.active.state})`);
+const testLocalNotification = () => {
+  if (Notification.permission === "granted") {
+    new Notification("Teste Local Habitae", {
+      body: "Se voce esta vendo isso, o navegador permite notificacoes!",
+      icon: "/pwa-192x192.png",
+    });
+    toast.success("Notificacao local enviada - verifique se apareceu");
   } else {
-    toast.error("SW Firebase NAO encontrado. Reative o push.");
+    toast.error(`Permissao: ${Notification.permission}`);
   }
 };
 ```
 
----
+Isso permite distinguir entre:
+- **Teste local funciona mas FCM nao**: problema no payload FCM (URLs)
+- **Teste local tambem nao funciona**: problema no navegador/OS (permissoes bloqueadas)
 
-## Causa 4: Remover fallback `push` listener duplicado do SW
+### 3. Adicionar secret APP_URL (opcional)
 
-O Service Worker atual tem DOIS handlers de push: `onBackgroundMessage` do Firebase SDK e um `addEventListener("push")` manual. Eles podem estar conflitando, com o segundo tentando parsear o payload de forma diferente. Vamos simplificar mantendo apenas o `onBackgroundMessage` e o fallback com protecao contra duplicatas.
+Configurar `APP_URL` como secret na edge function com valor `https://habitae1.lovable.app`. Caso nao exista, o fallback hardcoded sera usado.
 
-### Alteracao em `public/firebase-messaging-sw.js`
-
-Manter o `onBackgroundMessage` como handler principal. Remover o `addEventListener("push")` duplicado que pode causar conflitos.
-
----
-
-## Resumo das Alteracoes
+## Resumo
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `vite.config.ts` | Excluir escopo Firebase do Workbox |
-| `supabase/functions/send-push/index.ts` | Restaurar payload hibrido `notification` + `webpush` + `data` |
-| `public/firebase-messaging-sw.js` | Remover listener `push` duplicado, manter `onBackgroundMessage` |
-| `src/components/developer/PushTestCard.tsx` | Adicionar botao "Verificar SW" |
+| `supabase/functions/send-push/index.ts` | URLs absolutas no payload webpush |
+| `src/components/developer/PushTestCard.tsx` | Botao "Teste Local" para diagnostico |
 
 ## Apos Implementacao
 
 1. Publicar o app
-2. No PC, limpar dados do site (DevTools -> Application -> Clear site data)
-3. Acessar o app publicado
-4. Clicar "Verificar SW" para confirmar que esta ativo
-5. Ativar Push
-6. Enviar teste
+2. Limpar dados do site no navegador
+3. Reativar push
+4. Clicar "Teste Local" - se aparecer, o navegador esta OK
+5. Clicar "Enviar Push de Teste" - agora deve funcionar com URLs absolutas
+
