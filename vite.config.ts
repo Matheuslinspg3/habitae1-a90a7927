@@ -39,6 +39,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
         navigateFallbackDenylist: [/^\/~oauth/, /^\/firebase-cloud-messaging-push-scope/],
+        globIgnores: ["**/firebase-messaging-sw.js"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
