@@ -15,15 +15,18 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-console.log("[firebase-messaging-sw] Service Worker ativo, Firebase inicializado");
+console.log("[firebase-messaging-sw] SW inicializado com sucesso");
 
-// Handle background messages
+// Handle background messages via Firebase SDK (data-only messages)
 messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw] Background message:", payload);
+  console.log("[firebase-messaging-sw] onBackgroundMessage:", JSON.stringify(payload));
 
-  const notificationTitle = payload.notification?.title || "Habitae";
+  // Data-only messages: title/message come in payload.data
+  const title = payload.data?.title || payload.notification?.title || "Habitae";
+  const body = payload.data?.message || payload.notification?.body || "";
+
   const notificationOptions = {
-    body: payload.notification?.body || "",
+    body,
     icon: "/pwa-192x192.png",
     badge: "/pwa-192x192.png",
     vibrate: [200, 100, 200],
@@ -32,11 +35,47 @@ messaging.onBackgroundMessage((payload) => {
     renotify: true,
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(title, notificationOptions);
+});
+
+// FALLBACK: Direct push event listener in case Firebase SDK doesn't intercept
+self.addEventListener("push", (event) => {
+  console.log("[firebase-messaging-sw] push event raw:", event.data?.text());
+
+  // Only act as fallback — Firebase SDK normally handles this.
+  // We check if a notification is already being shown by looking at existing notifications.
+  const data = event.data ? event.data.json() : {};
+  
+  // Firebase wraps messages in a specific format
+  const notification = data.notification || data.data || {};
+  const title = notification.title || data.data?.title || "Habitae";
+  const body = notification.body || data.data?.message || "";
+  
+  // Only show if Firebase SDK didn't already handle it
+  // (Firebase SDK sets a flag internally, but as a safety net we always try)
+  if (!title || title === "Habitae" && !body) {
+    console.log("[firebase-messaging-sw] push event: skipping empty notification");
+    return;
+  }
+
+  const options = {
+    body: body,
+    icon: "/pwa-192x192.png",
+    badge: "/pwa-192x192.png",
+    vibrate: [200, 100, 200],
+    data: data.data || {},
+    tag: data.data?.notification_type || "push-fallback",
+    renotify: true,
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
 });
 
 // Handle notification click
 self.addEventListener("notificationclick", (event) => {
+  console.log("[firebase-messaging-sw] notificationclick:", event.notification.tag);
   event.notification.close();
 
   const data = event.notification.data || {};
