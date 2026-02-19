@@ -1,78 +1,113 @@
 
-
-# Plano: Corrigir URLs Absolutas no Payload FCM + Diagnostico Local
+# Plano: Limpeza de Marketplace + IDs Sequenciais Simples
 
 ## Problema Identificado
 
-O FCM retorna `sent: 1` (mensagem aceita pelo Google), mas o navegador nao exibe. Apos analise detalhada, identifiquei a causa raiz:
+1. **884 registros orfaos no marketplace**: Quando imoveis sao deletados, o sistema nao remove a entrada correspondente em `marketplace_properties`. Resultado: marketplace mostra 1686 imoveis quando so existem 802 validos.
 
-**O campo `webpush.fcm_options.link` e `webpush.notification.icon` no payload FCM estao usando URLs relativas (`/dashboard`, `/pwa-192x192.png`).** A API FCM v1 para Web Push exige URLs absolutas HTTPS. Com URLs relativas, o navegador descarta silenciosamente a notificacao.
+2. **Codigos de imovel complexos**: O sistema atual gera codigos como `0199011625` (10 digitos baseados em cidade+tipo+zona+sequencia). A decisao e simplificar para IDs sequenciais por organizacao: 1, 2, 3, 4...
 
-## Alteracoes
+---
 
-### 1. Edge Function `supabase/functions/send-push/index.ts`
+## O que sera feito
 
-Converter todas as URLs para absolutas usando a URL do app publicado:
+### 1. Limpeza imediata dos orfaos
 
-```typescript
-// Adicionar no inicio da funcao handler:
-const APP_URL = Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
+- Executar SQL para deletar os 884 registros em `marketplace_properties` que nao tem correspondencia em `properties`
+- Tambem limpar registros de `marketplace_contact_access` que referenciam esses orfaos
 
-// No payload webpush:
-webpush: {
-  notification: {
-    icon: `${APP_URL}/pwa-192x192.png`,
-    badge: `${APP_URL}/pwa-192x192.png`,
-    vibrate: [200, 100, 200],
-    tag: notification_type || "default",
-    renotify: true,
-  },
-  fcm_options: {
-    link: entity_type && entity_id
-      ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
-      : `${APP_URL}/dashboard`,
-  },
-},
+### 2. Prevenir orfaos no futuro
+
+**No codigo (`useProperties.ts`):**
+- Adicionar `supabase.from('marketplace_properties').delete().eq('id', id)` nos fluxos de `deleteProperty` e `bulkDeleteProperties`, antes de deletar o imovel principal
+
+**No banco (trigger automatico):**
+- Criar trigger `trigger_cascade_marketplace_delete` na tabela `properties` que, ao deletar um imovel, remove automaticamente o registro correspondente em `marketplace_properties` (camada de seguranca adicional caso o frontend falhe)
+
+### 3. Substituir IDs inteligentes por sequenciais
+
+**Migracoes de banco:**
+- Alterar a funcao `auto_generate_property_code` para gerar um numero sequencial por organizacao (1, 2, 3...) em vez do codigo complexo atual
+- Recalcular todos os `property_code` existentes com sequenciais baseados na ordem de criacao (`created_at`)
+- Remover/simplificar as tabelas auxiliares `city_codes`, `zone_codes`, `property_type_codes` que deixam de ser necessarias para geracao de codigo
+
+**No frontend:**
+- Manter a exibicao do `property_code` nos cards e listas (ja funciona)
+- Simplificar o componente `PropertyCodeSearch` para buscar por numero simples
+- Remover a funcao RPC `search_properties_by_code` complexa e substituir por busca direta no campo
+
+---
+
+## Detalhes Tecnicos
+
+### Migracoes SQL
+
+```text
+-- 1. Limpar orfaos
+DELETE FROM marketplace_contact_access
+WHERE marketplace_property_id NOT IN (SELECT id FROM properties);
+
+DELETE FROM marketplace_properties
+WHERE id NOT IN (SELECT id FROM properties);
+
+-- 2. Trigger cascata
+CREATE OR REPLACE FUNCTION cascade_delete_marketplace()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM marketplace_properties WHERE id = OLD.id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_cascade_marketplace_delete
+  AFTER DELETE ON properties
+  FOR EACH ROW
+  EXECUTE FUNCTION cascade_delete_marketplace();
+
+-- 3. Redefinir property_code como sequencial por org
+CREATE OR REPLACE FUNCTION auto_generate_property_code()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_next INT;
+BEGIN
+  IF NEW.property_code IS NULL THEN
+    SELECT COALESCE(MAX(property_code::int), 0) + 1
+    INTO v_next
+    FROM properties
+    WHERE organization_id = NEW.organization_id
+      AND property_code ~ '^\d+$';
+    NEW.property_code := COALESCE(v_next, 1)::text;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Recalcular codigos existentes
+WITH ranked AS (
+  SELECT id, organization_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY organization_id ORDER BY created_at
+    ) as seq
+  FROM properties
+)
+UPDATE properties p
+SET property_code = r.seq::text
+FROM ranked r
+WHERE p.id = r.id;
 ```
 
-### 2. Botao de Teste Local `src/components/developer/PushTestCard.tsx`
-
-Adicionar um botao "Teste Local" que cria uma notificacao diretamente pelo browser (sem FCM) para isolar se o problema e no navegador ou no FCM:
-
-```typescript
-const testLocalNotification = () => {
-  if (Notification.permission === "granted") {
-    new Notification("Teste Local Habitae", {
-      body: "Se voce esta vendo isso, o navegador permite notificacoes!",
-      icon: "/pwa-192x192.png",
-    });
-    toast.success("Notificacao local enviada - verifique se apareceu");
-  } else {
-    toast.error(`Permissao: ${Notification.permission}`);
-  }
-};
-```
-
-Isso permite distinguir entre:
-- **Teste local funciona mas FCM nao**: problema no payload FCM (URLs)
-- **Teste local tambem nao funciona**: problema no navegador/OS (permissoes bloqueadas)
-
-### 3. Adicionar secret APP_URL (opcional)
-
-Configurar `APP_URL` como secret na edge function com valor `https://habitae1.lovable.app`. Caso nao exista, o fallback hardcoded sera usado.
-
-## Resumo
+### Arquivos a modificar
 
 | Arquivo | Alteracao |
-|---------|-----------|
-| `supabase/functions/send-push/index.ts` | URLs absolutas no payload webpush |
-| `src/components/developer/PushTestCard.tsx` | Botao "Teste Local" para diagnostico |
+|---|---|
+| `src/hooks/useProperties.ts` | Adicionar delete marketplace em deleteProperty e bulkDeleteProperties |
+| `src/components/properties/PropertyCard.tsx` | Exibir `#1` em vez de `#0199011625` (ja funciona automaticamente) |
+| `src/components/properties/PropertyCodeSearch.tsx` | Simplificar busca para campo numerico |
+| `src/components/properties/PropertyListItem.tsx` | Nenhuma mudanca necessaria (ja usa property_code) |
+| `src/components/marketplace/MarketplacePropertyCard.tsx` | Nenhuma mudanca (usa external_code do marketplace) |
 
-## Apos Implementacao
+### Riscos e mitigacoes
 
-1. Publicar o app
-2. Limpar dados do site no navegador
-3. Reativar push
-4. Clicar "Teste Local" - se aparecer, o navegador esta OK
-5. Clicar "Enviar Push de Teste" - agora deve funcionar com URLs absolutas
-
+- **Codigos duplicados durante transicao**: O recalculo usa `ROW_NUMBER` por org, garantindo unicidade
+- **Links externos com codigo antigo**: Se algum QR code ou landing page usa o codigo antigo, deixara de funcionar. Considerar isso aceitavel conforme decisao do usuario
+- **Marketplace publish futuro**: O `external_code` no marketplace continuara sendo preenchido com o `property_code` (agora sequencial)
