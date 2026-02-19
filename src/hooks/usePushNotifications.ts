@@ -43,17 +43,47 @@ export function usePushNotifications() {
       });
   }, [user]);
 
-  // Listen for foreground messages
+  // Listen for foreground messages — retry until messaging is ready
   useEffect(() => {
-    const unsubscribe = onForegroundMessage((payload) => {
-      // Support both notification and data-only messages
-      const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
-      const body = payload?.notification?.body || payload?.data?.message || "";
-      toast(title, { description: body });
-    });
+    let cleanup: (() => void) | null = null;
+    let cancelled = false;
+
+    const setup = () => {
+      if (cancelled) return;
+      const unsub = onForegroundMessage((payload) => {
+        const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
+        const body = payload?.notification?.body || payload?.data?.message || "";
+
+        // Show toast
+        toast(title, { description: body });
+
+        // Also show native notification so user sees it even if toast is missed
+        if (Notification.permission === "granted") {
+          try {
+            new Notification(title, {
+              body,
+              icon: "/pwa-192x192.png",
+              tag: payload?.data?.notification_type || "foreground",
+            });
+          } catch {
+            // Notification constructor may fail in some contexts
+          }
+        }
+      });
+
+      if (typeof unsub === "function") {
+        cleanup = unsub;
+      } else {
+        // Messaging not ready yet, retry in 2s
+        setTimeout(setup, 2000);
+      }
+    };
+
+    setup();
 
     return () => {
-      if (typeof unsubscribe === "function") unsubscribe();
+      cancelled = true;
+      if (typeof cleanup === "function") cleanup();
     };
   }, []);
 
