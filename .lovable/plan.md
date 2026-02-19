@@ -1,85 +1,121 @@
 
-# Plano: Corrigir Notificações Push
+# Plano: Diagnosticar e Corrigir Push Notifications
 
-## Problema Identificado
+## Situacao Atual
 
-A raiz do problema sao dois bugs no registro do Service Worker:
+O backend esta funcionando corretamente - FCM aceita a mensagem e retorna `sent: 1`. O problema esta no lado do cliente: o Service Worker nao esta exibindo a notificacao.
 
-1. **Conflito de escopo**: O Service Worker do PWA (VitePWA/Workbox) e o Service Worker do Firebase tentam se registrar no mesmo escopo (`/`). Quando isso acontece, um substitui o outro, e o Firebase perde o controle das notificacoes push.
-
-2. **Uso errado de `getRegistration`**: O codigo atual usa `getRegistration("/firebase-messaging-sw.js")`, mas essa funcao busca por **escopo**, nao por URL do script. Resultado: nunca encontra o Service Worker do Firebase, e o `getToken` recebe `undefined` como registration.
-
-## Solucao
-
-Registrar o Service Worker do Firebase com um escopo dedicado (`/firebase-cloud-messaging-push-scope/`), separado do escopo do PWA.
+Existem 3 possiveis causas restantes que vamos atacar de uma vez:
 
 ---
 
-## Alteracoes
+## Causa 1: Workbox SW consumindo push events
 
-### 1. `src/hooks/usePushNotifications.ts`
+O VitePWA gera um Service Worker Workbox no escopo `/` que pode estar interceptando os eventos de push antes do Firebase SW. Solucao: configurar o Workbox para ignorar push events.
 
-Corrigir o registro do Service Worker para usar escopo dedicado:
-
-```typescript
-// ANTES (bugado):
-let swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-if (!swReg) {
-  swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-}
-
-// DEPOIS (corrigido):
-const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
-let swReg = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
-if (!swReg) {
-  swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
-    scope: FIREBASE_SW_SCOPE
-  });
-  await swReg.update();
-}
-```
-
-### 2. `src/lib/firebase.ts`
-
-Atualizar `requestPushToken` para buscar o SW pelo escopo correto:
+### Alteracao em `vite.config.ts`
+Adicionar `ignoreURLParametersMatching` e desabilitar o handler de push no Workbox:
 
 ```typescript
-// ANTES:
-const registration = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-
-// DEPOIS:
-const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
-let registration = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
-if (!registration) {
-  registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
-    scope: FIREBASE_SW_SCOPE
-  });
+workbox: {
+  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+  navigateFallbackDenylist: [/^\/~oauth/, /^\/firebase-cloud-messaging-push-scope/],
+  // ... resto fica igual
 }
-```
-
-Tambem remover o bloco de `postMessage` que nao e mais necessario (a config ja esta hardcoded no SW).
-
-### 3. `public/firebase-messaging-sw.js`
-
-Adicionar log de debug temporario para confirmar que o SW esta ativo:
-
-```javascript
-console.log("[firebase-messaging-sw] Service Worker ativo, Firebase inicializado");
 ```
 
 ---
 
-## Detalhes Tecnicos
+## Causa 2: FCM payload precisa incluir `webpush.notification`
 
-- `navigator.serviceWorker.register(scriptURL, { scope })` define o escopo de atuacao do SW
-- `navigator.serviceWorker.getRegistration(scope)` busca um SW pelo seu escopo, **nao** pela URL do script
-- O escopo `/firebase-cloud-messaging-push-scope/` e o padrao recomendado pelo Firebase para evitar conflitos com outros Service Workers
-- O VitePWA continuara funcionando normalmente no escopo `/` sem interferencia
+Mensagens puramente data-only nao disparam automaticamente o evento `push` em todos os navegadores. A solucao e enviar um payload hibrido: `notification` para o navegador mostrar + `data` para deep linking.
+
+### Alteracao em `supabase/functions/send-push/index.ts`
+
+Restaurar o campo `notification` no payload FCM junto com `data`:
+
+```typescript
+body: JSON.stringify({
+  message: {
+    token: sub.fcm_token,
+    notification: {
+      title,
+      body: message || "",
+    },
+    webpush: {
+      notification: {
+        icon: "/pwa-192x192.png",
+        badge: "/pwa-192x192.png",
+        vibrate: [200, 100, 200],
+        tag: notification_type || "default",
+        renotify: true,
+      },
+      fcm_options: {
+        link: entity_type && entity_id
+          ? getEntityLink(entity_type, entity_id)
+          : "/dashboard",
+      },
+    },
+    data: {
+      ...notificationData,
+      title,
+      message: message || "",
+    },
+  },
+}),
+```
+
+A chave `webpush.notification` forca o navegador a exibir a notificacao de sistema, mesmo sem interacao do Service Worker. O campo `data` mantem o deep linking.
+
+---
+
+## Causa 3: SW Firebase nao esta registrado/ativo
+
+Pode ser que o SW nao esteja ativo no momento do push. Vamos adicionar uma verificacao visual no PushTestCard.
+
+### Alteracao em `src/components/developer/PushTestCard.tsx`
+
+Adicionar botao "Verificar SW" que checa se o Service Worker do Firebase esta ativo:
+
+```typescript
+const checkSW = async () => {
+  const reg = await navigator.serviceWorker.getRegistration(
+    "/firebase-cloud-messaging-push-scope/"
+  );
+  if (reg?.active) {
+    toast.success(`SW ativo (state: ${reg.active.state})`);
+  } else {
+    toast.error("SW Firebase NAO encontrado. Reative o push.");
+  }
+};
+```
+
+---
+
+## Causa 4: Remover fallback `push` listener duplicado do SW
+
+O Service Worker atual tem DOIS handlers de push: `onBackgroundMessage` do Firebase SDK e um `addEventListener("push")` manual. Eles podem estar conflitando, com o segundo tentando parsear o payload de forma diferente. Vamos simplificar mantendo apenas o `onBackgroundMessage` e o fallback com protecao contra duplicatas.
+
+### Alteracao em `public/firebase-messaging-sw.js`
+
+Manter o `onBackgroundMessage` como handler principal. Remover o `addEventListener("push")` duplicado que pode causar conflitos.
+
+---
+
+## Resumo das Alteracoes
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| `vite.config.ts` | Excluir escopo Firebase do Workbox |
+| `supabase/functions/send-push/index.ts` | Restaurar payload hibrido `notification` + `webpush` + `data` |
+| `public/firebase-messaging-sw.js` | Remover listener `push` duplicado, manter `onBackgroundMessage` |
+| `src/components/developer/PushTestCard.tsx` | Adicionar botao "Verificar SW" |
 
 ## Apos Implementacao
 
-O usuario precisara:
-1. Acessar o app publicado
-2. Ir em Configuracoes do navegador e limpar dados do site (para remover SW antigo)
-3. Reativar as notificacoes push
-4. Testar pelo painel Developer
+1. Publicar o app
+2. No PC, limpar dados do site (DevTools -> Application -> Clear site data)
+3. Acessar o app publicado
+4. Clicar "Verificar SW" para confirmar que esta ativo
+5. Ativar Push
+6. Enviar teste
