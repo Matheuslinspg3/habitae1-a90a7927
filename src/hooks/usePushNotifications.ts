@@ -74,9 +74,11 @@ export function usePushNotifications() {
       }
 
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+      console.log("[Push Debug] VAPID key exists:", !!vapidKey, "length:", vapidKey?.length);
+      console.log("[Push Debug] FIREBASE_CONFIG exists:", !!import.meta.env.VITE_FIREBASE_CONFIG);
       if (!vapidKey) {
         console.error("VITE_FIREBASE_VAPID_KEY not set");
-        toast.error("Configuração de push incompleta");
+        toast.error("Configuração de push incompleta — VAPID key ausente");
         return false;
       }
 
