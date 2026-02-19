@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,8 +10,9 @@ import { toast } from "sonner";
 
 export function PushTestCard() {
   const { user } = useAuth();
-  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications();
+  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe, debugInfo } = usePushNotifications();
   const [isSending, setIsSending] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   const handleTestPush = async () => {
     if (!user) return;
@@ -31,7 +32,7 @@ export function PushTestCard() {
       if (data?.sent > 0) {
         toast.success(`Push enviado com sucesso! (${data.sent} dispositivo${data.sent > 1 ? "s" : ""})`);
       } else {
-        toast.warning("Nenhum dispositivo registrado. Ative as notificações primeiro.");
+        toast.warning(`Nenhum dispositivo recebeu. Tokens removidos: ${data?.staleRemoved || 0}. Reative as notificações.`);
       }
     } catch (e: any) {
       console.error("Test push error:", e);
@@ -47,6 +48,14 @@ export function PushTestCard() {
         <CardTitle className="text-base flex items-center gap-2">
           <Bell className="h-4 w-4" />
           Push Notifications
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 w-6 p-0"
+            onClick={() => setShowDebug(!showDebug)}
+          >
+            <Bug className="h-3 w-3" />
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -105,6 +114,18 @@ export function PushTestCard() {
           <p className="text-xs text-muted-foreground">
             Ative as notificações push primeiro para poder enviar um teste.
           </p>
+        )}
+
+        {/* Debug Info */}
+        {showDebug && debugInfo.length > 0 && (
+          <div className="rounded-md bg-muted p-3 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Debug Log:</p>
+            {debugInfo.map((line, i) => (
+              <p key={i} className="text-xs font-mono text-muted-foreground">
+                {line}
+              </p>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
