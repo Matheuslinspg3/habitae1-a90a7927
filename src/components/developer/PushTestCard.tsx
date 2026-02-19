@@ -165,6 +165,11 @@ export function PushTestCard() {
           </p>
         )}
 
+        {/* Version */}
+        <p className="text-xs text-muted-foreground font-mono">
+          Push v1.3 — build {new Date().toISOString().slice(0, 16)}
+        </p>
+
         {/* Debug Info */}
         {showDebug && debugInfo.length > 0 && (
           <div className="rounded-md bg-muted p-3 space-y-1">
