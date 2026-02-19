@@ -4,6 +4,16 @@ import { getMessaging, getToken, onMessage, type Messaging } from "firebase/mess
 let app: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 
+const FALLBACK_CONFIG = {
+  apiKey: "AIzaSyAzZKKnALAb-uoUtlvhGDFZ5Gf0huxQqr8",
+  authDomain: "habitaae.firebaseapp.com",
+  projectId: "habitaae",
+  storageBucket: "habitaae.firebasestorage.app",
+  messagingSenderId: "671342372376",
+  appId: "1:671342372376:web:dae51e941e38742ef3856d",
+  measurementId: "G-YQ0HY6PFL0",
+};
+
 function getFirebaseConfig() {
   const raw = import.meta.env.VITE_FIREBASE_CONFIG;
   if (raw) {
@@ -13,7 +23,7 @@ function getFirebaseConfig() {
       console.error("Invalid VITE_FIREBASE_CONFIG");
     }
   }
-  return null;
+  return FALLBACK_CONFIG;
 }
 
 export function initFirebase(): FirebaseApp | null {
