@@ -15,6 +15,7 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
+console.log("[firebase-messaging-sw] Service Worker ativo, Firebase inicializado");
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {

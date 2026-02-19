@@ -65,12 +65,14 @@ export function usePushNotifications() {
         return false;
       }
 
-      // Register Firebase SW
-      let swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+      // Register Firebase SW with dedicated scope
+      const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
+      let swReg = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
       if (!swReg) {
-        swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-        // Wait for the SW to be ready
-        await navigator.serviceWorker.ready;
+        swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+          scope: FIREBASE_SW_SCOPE,
+        });
+        await swReg.update();
       }
 
       const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BIDDjcPovWWdlcmUXifYnLpoSkt8OhBDxAfgt0KYHjXIGK5-R9eseoKzxGZgTJf7fHJF46gKvZ_Dl31ZVAAmkVs";

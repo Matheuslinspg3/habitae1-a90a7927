@@ -64,27 +64,17 @@ export async function requestPushToken(vapidKey: string): Promise<string | null>
   if (!msg) return null;
 
   try {
-    // Send config to the service worker
-    const config = getFirebaseConfig();
-    if (config && navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: "FIREBASE_CONFIG",
-        config,
-      });
-    }
-
-    // Also send to all active service workers
-    const registration = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
-    if (registration?.active) {
-      registration.active.postMessage({
-        type: "FIREBASE_CONFIG",
-        config,
+    const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
+    let registration = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
+    if (!registration) {
+      registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+        scope: FIREBASE_SW_SCOPE,
       });
     }
 
     const token = await getToken(msg, {
       vapidKey,
-      serviceWorkerRegistration: registration || undefined,
+      serviceWorkerRegistration: registration,
     });
 
     return token || null;
