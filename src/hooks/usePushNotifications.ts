@@ -73,12 +73,10 @@ export function usePushNotifications() {
         await navigator.serviceWorker.ready;
       }
 
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-      console.log("[Push Debug] VAPID key exists:", !!vapidKey, "length:", vapidKey?.length);
-      console.log("[Push Debug] FIREBASE_CONFIG exists:", !!import.meta.env.VITE_FIREBASE_CONFIG);
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BIDDjcPovWWdlcmUXifYnLpoSkt8OhBDxAfgt0KYHjXIGK5-R9eseoKzxGZgTJf7fHJF46gKvZ_Dl31ZVAAmkVs";
       if (!vapidKey) {
         console.error("VITE_FIREBASE_VAPID_KEY not set");
-        toast.error("Configuração de push incompleta — VAPID key ausente");
+        toast.error("Configuração de push incompleta");
         return false;
       }
 
