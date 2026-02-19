@@ -46,8 +46,9 @@ export function usePushNotifications() {
   // Listen for foreground messages
   useEffect(() => {
     const unsubscribe = onForegroundMessage((payload) => {
-      const title = payload?.notification?.title || "Nova notificação";
-      const body = payload?.notification?.body || "";
+      // Support both notification and data-only messages
+      const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
+      const body = payload?.notification?.body || payload?.data?.message || "";
       toast(title, { description: body });
     });
 
