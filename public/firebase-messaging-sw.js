@@ -1,20 +1,17 @@
 /* eslint-disable no-undef */
 // Firebase Messaging Service Worker
-// This file MUST be at the root of the public folder
 
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
 
-// Firebase config will be injected via the main app
-// The SW receives it through the messaging.onBackgroundMessage handler
 firebase.initializeApp({
-  // These will be populated by postMessage from the main thread
-  apiKey: self.__FIREBASE_CONFIG__?.apiKey || "",
-  authDomain: self.__FIREBASE_CONFIG__?.authDomain || "",
-  projectId: self.__FIREBASE_CONFIG__?.projectId || "",
-  storageBucket: self.__FIREBASE_CONFIG__?.storageBucket || "",
-  messagingSenderId: self.__FIREBASE_CONFIG__?.messagingSenderId || "",
-  appId: self.__FIREBASE_CONFIG__?.appId || "",
+  apiKey: "AIzaSyAzZKKnALAb-uoUtlvhGDFZ5Gf0huxQqr8",
+  authDomain: "habitaae.firebaseapp.com",
+  projectId: "habitaae",
+  storageBucket: "habitaae.firebasestorage.app",
+  messagingSenderId: "671342372376",
+  appId: "1:671342372376:web:dae51e941e38742ef3856d",
+  measurementId: "G-YQ0HY6PFL0",
 });
 
 const messaging = firebase.messaging();
@@ -72,19 +69,4 @@ self.addEventListener("notificationclick", (event) => {
       return clients.openWindow(url);
     })
   );
-});
-
-// Listen for config from main thread
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "FIREBASE_CONFIG") {
-    self.__FIREBASE_CONFIG__ = event.data.config;
-    // Re-initialize with actual config
-    try {
-      firebase.app().delete().then(() => {
-        firebase.initializeApp(event.data.config);
-      });
-    } catch (e) {
-      // Already initialized or error - ignore
-    }
-  }
 });
