@@ -6,7 +6,6 @@ import {
   Terminal, ChevronRight
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
-import { PushTestCard } from "@/components/developer/PushTestCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
 import { StorageUsageTab } from "@/components/developer/StorageUsageTab";
 import { RolesTab } from "@/components/developer/RolesTab";
@@ -47,9 +46,6 @@ export default function DeveloperDashboard() {
 
       {/* System Health Overview */}
       <SystemHealthCard />
-
-      {/* Push Notification Test */}
-      <PushTestCard />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
