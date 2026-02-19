@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug } from "lucide-react";
+import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug, Monitor } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,18 @@ export function PushTestCard() {
       }
     } catch (e: any) {
       toast.error("Erro ao verificar SW: " + e.message);
+    }
+  };
+
+  const testLocalNotification = () => {
+    if (Notification.permission === "granted") {
+      new Notification("🔔 Teste Local Habitae", {
+        body: "Se você está vendo isso, o navegador permite notificações!",
+        icon: "/pwa-192x192.png",
+      });
+      toast.success("Notificação local enviada - verifique se apareceu");
+    } else {
+      toast.error(`Permissão: ${Notification.permission}`);
     }
   };
 
@@ -123,6 +135,16 @@ export function PushTestCard() {
           >
             <Bug className="h-4 w-4" />
             Verificar SW
+          </Button>
+
+          <Button
+            onClick={testLocalNotification}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Monitor className="h-4 w-4" />
+            Teste Local
           </Button>
 
           <Button

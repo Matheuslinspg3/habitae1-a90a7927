@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const APP_URL = Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
     const body: PushPayload = await req.json();
     const { user_id, title, message, entity_id, entity_type, notification_type } = body;
 
@@ -158,16 +159,16 @@ Deno.serve(async (req) => {
                 },
                 webpush: {
                   notification: {
-                    icon: "/pwa-192x192.png",
-                    badge: "/pwa-192x192.png",
+                    icon: `${APP_URL}/pwa-192x192.png`,
+                    badge: `${APP_URL}/pwa-192x192.png`,
                     vibrate: [200, 100, 200],
                     tag: notification_type || "default",
                     renotify: true,
                   },
                   fcm_options: {
                     link: entity_type && entity_id
-                      ? getEntityLink(entity_type, entity_id)
-                      : "/dashboard",
+                      ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
+                      : `${APP_URL}/dashboard`,
                   },
                 },
                 data: {
