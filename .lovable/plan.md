@@ -1,95 +1,85 @@
 
+# Plano: Corrigir Notificações Push
 
-# Envio Automatico de Email de Convite
+## Problema Identificado
 
-## Situacao Atual
+A raiz do problema sao dois bugs no registro do Service Worker:
 
-- Ao criar convites (de cliente ou de equipe), o sistema apenas gera o link e copia para a area de transferencia.
-- Nao existe envio automatico de email -- o administrador precisa copiar e enviar manualmente.
-- Nao ha nenhum servico de email configurado no projeto.
+1. **Conflito de escopo**: O Service Worker do PWA (VitePWA/Workbox) e o Service Worker do Firebase tentam se registrar no mesmo escopo (`/`). Quando isso acontece, um substitui o outro, e o Firebase perde o controle das notificacoes push.
 
-## Proposta
+2. **Uso errado de `getRegistration`**: O codigo atual usa `getRegistration("/firebase-messaging-sw.js")`, mas essa funcao busca por **escopo**, nao por URL do script. Resultado: nunca encontra o Service Worker do Firebase, e o `getToken` recebe `undefined` como registration.
 
-Integrar o servico **Resend** para enviar emails automaticamente ao criar convites, tanto para novos clientes (imobiliarias) quanto para corretores entrando em uma equipe.
+## Solucao
 
-## Etapas
-
-### 1. Configurar a chave API do Resend
-
-- Solicitar ao usuario a chave de API do Resend (obtida em https://resend.com/api-keys).
-- Armazena-la como secret `RESEND_API_KEY` na Lovable Cloud.
-- O Resend oferece plano gratuito com 100 emails/dia, suficiente para convites.
-
-### 2. Criar Edge Function `send-invite-email`
-
-Uma unica funcao backend que recebe os dados do convite e envia o email formatado. Parametros:
-
-- `to` -- email do destinatario
-- `type` -- `"platform"` (novo cliente) ou `"team"` (corretor)
-- `invite_link` -- URL completa do convite
-- `org_name` -- nome da organizacao (para convite de equipe)
-- `org_code` -- codigo da imobiliaria (para convite de equipe)
-- `inviter_name` -- nome de quem convidou
-
-A funcao monta um email HTML com template profissional contendo:
-
-- Para convites de **cliente (plataforma)**: titulo "Voce foi convidado para a Habitae", botao com link de cadastro, mencao dos 7 dias gratuitos.
-- Para convites de **equipe (corretor)**: titulo "Voce foi convidado para [Nome da Imobiliaria]", botao com link de cadastro, codigo da imobiliaria em destaque.
-
-### 3. Atualizar `TeamInviteSection.tsx`
-
-Apos criar o convite com sucesso no banco:
-
-- Chamar `supabase.functions.invoke("send-invite-email")` com `type: "team"`, incluindo o link, nome da org e codigo da imobiliaria.
-- Exibir toast de sucesso: "Convite enviado por email para [email]".
-- Manter a opcao de copiar link manualmente como fallback.
-
-### 4. Atualizar `PlatformInviteSection.tsx`
-
-Apos criar o convite com sucesso:
-
-- Chamar `supabase.functions.invoke("send-invite-email")` com `type: "platform"`, incluindo o link.
-- Exibir toast: "Email de convite enviado para [email]".
-- Manter opcao de copiar link como antes.
-
-### 5. Template do Email
-
-Ambos os templates incluem:
-
-- Logo da Habitae (ou texto estilizado)
-- Saudacao personalizada
-- Explicacao clara do convite
-- Botao de acao (CTA) com o link
-- Para convite de equipe: caixa destacada com o codigo da imobiliaria
-- Rodape com informacao de expiracao
+Registrar o Service Worker do Firebase com um escopo dedicado (`/firebase-cloud-messaging-push-scope/`), separado do escopo do PWA.
 
 ---
 
-## Secao Tecnica
+## Alteracoes
 
-### Edge Function `send-invite-email/index.ts`
+### 1. `src/hooks/usePushNotifications.ts`
 
-```text
-POST /send-invite-email
-Body: { to, type, invite_link, org_name?, org_code?, inviter_name? }
+Corrigir o registro do Service Worker para usar escopo dedicado:
 
-1. Validar campos obrigatorios
-2. Montar HTML do email baseado no type
-3. Chamar Resend API:
-   POST https://api.resend.com/emails
-   Headers: Authorization: Bearer RESEND_API_KEY
-   Body: { from: "Habitae <noreply@seudominio.com>", to, subject, html }
-4. Retornar sucesso/erro
+```typescript
+// ANTES (bugado):
+let swReg = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+if (!swReg) {
+  swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+}
+
+// DEPOIS (corrigido):
+const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
+let swReg = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
+if (!swReg) {
+  swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+    scope: FIREBASE_SW_SCOPE
+  });
+  await swReg.update();
+}
 ```
 
-### Mudancas nos componentes
+### 2. `src/lib/firebase.ts`
 
-- `TeamInviteSection.tsx` -- adicionar chamada `send-invite-email` no `onSuccess` da mutation `createInvite`
-- `PlatformInviteSection.tsx` -- adicionar chamada `send-invite-email` no `onSuccess` da mutation `createInvite`
+Atualizar `requestPushToken` para buscar o SW pelo escopo correto:
 
-### Pre-requisitos
+```typescript
+// ANTES:
+const registration = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
 
-- Conta no Resend (gratuita)
-- Chave API do Resend configurada como secret
-- Dominio verificado no Resend (ou usar `onboarding@resend.dev` para testes)
+// DEPOIS:
+const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
+let registration = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
+if (!registration) {
+  registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+    scope: FIREBASE_SW_SCOPE
+  });
+}
+```
 
+Tambem remover o bloco de `postMessage` que nao e mais necessario (a config ja esta hardcoded no SW).
+
+### 3. `public/firebase-messaging-sw.js`
+
+Adicionar log de debug temporario para confirmar que o SW esta ativo:
+
+```javascript
+console.log("[firebase-messaging-sw] Service Worker ativo, Firebase inicializado");
+```
+
+---
+
+## Detalhes Tecnicos
+
+- `navigator.serviceWorker.register(scriptURL, { scope })` define o escopo de atuacao do SW
+- `navigator.serviceWorker.getRegistration(scope)` busca um SW pelo seu escopo, **nao** pela URL do script
+- O escopo `/firebase-cloud-messaging-push-scope/` e o padrao recomendado pelo Firebase para evitar conflitos com outros Service Workers
+- O VitePWA continuara funcionando normalmente no escopo `/` sem interferencia
+
+## Apos Implementacao
+
+O usuario precisara:
+1. Acessar o app publicado
+2. Ir em Configuracoes do navegador e limpar dados do site (para remover SW antigo)
+3. Reativar as notificacoes push
+4. Testar pelo painel Developer
