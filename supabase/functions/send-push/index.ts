@@ -152,6 +152,24 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               message: {
                 token: sub.fcm_token,
+                notification: {
+                  title,
+                  body: message || "",
+                },
+                webpush: {
+                  notification: {
+                    icon: "/pwa-192x192.png",
+                    badge: "/pwa-192x192.png",
+                    vibrate: [200, 100, 200],
+                    tag: notification_type || "default",
+                    renotify: true,
+                  },
+                  fcm_options: {
+                    link: entity_type && entity_id
+                      ? getEntityLink(entity_type, entity_id)
+                      : "/dashboard",
+                  },
+                },
                 data: {
                   ...notificationData,
                   title,

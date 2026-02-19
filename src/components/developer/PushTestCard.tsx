@@ -14,6 +14,23 @@ export function PushTestCard() {
   const [isSending, setIsSending] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
 
+  const checkSW = async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration(
+        "/firebase-cloud-messaging-push-scope/"
+      );
+      if (reg?.active) {
+        toast.success(`SW ativo (state: ${reg.active.state}, scope: ${reg.scope})`);
+      } else if (reg) {
+        toast.warning(`SW encontrado mas não ativo (installing: ${reg.installing?.state}, waiting: ${reg.waiting?.state})`);
+      } else {
+        toast.error("SW Firebase NÃO encontrado. Reative o push.");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao verificar SW: " + e.message);
+    }
+  };
+
   const handleTestPush = async () => {
     if (!user) return;
     setIsSending(true);
@@ -97,6 +114,16 @@ export function PushTestCard() {
               Desativar Push
             </Button>
           )}
+
+          <Button
+            onClick={checkSW}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Bug className="h-4 w-4" />
+            Verificar SW
+          </Button>
 
           <Button
             onClick={handleTestPush}
