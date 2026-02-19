@@ -25,6 +25,7 @@ import { UnifiedPlanSection } from "@/components/settings/UnifiedPlanSection";
 import { VerificationSection } from "@/components/settings/VerificationSection";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const BRAZILIAN_STATES = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT",
@@ -754,6 +755,9 @@ export default function Settings() {
                   </p>
                 </CardContent>
               </Card>
+
+              {/* Push Notifications */}
+              <PushNotificationCard />
             </div>
           </TabsContent>
 
@@ -771,5 +775,68 @@ export default function Settings() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+function PushNotificationCard() {
+  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications();
+
+  if (!isSupported) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notificações Push
+          </CardTitle>
+          <CardDescription>
+            Seu navegador não suporta notificações push. Use Chrome, Edge ou Firefox para ativar.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="h-5 w-5" />
+          Notificações Push
+        </CardTitle>
+        <CardDescription>
+          Receba notificações em tempo real no seu dispositivo, mesmo com o navegador fechado.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">
+              {isSubscribed ? "Push ativado" : "Push desativado"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {permission === "denied"
+                ? "Permissão bloqueada nas configurações do navegador"
+                : isSubscribed
+                  ? "Você receberá alertas de novos leads, imóveis e compromissos"
+                  : "Ative para ser notificado instantaneamente"}
+            </p>
+          </div>
+          <Switch
+            checked={isSubscribed}
+            disabled={isLoading || permission === "denied"}
+            onCheckedChange={(checked) => {
+              if (checked) subscribe();
+              else unsubscribe();
+            }}
+          />
+        </div>
+        {permission === "denied" && (
+          <p className="text-xs text-destructive">
+            As notificações estão bloqueadas. Acesse as configurações do navegador para permitir notificações deste site.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
