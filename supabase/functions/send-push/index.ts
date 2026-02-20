@@ -164,6 +164,11 @@ Deno.serve(async (req) => {
                     vibrate: [200, 100, 200],
                     tag: notification_type || "default",
                     renotify: true,
+                    data: {
+                      ...notificationData,
+                      title,
+                      message: message || "",
+                    },
                   },
                   fcm_options: {
                     link: entity_type && entity_id
