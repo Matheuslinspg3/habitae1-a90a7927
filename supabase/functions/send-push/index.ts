@@ -164,6 +164,15 @@ Deno.serve(async (req) => {
                     vibrate: [200, 100, 200],
                     tag: notification_type || "default",
                     renotify: true,
+                    // data is required so the notificationclick handler in the
+                    // service worker can read entity_type/entity_id and navigate
+                    // to the correct page. Without this, event.notification.data
+                    // is empty for browser-auto-shown notifications (hybrid payload).
+                    data: {
+                      ...notificationData,
+                      title,
+                      message: message || "",
+                    },
                   },
                   fcm_options: {
                     link: entity_type && entity_id
