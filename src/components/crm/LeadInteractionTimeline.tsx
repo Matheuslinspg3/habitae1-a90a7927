@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Phone, Mail, MapPin, MessageCircle, Users, FileText, Plus, Loader2, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Switch } from '@/components/ui/switch';
 import {
   useLeadInteractions,
   INTERACTION_TYPES,
@@ -26,13 +27,15 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 interface LeadInteractionTimelineProps {
   leadId: string | null;
+  leadName?: string;
 }
 
-export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps) {
+export function LeadInteractionTimeline({ leadId, leadName }: LeadInteractionTimelineProps) {
   const { interactions, isLoading, createInteraction, isCreating } = useLeadInteractions(leadId);
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState<InteractionType>('ligacao');
   const [description, setDescription] = useState('');
+  const [addToSchedule, setAddToSchedule] = useState(false);
   const [occurredAt, setOccurredAt] = useState(() => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -42,10 +45,17 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
   const handleSubmit = () => {
     if (!description.trim()) return;
     createInteraction(
-      { type, description: description.trim(), occurred_at: new Date(occurredAt).toISOString() },
+      {
+        type,
+        description: description.trim(),
+        occurred_at: new Date(occurredAt).toISOString(),
+        addToSchedule,
+        leadName,
+      },
       {
         onSuccess: () => {
           setDescription('');
+          setAddToSchedule(false);
           setShowForm(false);
         },
       }
@@ -100,6 +110,17 @@ export function LeadInteractionTimeline({ leadId }: LeadInteractionTimelineProps
             className="resize-none text-sm"
             rows={2}
           />
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground flex items-center gap-2 cursor-pointer">
+              <Switch
+                checked={addToSchedule}
+                onCheckedChange={setAddToSchedule}
+                className="scale-75"
+              />
+              <Calendar className="h-3 w-3" />
+              Incluir na agenda
+            </Label>
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setShowForm(false)} className="h-7 text-xs">
               Cancelar

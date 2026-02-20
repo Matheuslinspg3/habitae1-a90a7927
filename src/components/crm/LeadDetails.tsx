@@ -292,7 +292,7 @@ export function LeadDetails({
 
           <Separator />
 
-          <LeadInteractionTimeline leadId={lead.id} />
+          <LeadInteractionTimeline leadId={lead.id} leadName={lead.name} />
 
           <Separator />
 

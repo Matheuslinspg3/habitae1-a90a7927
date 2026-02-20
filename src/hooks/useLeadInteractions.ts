@@ -16,6 +16,14 @@ export const INTERACTION_TYPES: { id: InteractionType; label: string; icon: stri
   { id: 'nota', label: 'Nota', icon: 'FileText' },
 ];
 
+export interface CreateInteractionInput {
+  type: InteractionType;
+  description: string;
+  occurred_at?: string;
+  addToSchedule?: boolean;
+  leadName?: string;
+}
+
 export function useLeadInteractions(leadId: string | null) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -38,10 +46,20 @@ export function useLeadInteractions(leadId: string | null) {
   });
 
   const createInteraction = useMutation({
-    mutationFn: async (input: { type: InteractionType; description: string; occurred_at?: string }) => {
+    mutationFn: async (input: CreateInteractionInput) => {
       if (!user || !leadId) throw new Error('Dados insuficientes');
 
-      const { data, error } = await supabase
+      // 1. Get user profile for organization_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.organization_id) throw new Error('Organização não encontrada');
+
+      // 2. Create the interaction
+      const { data: interaction, error } = await supabase
         .from('lead_interactions')
         .insert({
           lead_id: leadId,
@@ -54,10 +72,45 @@ export function useLeadInteractions(leadId: string | null) {
         .single();
 
       if (error) throw error;
-      return data;
+
+      // 3. If addToSchedule, create linked appointment
+      if (input.addToSchedule && interaction) {
+        const typeLabel = INTERACTION_TYPES.find(t => t.id === input.type)?.label || input.type;
+        const leadLabel = input.leadName || 'Lead';
+        const occurredAt = input.occurred_at ? new Date(input.occurred_at) : new Date();
+        const endTime = new Date(occurredAt.getTime() + 30 * 60 * 1000); // +30min
+        const isPast = occurredAt < new Date();
+
+        const { data: appointment, error: aptError } = await supabase
+          .from('appointments')
+          .insert({
+            title: `${typeLabel} - ${leadLabel}`,
+            start_time: occurredAt.toISOString(),
+            end_time: endTime.toISOString(),
+            lead_id: leadId,
+            organization_id: profile.organization_id,
+            created_by: user.id,
+            interaction_id: interaction.id,
+            completed: isPast,
+            description: input.description,
+          })
+          .select()
+          .single();
+
+        if (!aptError && appointment) {
+          // Update interaction with appointment_id
+          await supabase
+            .from('lead_interactions')
+            .update({ appointment_id: appointment.id })
+            .eq('id', interaction.id);
+        }
+      }
+
+      return interaction;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lead-interactions', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast({ title: 'Interação registrada' });
     },
     onError: (error) => {

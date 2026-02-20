@@ -88,6 +88,7 @@ export type Database = {
           description: string | null
           end_time: string
           id: string
+          interaction_id: string | null
           lead_id: string | null
           location: string | null
           organization_id: string
@@ -104,6 +105,7 @@ export type Database = {
           description?: string | null
           end_time: string
           id?: string
+          interaction_id?: string | null
           lead_id?: string | null
           location?: string | null
           organization_id: string
@@ -120,6 +122,7 @@ export type Database = {
           description?: string | null
           end_time?: string
           id?: string
+          interaction_id?: string | null
           lead_id?: string | null
           location?: string | null
           organization_id?: string
@@ -129,6 +132,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "lead_interactions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_lead_id_fkey"
             columns: ["lead_id"]
@@ -985,6 +995,7 @@ export type Database = {
       }
       lead_interactions: {
         Row: {
+          appointment_id: string | null
           created_at: string
           created_by: string
           description: string
@@ -994,6 +1005,7 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Insert: {
+          appointment_id?: string | null
           created_at?: string
           created_by: string
           description: string
@@ -1003,6 +1015,7 @@ export type Database = {
           type: Database["public"]["Enums"]["interaction_type"]
         }
         Update: {
+          appointment_id?: string | null
           created_at?: string
           created_by?: string
           description?: string
@@ -1012,6 +1025,13 @@ export type Database = {
           type?: Database["public"]["Enums"]["interaction_type"]
         }
         Relationships: [
+          {
+            foreignKeyName: "lead_interactions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lead_interactions_lead_id_fkey"
             columns: ["lead_id"]
