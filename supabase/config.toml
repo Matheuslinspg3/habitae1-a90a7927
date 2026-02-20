@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.send-invite-email]
 verify_jwt = false
+
+[functions.send-push]
+verify_jwt = false
