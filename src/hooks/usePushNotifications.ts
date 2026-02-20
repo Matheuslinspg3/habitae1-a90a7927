@@ -47,6 +47,7 @@ export function usePushNotifications() {
   useEffect(() => {
     let cleanup: (() => void) | null = null;
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const setup = () => {
       if (cancelled) return;
@@ -75,7 +76,7 @@ export function usePushNotifications() {
         cleanup = unsub;
       } else {
         // Messaging not ready yet, retry in 2s
-        setTimeout(setup, 2000);
+        retryTimer = setTimeout(setup, 2000);
       }
     };
 
@@ -83,6 +84,7 @@ export function usePushNotifications() {
 
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       if (typeof cleanup === "function") cleanup();
     };
   }, []);
