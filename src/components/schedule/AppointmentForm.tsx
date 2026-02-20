@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -20,6 +21,12 @@ import { useAppointments, type Appointment, type AppointmentFormData } from '@/h
 import { useLeads } from '@/hooks/useLeads';
 import { useProperties } from '@/hooks/useProperties';
 import { useBrokers } from '@/hooks/useBrokers';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
+import { INTERACTION_TYPES, type InteractionType } from '@/hooks/useLeadInteractions';
+import { CalendarCheck } from 'lucide-react';
 
 interface AppointmentFormProps {
   open: boolean;
@@ -33,6 +40,9 @@ export function AppointmentForm({ open, onOpenChange, appointment, selectedDate 
   const { leads } = useLeads();
   const { properties } = useProperties();
   const { brokers } = useBrokers();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const getDefaultDate = () => {
     const date = selectedDate || new Date();
@@ -50,6 +60,9 @@ export function AppointmentForm({ open, onOpenChange, appointment, selectedDate 
     assigned_to: null,
   });
 
+  const [registerAsInteraction, setRegisterAsInteraction] = useState(false);
+  const [interactionType, setInteractionType] = useState<InteractionType>('ligacao');
+
   useEffect(() => {
     if (appointment) {
       setFormData({
@@ -62,6 +75,7 @@ export function AppointmentForm({ open, onOpenChange, appointment, selectedDate 
         property_id: appointment.property_id || null,
         assigned_to: appointment.assigned_to || null,
       });
+      setRegisterAsInteraction(false);
     } else {
       const dateStr = getDefaultDate();
       setFormData({
@@ -74,16 +88,49 @@ export function AppointmentForm({ open, onOpenChange, appointment, selectedDate 
         property_id: null,
         assigned_to: null,
       });
+      setRegisterAsInteraction(false);
     }
   }, [appointment, open, selectedDate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (appointment) {
       updateAppointment({ ...formData, id: appointment.id });
     } else {
-      createAppointment(formData);
+      createAppointment(formData, {
+        onSuccess: async (result: any) => {
+          // If registerAsInteraction is on, create the interaction
+          if (registerAsInteraction && formData.lead_id && user && result?.id) {
+            try {
+              const { data: interaction, error } = await supabase
+                .from('lead_interactions')
+                .insert({
+                  lead_id: formData.lead_id,
+                  created_by: user.id,
+                  type: interactionType,
+                  description: formData.description || formData.title,
+                  occurred_at: formData.start_time,
+                  appointment_id: result.id,
+                })
+                .select()
+                .single();
+
+              if (!error && interaction) {
+                await supabase
+                  .from('appointments')
+                  .update({ interaction_id: interaction.id })
+                  .eq('id', result.id);
+
+                queryClient.invalidateQueries({ queryKey: ['lead-interactions', formData.lead_id] });
+                toast({ title: 'Interação registrada no CRM' });
+              }
+            } catch {
+              // Non-blocking — appointment was already created
+            }
+          }
+        },
+      });
     }
     onOpenChange(false);
   };
@@ -216,6 +263,32 @@ export function AppointmentForm({ open, onOpenChange, appointment, selectedDate 
               rows={3}
             />
           </div>
+
+          {/* Register as interaction toggle - only for new appointments with lead */}
+          {!appointment && formData.lead_id && (
+            <div className="space-y-3 p-3 rounded-md border bg-muted/30">
+              <Label className="text-sm flex items-center gap-2 cursor-pointer">
+                <Switch
+                  checked={registerAsInteraction}
+                  onCheckedChange={setRegisterAsInteraction}
+                />
+                <CalendarCheck className="h-4 w-4" />
+                Registrar como interação do lead
+              </Label>
+              {registerAsInteraction && (
+                <Select value={interactionType} onValueChange={(v) => setInteractionType(v as InteractionType)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INTERACTION_TYPES.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

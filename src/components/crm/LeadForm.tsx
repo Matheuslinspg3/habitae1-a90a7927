@@ -960,7 +960,7 @@ export function LeadForm({
 
               {isEditing && lead && (
                 <TabsContent value="interactions" className="mt-4">
-                  <LeadInteractionTimeline leadId={lead.id} />
+                  <LeadInteractionTimeline leadId={lead.id} leadName={lead.name} />
                 </TabsContent>
               )}
             </Tabs>
