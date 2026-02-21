@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import portaLogo from "@/assets/porta-logo.png";
+import portaIcon from "@/assets/porta-icon.png";
 
 interface PortaLogoProps {
   variant?: "horizontal" | "icon";
@@ -21,7 +22,7 @@ export const HabitaeLogo = React.forwardRef<HTMLDivElement, PortaLogoProps>(
     if (variant === "icon") {
       return (
         <div className={cn("flex items-center justify-center", className)} ref={ref}>
-          <img src={portaLogo} alt="Porta do Corretor" className={cn(sizes.img, "w-auto object-contain")} />
+          <img src={portaIcon} alt="Porta do Corretor" className={cn(sizes.img, "w-auto object-contain")} />
         </div>
       );
     }
