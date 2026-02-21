@@ -22,6 +22,11 @@ export default function Install() {
       setIsInstalled(true);
     }
 
+    // Pick up prompt captured globally before this component mounted
+    if (window.__pwaInstallPrompt) {
+      setDeferredPrompt(window.__pwaInstallPrompt as BeforeInstallPromptEvent);
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -46,7 +51,7 @@ export default function Install() {
             <Check className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-display font-semibold text-foreground">App Instalado!</h1>
-          <p className="text-muted-foreground">O Habitae já está na sua tela inicial.</p>
+          <p className="text-muted-foreground">O Porta do Corretor já está na sua tela inicial.</p>
         </div>
       </div>
     );
@@ -56,12 +61,12 @@ export default function Install() {
     <div className="min-h-screen flex flex-col items-center p-6 bg-background">
       <div className="w-full max-w-md space-y-8 pt-8">
         <div className="flex flex-col items-center gap-4 text-center">
-          <HabitaeLogo size="lg" variant="icon" />
+          <HabitaeLogo size="lg" variant="horizontal" />
           <h1 className="text-2xl font-display font-semibold text-foreground">
-            Instalar Habitae
+            Instalar Porta do Corretor
           </h1>
           <p className="text-muted-foreground">
-            Tenha o Habitae como app no seu celular. Acesso rápido, tela cheia e funciona offline.
+            Tenha o Porta do Corretor como app no seu celular. Acesso rápido, tela cheia e funciona offline.
           </p>
         </div>
 
