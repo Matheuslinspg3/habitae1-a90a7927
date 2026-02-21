@@ -16,9 +16,6 @@ import {
   Zap,
   UserCog,
   Megaphone,
-  Inbox,
-  BarChart3,
-  Settings2,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -139,48 +136,32 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Anúncios */}
+        {/* Anúncios - single menu item like Marketplace/Imóveis */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
             Anúncios
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* Meta Ads sub-items */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/ads")} tooltip="Ad" className={isActive("/anuncios/meta/ads") || isActive("/anuncios/meta/ad/") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
-                  <NavLink to="/anuncios/meta/ads" className="flex items-center gap-3" activeClassName="text-primary font-medium">
-                    <Megaphone className={`h-4 w-4 ${isActive("/anuncios/meta/ads") || isActive("/anuncios/meta/ad/") ? "text-primary" : ""}`} />
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive("/anuncios")}
+                  tooltip="Anúncios"
+                  className={isActive("/anuncios") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+                >
+                  <NavLink 
+                    to="/anuncios" 
+                    className="flex items-center gap-3"
+                    activeClassName="text-primary font-medium"
+                  >
+                    <Megaphone className={`h-4 w-4 ${isActive("/anuncios") ? "text-primary" : ""}`} />
                     <span>Meta Ads</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/leads")} tooltip="Leads" className={isActive("/anuncios/meta/leads") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
-                  <NavLink to="/anuncios/meta/leads" className="flex items-center gap-3" activeClassName="text-primary font-medium">
-                    <Inbox className={`h-4 w-4 ${isActive("/anuncios/meta/leads") ? "text-primary" : ""}`} />
-                    <span>Leads</span>
                     {newAdLeadsCount > 0 && (
                       <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
                         {newAdLeadsCount}
                       </span>
                     )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/estatisticas")} tooltip="Estatísticas" className={isActive("/anuncios/meta/estatisticas") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
-                  <NavLink to="/anuncios/meta/estatisticas" className="flex items-center gap-3" activeClassName="text-primary font-medium">
-                    <BarChart3 className={`h-4 w-4 ${isActive("/anuncios/meta/estatisticas") ? "text-primary" : ""}`} />
-                    <span>Estatísticas</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/configuracoes")} tooltip="Configurações" className={isActive("/anuncios/meta/configuracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
-                  <NavLink to="/anuncios/meta/configuracoes" className="flex items-center gap-3" activeClassName="text-primary font-medium">
-                    <Settings2 className={`h-4 w-4 ${isActive("/anuncios/meta/configuracoes") ? "text-primary" : ""}`} />
-                    <span>Configurações</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

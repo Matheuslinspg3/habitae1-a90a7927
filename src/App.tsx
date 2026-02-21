@@ -41,11 +41,8 @@ import PlatformSignup from "./pages/PlatformSignup";
 import Install from "./pages/Install";
 import Automations from "./pages/Automations";
 import Administration from "./pages/Administration";
-import MetaAdsList from "./pages/ads/MetaAdsList";
+import Anuncios from "./pages/Anuncios";
 import MetaAdDetail from "./pages/ads/MetaAdDetail";
-import MetaLeadsInbox from "./pages/ads/MetaLeadsInbox";
-import MetaStats from "./pages/ads/MetaStats";
-import MetaSettings from "./pages/ads/MetaSettings";
 import Owners from "./pages/Owners";
 
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
@@ -127,11 +124,8 @@ const App = () => (
                       <Route path="/configuracoes" element={<Settings />} />
                       
                       {/* Ads module */}
-                      <Route path="/anuncios/meta/ads" element={<MetaAdsList />} />
-                      <Route path="/anuncios/meta/ad/:externalId" element={<MetaAdDetail />} />
-                      <Route path="/anuncios/meta/leads" element={<MetaLeadsInbox />} />
-                      <Route path="/anuncios/meta/estatisticas" element={<MetaStats />} />
-                      <Route path="/anuncios/meta/configuracoes" element={<MetaSettings />} />
+                      <Route path="/anuncios" element={<Anuncios />} />
+                      <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
                       
                       {/* Developer route inside AppLayout */}
                       <Route path="/developer" element={
