@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     }
 
     // Decode state
-    let stateData: { user_id: string; org_id: string; redirect: string };
+    let stateData: { user_id: string; org_id: string; redirect: string; origin?: string };
     try {
       stateData = JSON.parse(atob(state));
     } catch {
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
 
     if (!appId || !appSecret) {
       console.error("META_APP_ID or META_APP_SECRET not configured");
-      return redirectToApp("?meta_error=server_config");
+      return redirectToApp("?meta_error=server_config", stateData.origin);
     }
 
     // Exchange code for access token
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     if (tokenData.error) {
       console.error("Token exchange error:", tokenData.error);
-      return redirectToApp("?meta_error=token_exchange");
+      return redirectToApp("?meta_error=token_exchange", stateData.origin);
     }
 
     const accessToken = tokenData.access_token;
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const firstAccount = adAccounts.find((a: any) => a.account_status === 1) || adAccounts[0];
 
     if (!firstAccount) {
-      return redirectToApp("?meta_error=no_ad_account");
+      return redirectToApp("?meta_error=no_ad_account", stateData.origin);
     }
 
     // Save to database using service role
@@ -115,19 +115,18 @@ Deno.serve(async (req) => {
 
     if (dbError) {
       console.error("DB save error:", dbError);
-      return redirectToApp("?meta_error=db_save");
+      return redirectToApp("?meta_error=db_save", stateData.origin);
     }
 
-    return redirectToApp("?meta_success=true");
+    return redirectToApp("?meta_success=true", stateData.origin);
   } catch (err) {
     console.error("Unexpected error:", err);
     return redirectToApp("?meta_error=unexpected");
   }
 });
 
-function redirectToApp(params: string) {
-  // Redirect back to the app's settings page
-  const appUrl = Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
+function redirectToApp(params: string, origin?: string) {
+  const appUrl = origin || Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
   const target = `${appUrl}/anuncios?tab=configuracoes${params}`;
   return new Response(null, {
     status: 302,

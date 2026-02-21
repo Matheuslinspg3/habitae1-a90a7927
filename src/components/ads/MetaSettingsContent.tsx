@@ -85,6 +85,7 @@ export default function MetaSettingsContent() {
         user_id: profile.user_id,
         org_id: profile.organization_id,
         redirect: window.location.pathname,
+        origin: window.location.origin,
       }));
 
       const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
