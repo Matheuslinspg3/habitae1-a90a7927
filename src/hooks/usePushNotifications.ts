@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { requestPushToken, onForegroundMessage } from "@/lib/firebase";
+import { requestPushToken, onForegroundMessage, getFirebaseMessaging } from "@/lib/firebase";
 import { toast } from "sonner";
 
 const DEVICE_ID_STORAGE_KEY = "push_device_id";
@@ -88,36 +88,46 @@ export function usePushNotifications() {
     });
   }, [user, isSupported, getCurrentFcmToken]);
 
-  // Listen for foreground messages — retry until messaging is ready
+  // Listen for foreground messages
   useEffect(() => {
     let cleanup: (() => void) | null = null;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 15;
 
     const setup = () => {
-      if (cancelled) return;
-      const unsub = onForegroundMessage((payload) => {
-        const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
-        const body = payload?.notification?.body || payload?.data?.message || "";
+      if (cancelled || retryCount >= MAX_RETRIES) return;
+      retryCount++;
 
-        toast(title, { description: body });
+      try {
+        const unsub = onForegroundMessage((payload) => {
+          const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
+          const body = payload?.notification?.body || payload?.data?.message || "";
 
-        if (Notification.permission === "granted") {
-          try {
-            new Notification(title, {
-              body,
-              icon: "/pwa-192x192.png",
-              tag: payload?.data?.notification_type || "foreground",
-            });
-          } catch {
-            // Notification constructor may fail in some contexts
+          toast(title, { description: body });
+
+          if (Notification.permission === "granted") {
+            try {
+              new Notification(title, {
+                body,
+                icon: "/pwa-192x192.png",
+                tag: payload?.data?.notification_type || "foreground",
+              });
+            } catch {
+              // Notification constructor may fail in some contexts
+            }
           }
-        }
-      });
+        });
 
-      if (typeof unsub === "function") {
-        cleanup = unsub;
-      } else {
+        // onForegroundMessage returns () => {} even when messaging is null
+        // Check if messaging was actually initialized
+        if (getFirebaseMessaging()) {
+          cleanup = unsub;
+        } else {
+          retryTimer = setTimeout(setup, 2000);
+        }
+      } catch {
         retryTimer = setTimeout(setup, 2000);
       }
     };
