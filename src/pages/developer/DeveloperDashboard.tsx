@@ -12,6 +12,7 @@ import { RolesTab } from "@/components/developer/RolesTab";
 import { UsersTab } from "@/components/developer/UsersTab";
 import { ImportHistoryTab } from "@/components/developer/ImportHistoryTab";
 import { DatabaseTab } from "@/components/developer/DatabaseTab";
+import { SendPushCard } from "@/components/developer/SendPushCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -44,8 +45,11 @@ export default function DeveloperDashboard() {
         </div>
       </div>
 
-      {/* System Health Overview */}
-      <SystemHealthCard />
+      {/* System Health + Push Test */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <SystemHealthCard />
+        <SendPushCard />
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
