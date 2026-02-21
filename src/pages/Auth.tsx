@@ -142,8 +142,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         <div className="w-full max-w-md space-y-10 page-enter">
           {/* Centered logo + icon */}
           <div className="flex flex-col items-center text-center space-y-4">
-            <HabitaeLogo variant="icon" size="lg" />
-            <HabitaeLogo variant="horizontal" size="lg" />
+            <div className="flex items-center gap-3">
+              <HabitaeLogo variant="icon" size="lg" />
+              <span className="font-display text-2xl font-bold text-foreground tracking-tight">
+                Porta do Corretor
+              </span>
+            </div>
             <span className="editorial-label-accent flex items-center gap-2">
               <span className="color-dot-accent" />
               Plataforma de Performance
