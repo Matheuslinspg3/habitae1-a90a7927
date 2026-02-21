@@ -15,6 +15,14 @@ interface PushPayload {
   notification_type?: string;
 }
 
+interface FcmErrorMetadata {
+  httpCode?: number;
+  status?: string;
+  message?: string;
+  detailErrorCodes: string[];
+  detailStatuses: string[];
+}
+
 /** Get an OAuth2 access token for FCM v1 API using service account */
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -38,7 +46,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const unsignedToken = `${encode(header)}.${encode(payload)}`;
 
-  // Import the private key
   const pemContents = serviceAccount.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -66,7 +73,6 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     .replace(/\//g, "_")
     .replace(/=+$/, "")}`;
 
-  // Exchange JWT for access token
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -80,13 +86,53 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
+// --- FCM error helpers ---
+function getFcmErrorMetadata(errData: any): FcmErrorMetadata {
+  const details = Array.isArray(errData?.error?.details) ? errData.error.details : [];
+  return {
+    httpCode: typeof errData?.error?.code === "number" ? errData.error.code : undefined,
+    status: typeof errData?.error?.status === "string" ? errData.error.status : undefined,
+    message: typeof errData?.error?.message === "string" ? errData.error.message : undefined,
+    detailErrorCodes: details
+      .map((d: any) => d?.errorCode)
+      .filter((c: unknown): c is string => typeof c === "string"),
+    detailStatuses: details
+      .map((d: any) => d?.status)
+      .filter((s: unknown): s is string => typeof s === "string"),
+  };
+}
+
+function isStaleTokenError(errData: any): boolean {
+  const meta = getFcmErrorMetadata(errData);
+  const stale = new Set(["UNREGISTERED", "INVALID_ARGUMENT", "NOT_FOUND"]);
+  if (meta.httpCode === 404) return true;
+  if (meta.status && stale.has(meta.status)) return true;
+  if (meta.detailErrorCodes.some((c) => stale.has(c))) return true;
+  if (meta.detailStatuses.some((s) => stale.has(s))) return true;
+  return false;
+}
+
+function getRequiredAppUrl(): string {
+  const appUrl = Deno.env.get("APP_URL")?.trim();
+  if (!appUrl) {
+    throw new Error(
+      "APP_URL environment variable is required for send-push (ex: https://habitae1.lovable.app)"
+    );
+  }
+  let parsed: URL;
+  try { parsed = new URL(appUrl); } catch {
+    throw new Error(`APP_URL is invalid: ${appUrl}`);
+  }
+  return parsed.origin;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const APP_URL = Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
+    const APP_URL = getRequiredAppUrl();
     const body: PushPayload = await req.json();
     const { user_id, title, message, entity_id, entity_type, notification_type } = body;
 
@@ -97,14 +143,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get service account
     const serviceAccountRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountRaw) {
       throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY not configured");
     }
     const serviceAccount = JSON.parse(serviceAccountRaw);
 
-    // Get user's FCM tokens
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -126,18 +170,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get access token for FCM
     const accessToken = await getAccessToken(serviceAccount);
     const projectId = serviceAccount.project_id;
 
-    // Build notification data
     const notificationData: Record<string, string> = {};
     if (entity_id) notificationData.entity_id = entity_id;
     if (entity_type) notificationData.entity_type = entity_type;
     if (notification_type) notificationData.notification_type = notification_type;
 
-    // Send to all tokens
     let sent = 0;
+    let failed = 0;
     const staleTokens: string[] = [];
 
     for (const sub of subscriptions) {
@@ -189,20 +231,24 @@ Deno.serve(async (req) => {
         if (res.ok) {
           sent++;
         } else {
+          failed++;
           const errData = await res.json();
-          // Token is invalid/expired
-          if (
-            errData?.error?.code === 404 ||
-            errData?.error?.code === 400 ||
-            errData?.error?.details?.some?.(
-              (d: any) => d.errorCode === "UNREGISTERED"
-            )
-          ) {
+
+          if (isStaleTokenError(errData)) {
             staleTokens.push(sub.fcm_token);
           }
-          console.error("FCM send error:", JSON.stringify(errData));
+
+          console.error(
+            "FCM send error audit:",
+            JSON.stringify({
+              token: sub.fcm_token,
+              staleTokenCandidate: isStaleTokenError(errData),
+              ...getFcmErrorMetadata(errData),
+            })
+          );
         }
       } catch (e) {
+        failed++;
         console.error("Error sending to token:", e);
       }
     }
@@ -216,7 +262,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ sent, total: subscriptions.length, staleRemoved: staleTokens.length }),
+      JSON.stringify({ sent, failed, staleRemoved: staleTokens.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

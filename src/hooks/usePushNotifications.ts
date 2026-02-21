@@ -4,6 +4,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { requestPushToken, onForegroundMessage } from "@/lib/firebase";
 import { toast } from "sonner";
 
+const DEVICE_ID_STORAGE_KEY = "push_device_id";
+const VAPID_FALLBACK_KEY =
+  "BIDDjcPovWWdlcmUXifYnLpoSkt8OhBDxAfgt0KYHjXIGK5-R9eseoKzxGZgTJf7fHJF46gKvZ_Dl31ZVAAmkVs";
+
+function getOrCreateDeviceId(): string {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  if (existing) return existing;
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, generated);
+  return generated;
+}
+
 export function usePushNotifications() {
   const { user, profile } = useAuth();
   const [isSupported, setIsSupported] = useState(false);
@@ -11,11 +26,33 @@ export function usePushNotifications() {
   const [isLoading, setIsLoading] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
+  const [canFetchToken, setCanFetchToken] = useState(true);
 
   const addDebug = useCallback((msg: string) => {
     console.log("[Push]", msg);
     setDebugInfo((prev) => [...prev.slice(-19), `${new Date().toLocaleTimeString()}: ${msg}`]);
   }, []);
+
+  const getCurrentFcmToken = useCallback(
+    async (timeoutMs = 8000): Promise<string | null> => {
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || VAPID_FALLBACK_KEY;
+      try {
+        const token = await Promise.race([
+          requestPushToken(vapidKey),
+          new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout ao obter token FCM")), timeoutMs)
+          ),
+        ]);
+        if (!token) throw new Error("Token FCM não disponível");
+        setCanFetchToken(true);
+        return token;
+      } catch {
+        setCanFetchToken(false);
+        return null;
+      }
+    },
+    []
+  );
 
   // Check support
   useEffect(() => {
@@ -29,19 +66,27 @@ export function usePushNotifications() {
     }
   }, []);
 
-  // Check existing subscription
+  // Check subscription for current device token
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isSupported || Notification.permission !== "granted") {
+      setIsSubscribed(false);
+      return;
+    }
 
-    supabase
-      .from("push_subscriptions")
-      .select("id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .then(({ data }) => {
-        setIsSubscribed((data?.length ?? 0) > 0);
-      });
-  }, [user]);
+    getCurrentFcmToken().then(async (token) => {
+      if (!token) {
+        setIsSubscribed(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("push_subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("fcm_token", token)
+        .limit(1);
+      setIsSubscribed((data?.length ?? 0) > 0);
+    });
+  }, [user, isSupported, getCurrentFcmToken]);
 
   // Listen for foreground messages — retry until messaging is ready
   useEffect(() => {
@@ -55,10 +100,8 @@ export function usePushNotifications() {
         const title = payload?.notification?.title || payload?.data?.title || "Nova notificação";
         const body = payload?.notification?.body || payload?.data?.message || "";
 
-        // Show toast
         toast(title, { description: body });
 
-        // Also show native notification so user sees it even if toast is missed
         if (Notification.permission === "granted") {
           try {
             new Notification(title, {
@@ -75,7 +118,6 @@ export function usePushNotifications() {
       if (typeof unsub === "function") {
         cleanup = unsub;
       } else {
-        // Messaging not ready yet, retry in 2s
         retryTimer = setTimeout(setup, 2000);
       }
     };
@@ -109,9 +151,9 @@ export function usePushNotifications() {
       addDebug("Registrando Service Worker...");
       const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
       let swReg = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
-      
+
       if (swReg) {
-        addDebug(`SW encontrado (estado: ${swReg.active?.state || swReg.installing?.state || swReg.waiting?.state || 'unknown'})`);
+        addDebug(`SW encontrado (estado: ${swReg.active?.state || swReg.installing?.state || swReg.waiting?.state || "unknown"})`);
       } else {
         addDebug("SW não encontrado, registrando novo...");
         swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
@@ -145,34 +187,31 @@ export function usePushNotifications() {
       }
       addDebug("SW ativo ✓");
 
-      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BIDDjcPovWWdlcmUXifYnLpoSkt8OhBDxAfgt0KYHjXIGK5-R9eseoKzxGZgTJf7fHJF46gKvZ_Dl31ZVAAmkVs";
-      
       addDebug("Obtendo token FCM...");
-      const token = await requestPushToken(vapidKey);
+      const token = await getCurrentFcmToken();
       if (!token) {
         addDebug("❌ Token não obtido");
-        toast.error("Não foi possível obter token de push");
+        toast.error("Não foi possível obter token de push. Reative as notificações neste dispositivo.");
         return false;
       }
       addDebug(`Token obtido: ${token.substring(0, 20)}...`);
 
-      // Delete old subscriptions for this user first
+      // Upsert by (user_id, fcm_token) — preserves other devices
       addDebug("Salvando token no banco...");
-      await supabase
-        .from("push_subscriptions")
-        .delete()
-        .eq("user_id", user.id);
-
-      const { error } = await supabase.from("push_subscriptions").insert({
-        user_id: user.id,
-        organization_id: profile.organization_id,
-        fcm_token: token,
-        device_info: {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          language: navigator.language,
+      const { error } = await supabase.from("push_subscriptions").upsert(
+        {
+          user_id: user.id,
+          organization_id: profile.organization_id,
+          fcm_token: token,
+          device_info: {
+            device_id: getOrCreateDeviceId(),
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+          },
         },
-      });
+        { onConflict: "user_id,fcm_token" }
+      );
 
       if (error) {
         addDebug(`❌ Erro ao salvar: ${error.message}`);
@@ -180,6 +219,7 @@ export function usePushNotifications() {
       }
 
       addDebug("✅ Token salvo com sucesso!");
+      setCanFetchToken(true);
       setIsSubscribed(true);
       toast.success("Notificações push ativadas!");
       return true;
@@ -191,33 +231,42 @@ export function usePushNotifications() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, profile, isSupported, addDebug]);
+  }, [user, profile, isSupported, addDebug, getCurrentFcmToken]);
 
   const unsubscribe = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isSupported) return;
 
     setIsLoading(true);
     try {
-      await supabase
-        .from("push_subscriptions")
-        .delete()
-        .eq("user_id", user.id);
+      const currentToken = await getCurrentFcmToken();
+      if (currentToken) {
+        // Delete only this device's token
+        await supabase
+          .from("push_subscriptions")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("fcm_token", currentToken);
+      } else {
+        // Fallback: can't get token, warn user
+        toast.error("Não foi possível identificar o token deste dispositivo");
+      }
 
       setIsSubscribed(false);
-      toast.success("Notificações push desativadas");
+      toast.success("Notificações push desativadas neste dispositivo");
     } catch (e) {
       console.error("Push unsubscribe error:", e);
       toast.error("Erro ao desativar notificações push");
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isSupported, getCurrentFcmToken]);
 
   return {
     isSupported,
     isSubscribed,
     isLoading,
     permission,
+    canFetchToken,
     subscribe,
     unsubscribe,
     debugInfo,
