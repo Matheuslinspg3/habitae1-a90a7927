@@ -1,8 +1,8 @@
 /* eslint-disable no-undef */
 // Firebase Messaging Service Worker
 
-importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-messaging-compat.js");
 
 firebase.initializeApp({
   apiKey: "AIzaSyAzZKKnALAb-uoUtlvhGDFZ5Gf0huxQqr8",
@@ -33,6 +33,14 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   console.log("[firebase-messaging-sw] activate", { version: SW_VERSION });
   event.waitUntil(clients.claim());
+});
+
+// --- Raw push event listener (fallback if onBackgroundMessage doesn't fire) ---
+self.addEventListener("push", (event) => {
+  console.log("[firebase-messaging-sw][push-raw]", {
+    hasData: !!event.data,
+    text: event.data ? event.data.text().substring(0, 200) : null,
+  });
 });
 
 // --- Payload normalization utilities ---
