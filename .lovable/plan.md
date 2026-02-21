@@ -1,34 +1,40 @@
 
-# Correcao: Constraint de temperatura bloqueando "Prioridade Maxima"
+
+# Otimizar tempo de build com lazy loading de rotas
 
 ## Problema
-O banco de dados tem um CHECK constraint na coluna `temperature` da tabela `leads` que so permite 3 valores: `'frio'`, `'morno'`, `'quente'`. Porem, a interface (CRM) oferece uma 4a opcao chamada "Prioridade Maxima" com valor `'prioridade'`. Ao tentar salvar, o banco rejeita o valor e exibe o erro.
+O projeto importa todas as ~35 páginas de forma estática no `App.tsx`, o que gera um bundle grande e aumenta o tempo de build. Combinado com dependências pesadas como `firebase`, `recharts`, `leaflet` e `pdf-lib`, isso contribui para builds lentos.
 
-## Causa raiz
-A migration `20260213214110` criou a coluna com:
-```sql
-ADD COLUMN IF NOT EXISTS temperature text CHECK (temperature IN ('frio', 'morno', 'quente'))
+## Solução
+Implementar **lazy loading** (carregamento sob demanda) em todas as rotas usando `React.lazy` e `Suspense`. Isso divide o código em pedaços menores, reduzindo o tamanho do bundle principal e potencialmente acelerando o build.
+
+## O que vai mudar
+
+### 1. Lazy loading de todas as páginas em `src/App.tsx`
+- Substituir todos os `import` estáticos de páginas por `React.lazy(() => import(...))`
+- Envolver as `Routes` com `React.Suspense` e um fallback de loading
+- Isso faz com que cada página seja um "chunk" separado, carregado apenas quando necessário
+
+### 2. Componente de loading (fallback)
+- Criar um componente simples de loading (spinner) para exibir enquanto a página carrega
+
+## Detalhes técnicos
+
+Exemplo da mudança no `App.tsx`:
+
+```typescript
+// ANTES (importação estática - tudo num bundle só)
+import Dashboard from "./pages/Dashboard";
+import Properties from "./pages/Properties";
+
+// DEPOIS (lazy loading - cada página é um chunk separado)
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Properties = lazy(() => import("./pages/Properties"));
 ```
-Depois, o codigo frontend adicionou a opcao `'prioridade'` nos arquivos `useLeads.ts` e `LeadQuickActions.tsx`, mas o constraint no banco nunca foi atualizado.
 
-## Solucao
-Uma unica migration SQL para atualizar o constraint, adicionando `'prioridade'` como valor valido:
+Todas as ~35 páginas serão convertidas para lazy loading. Componentes de layout (`AppLayout`, `AppMobileLayout`, providers) continuarão com importação estática pois são necessários imediatamente.
 
-```sql
-ALTER TABLE leads DROP CONSTRAINT IF EXISTS leads_temperature_check;
-ALTER TABLE leads ADD CONSTRAINT leads_temperature_check
-  CHECK (temperature IN ('frio', 'morno', 'quente', 'prioridade'));
-```
+---
 
-Nenhuma alteracao de codigo frontend e necessaria -- a UI ja envia o valor correto, so o banco que estava rejeitando.
+**Nota importante:** O tempo de atualização no "Up to date" também depende da infraestrutura do Lovable (build server, CDN). Esta otimização melhora o que está ao nosso controle no código, mas atrasos de infraestrutura podem persistir em alguns casos.
 
-## Detalhes tecnicos
-
-| Item | Detalhe |
-|---|---|
-| Arquivo alterado | Nova migration SQL |
-| Tabela afetada | `leads` |
-| Constraint | `leads_temperature_check` |
-| Valores antes | `frio`, `morno`, `quente` |
-| Valores depois | `frio`, `morno`, `quente`, `prioridade` |
-| Risco | Nenhum -- apenas amplia os valores aceitos |
