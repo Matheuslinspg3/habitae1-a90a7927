@@ -15,44 +15,105 @@ firebase.initializeApp({
 });
 
 const messaging = firebase.messaging();
-console.log("[firebase-messaging-sw] SW inicializado com sucesso");
 
-// Handle background messages via Firebase SDK
-messaging.onBackgroundMessage((payload) => {
-  console.log("[firebase-messaging-sw] onBackgroundMessage:", JSON.stringify(payload));
+const SW_VERSION = "2026.02.21";
 
-  // Extract from data (hybrid payload — notification is handled automatically by browser,
-  // but onBackgroundMessage still fires for data processing)
-  const data = payload.data || {};
-  const title = data.title || payload.notification?.title || "Habitae";
-  const body = data.message || payload.notification?.body || "";
-
-  // Note: When using hybrid payload (notification + data), the browser
-  // automatically shows the notification from the `notification` field.
-  // This handler is mainly for logging/processing purposes.
-  // Only show manually if there's no notification field (data-only fallback)
-  if (!payload.notification) {
-    const notificationOptions = {
-      body,
-      icon: "/pwa-192x192.png",
-      badge: "/pwa-192x192.png",
-      vibrate: [200, 100, 200],
-      data: data,
-      tag: data.notification_type || "default",
-      renotify: true,
-    };
-    return self.registration.showNotification(title, notificationOptions);
-  }
+console.log("[firebase-messaging-sw] SW inicializado", {
+  version: SW_VERSION,
+  timestamp: new Date().toISOString(),
+  scope: self.registration?.scope,
 });
 
-// Handle notification click
+// --- Lifecycle: immediate activation ---
+self.addEventListener("install", (event) => {
+  console.log("[firebase-messaging-sw] install", { version: SW_VERSION });
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (event) => {
+  console.log("[firebase-messaging-sw] activate", { version: SW_VERSION });
+  event.waitUntil(clients.claim());
+});
+
+// --- Payload normalization utilities ---
+function parsePossibleJson(value) {
+  if (typeof value !== "string") return value;
+  try { return JSON.parse(value); } catch { return value; }
+}
+
+function normalizeObject(value) {
+  const parsed = parsePossibleJson(value);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  return Object.keys(parsed).reduce((acc, key) => {
+    acc[key] = parsePossibleJson(parsed[key]);
+    return acc;
+  }, {});
+}
+
+function normalizePayload(payload) {
+  const data = normalizeObject(payload?.data);
+  const notification = normalizeObject(payload?.notification);
+
+  const title = data.title || notification.title || "Habitae";
+  const body = data.body || data.message || notification.body || "";
+  const collapseKey = data.collapse_key || data.collapseKey || payload?.collapseKey;
+  const tag = data.tag || notification.tag || collapseKey || data.notification_type || "default";
+
+  return { title, body, tag, collapseKey, data, notification };
+}
+
+// --- Background message handler (deterministic showNotification) ---
+messaging.onBackgroundMessage((payload) => {
+  const normalized = normalizePayload(payload);
+
+  console.log("[firebase-messaging-sw][received]", JSON.stringify({
+    messageId: payload?.messageId,
+    hasData: Boolean(payload?.data),
+    hasNotification: Boolean(payload?.notification),
+    tag: normalized.tag,
+    title: normalized.title,
+  }));
+
+  const notificationOptions = {
+    body: normalized.body,
+    icon: "/pwa-192x192.png",
+    badge: "/pwa-192x192.png",
+    vibrate: [200, 100, 200],
+    tag: normalized.tag,
+    renotify: true,
+    data: {
+      ...normalized.notification,
+      ...normalized.data,
+      __meta: {
+        messageId: payload?.messageId || null,
+        collapseKey: normalized.collapseKey || null,
+        receivedAt: new Date().toISOString(),
+        source: "firebase-messaging-sw",
+      },
+    },
+  };
+
+  console.log("[firebase-messaging-sw][render]", JSON.stringify({
+    tag: notificationOptions.tag,
+    title: normalized.title,
+  }));
+
+  return self.registration.showNotification(normalized.title, notificationOptions);
+});
+
+// --- Notification click handler ---
 self.addEventListener("notificationclick", (event) => {
-  console.log("[firebase-messaging-sw] notificationclick:", event.notification.tag);
+  const data = event.notification.data || {};
+
+  console.log("[firebase-messaging-sw][click]", JSON.stringify({
+    tag: event.notification.tag,
+    entityType: data.entity_type,
+    entityId: data.entity_id,
+  }));
+
   event.notification.close();
 
-  const data = event.notification.data || {};
   let url = "/dashboard";
-
   if (data.entity_type && data.entity_id) {
     switch (data.entity_type) {
       case "lead":

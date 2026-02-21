@@ -779,7 +779,7 @@ export default function Settings() {
 }
 
 function PushNotificationCard() {
-  const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe } = usePushNotifications();
+  const { isSupported, isSubscribed, isLoading, permission, canFetchToken, subscribe, unsubscribe } = usePushNotifications();
 
   if (!isSupported) {
     return (
@@ -812,14 +812,20 @@ function PushNotificationCard() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-sm font-medium">
-              {isSubscribed ? "Push ativado" : "Push desativado"}
+              {isSubscribed
+                ? "Push ativado"
+                : !canFetchToken
+                  ? "Não inscrito neste dispositivo"
+                  : "Push desativado"}
             </p>
             <p className="text-xs text-muted-foreground">
               {permission === "denied"
                 ? "Permissão bloqueada nas configurações do navegador"
                 : isSubscribed
                   ? "Você receberá alertas de novos leads, imóveis e compromissos"
-                  : "Ative para ser notificado instantaneamente"}
+                  : !canFetchToken
+                    ? "Não conseguimos obter o token deste dispositivo. Reative o push."
+                    : "Ative para ser notificado instantaneamente"}
             </p>
           </div>
           <Switch
@@ -831,6 +837,23 @@ function PushNotificationCard() {
             }}
           />
         </div>
+        {!isSubscribed && !canFetchToken && permission !== "denied" && (
+          <div className="rounded-md border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-950/30">
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              Este dispositivo está sem token de push ativo. Clique em <strong>Reativar push</strong> para tentar novamente.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-3"
+              onClick={() => subscribe()}
+              disabled={isLoading}
+            >
+              Reativar push
+            </Button>
+          </div>
+        )}
         {permission === "denied" && (
           <p className="text-xs text-destructive">
             As notificações estão bloqueadas. Acesse as configurações do navegador para permitir notificações deste site.
