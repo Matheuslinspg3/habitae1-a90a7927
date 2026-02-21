@@ -56,10 +56,10 @@ async function uploadToR2(file: File, folder: string): Promise<UploadedImage | n
 
 // ── Cloudinary Upload (with incoming transformation + hash dedupe) ──
 
-async function getCloudinarySignature(folder: string, fileHash?: string): Promise<CloudinarySignature | null> {
+async function getCloudinarySignature(fileHash?: string): Promise<CloudinarySignature | null> {
   try {
     const { data, error } = await supabase.functions.invoke('cloudinary-sign', {
-      body: { folder, file_hash: fileHash },
+      body: { file_hash: fileHash },
     });
     if (error) {
       console.error('Erro ao obter assinatura Cloudinary:', error);
@@ -72,8 +72,8 @@ async function getCloudinarySignature(folder: string, fileHash?: string): Promis
   }
 }
 
-async function uploadToCloudinary(file: File, folder: string, fileHash?: string): Promise<UploadedImage | null> {
-  const signature = await getCloudinarySignature(folder, fileHash);
+async function uploadToCloudinary(file: File, fileHash?: string): Promise<UploadedImage | null> {
+  const signature = await getCloudinarySignature(fileHash);
   if (!signature) return null;
 
   const formData = new FormData();
@@ -232,7 +232,7 @@ export function useImageUpload() {
       if (!result) {
         console.log('[UPLOAD] R2 falhou. Tentando Cloudinary com normalização incoming...');
         setUploadProgress(50);
-        result = await uploadToCloudinary(normalizedFile, orgFolder, fileHash);
+        result = await uploadToCloudinary(normalizedFile, fileHash);
       }
 
       if (!result) {
