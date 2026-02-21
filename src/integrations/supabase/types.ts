@@ -58,6 +58,272 @@ export type Database = {
           },
         ]
       }
+      ad_accounts: {
+        Row: {
+          auth_payload: Json | null
+          created_at: string
+          external_account_id: string | null
+          id: string
+          is_active: boolean
+          name: string | null
+          organization_id: string
+          provider: Database["public"]["Enums"]["ad_provider"]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          auth_payload?: Json | null
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          organization_id: string
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_payload?: Json | null
+          created_at?: string
+          external_account_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          organization_id?: string
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_entities: {
+        Row: {
+          created_at: string
+          entity_type: Database["public"]["Enums"]["ad_entity_type"]
+          external_id: string
+          id: string
+          name: string
+          organization_id: string
+          parent_external_id: string | null
+          provider: Database["public"]["Enums"]["ad_provider"]
+          status: string | null
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["ad_entity_type"]
+          external_id: string
+          id?: string
+          name: string
+          organization_id: string
+          parent_external_id?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_type?: Database["public"]["Enums"]["ad_entity_type"]
+          external_id?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          parent_external_id?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_entities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_insights_daily: {
+        Row: {
+          clicks: number
+          cpc: number | null
+          cpl: number | null
+          created_at: string
+          ctr: number | null
+          date: string
+          entity_type: Database["public"]["Enums"]["ad_entity_type"]
+          external_id: string
+          id: string
+          impressions: number
+          leads: number
+          organization_id: string
+          provider: Database["public"]["Enums"]["ad_provider"]
+          spend: number
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          cpc?: number | null
+          cpl?: number | null
+          created_at?: string
+          ctr?: number | null
+          date: string
+          entity_type?: Database["public"]["Enums"]["ad_entity_type"]
+          external_id: string
+          id?: string
+          impressions?: number
+          leads?: number
+          organization_id: string
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          spend?: number
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          cpc?: number | null
+          cpl?: number | null
+          created_at?: string
+          ctr?: number | null
+          date?: string
+          entity_type?: Database["public"]["Enums"]["ad_entity_type"]
+          external_id?: string
+          id?: string
+          impressions?: number
+          leads?: number
+          organization_id?: string
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          spend?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_insights_daily_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_leads: {
+        Row: {
+          created_at: string
+          created_time: string
+          crm_record_id: string | null
+          email: string | null
+          external_ad_id: string
+          external_form_id: string | null
+          external_lead_id: string
+          id: string
+          name: string | null
+          organization_id: string
+          phone: string | null
+          provider: Database["public"]["Enums"]["ad_provider"]
+          raw_payload: Json | null
+          status: Database["public"]["Enums"]["ad_lead_status"]
+          status_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_time?: string
+          crm_record_id?: string | null
+          email?: string | null
+          external_ad_id: string
+          external_form_id?: string | null
+          external_lead_id: string
+          id?: string
+          name?: string | null
+          organization_id: string
+          phone?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          raw_payload?: Json | null
+          status?: Database["public"]["Enums"]["ad_lead_status"]
+          status_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_time?: string
+          crm_record_id?: string | null
+          email?: string | null
+          external_ad_id?: string
+          external_form_id?: string | null
+          external_lead_id?: string
+          id?: string
+          name?: string | null
+          organization_id?: string
+          phone?: string | null
+          provider?: Database["public"]["Enums"]["ad_provider"]
+          raw_payload?: Json | null
+          status?: Database["public"]["Enums"]["ad_lead_status"]
+          status_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_settings: {
+        Row: {
+          auto_send_to_crm: boolean
+          created_at: string
+          crm_stage_id: string | null
+          id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_send_to_crm?: boolean
+          created_at?: string
+          crm_stage_id?: string | null
+          id?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_send_to_crm?: boolean
+          created_at?: string
+          crm_stage_id?: string | null
+          id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_settings_crm_stage_id_fkey"
+            columns: ["crm_stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_allowlist: {
         Row: {
           created_at: string | null
@@ -3326,6 +3592,10 @@ export type Database = {
         Args: { p_org_id: string; p_property_id: string; p_token: string }
         Returns: boolean
       }
+      count_new_ad_leads: {
+        Args: { p_external_ad_id?: string; p_organization_id: string }
+        Returns: number
+      }
       create_trial_subscription: { Args: { org_id: string }; Returns: string }
       current_user_has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
@@ -3684,6 +3954,14 @@ export type Database = {
       }
     }
     Enums: {
+      ad_entity_type: "campaign" | "adset" | "ad"
+      ad_lead_status:
+        | "new"
+        | "read"
+        | "sent_to_crm"
+        | "send_failed"
+        | "archived"
+      ad_provider: "meta" | "google"
       app_role:
         | "admin"
         | "corretor"
@@ -3863,6 +4141,9 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ad_entity_type: ["campaign", "adset", "ad"],
+      ad_lead_status: ["new", "read", "sent_to_crm", "send_failed", "archived"],
+      ad_provider: ["meta", "google"],
       app_role: [
         "admin",
         "corretor",

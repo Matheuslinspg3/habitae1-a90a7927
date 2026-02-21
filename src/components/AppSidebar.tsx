@@ -15,6 +15,10 @@ import {
   User,
   Zap,
   UserCog,
+  Megaphone,
+  Inbox,
+  BarChart3,
+  Settings2,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -24,6 +28,7 @@ import { PillBadge } from "@/components/ui/pill-badge";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRoles } from "@/hooks/useUserRole";
+import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -62,6 +67,7 @@ export function AppSidebar() {
   const { signOut, user, profile, organizationType } = useAuth();
   const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
+  const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
 
   const [orgName, setOrgName] = React.useState<string>("");
   React.useEffect(() => {
@@ -129,6 +135,65 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 );
               })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Anúncios */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
+            Anúncios
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {/* Meta Ads sub-items */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/ads")} tooltip="Ad" className={isActive("/anuncios/meta/ads") || isActive("/anuncios/meta/ad/") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
+                  <NavLink to="/anuncios/meta/ads" className="flex items-center gap-3" activeClassName="text-primary font-medium">
+                    <Megaphone className={`h-4 w-4 ${isActive("/anuncios/meta/ads") || isActive("/anuncios/meta/ad/") ? "text-primary" : ""}`} />
+                    <span>Meta Ads</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/leads")} tooltip="Leads" className={isActive("/anuncios/meta/leads") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
+                  <NavLink to="/anuncios/meta/leads" className="flex items-center gap-3" activeClassName="text-primary font-medium">
+                    <Inbox className={`h-4 w-4 ${isActive("/anuncios/meta/leads") ? "text-primary" : ""}`} />
+                    <span>Leads</span>
+                    {newAdLeadsCount > 0 && (
+                      <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
+                        {newAdLeadsCount}
+                      </span>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/estatisticas")} tooltip="Estatísticas" className={isActive("/anuncios/meta/estatisticas") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
+                  <NavLink to="/anuncios/meta/estatisticas" className="flex items-center gap-3" activeClassName="text-primary font-medium">
+                    <BarChart3 className={`h-4 w-4 ${isActive("/anuncios/meta/estatisticas") ? "text-primary" : ""}`} />
+                    <span>Estatísticas</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/anuncios/meta/configuracoes")} tooltip="Configurações" className={isActive("/anuncios/meta/configuracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}>
+                  <NavLink to="/anuncios/meta/configuracoes" className="flex items-center gap-3" activeClassName="text-primary font-medium">
+                    <Settings2 className={`h-4 w-4 ${isActive("/anuncios/meta/configuracoes") ? "text-primary" : ""}`} />
+                    <span>Configurações</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Google Ads - disabled */}
+              <SidebarMenuItem>
+                <SidebarMenuButton disabled tooltip="Google Ads (Em desenvolvimento)" className="opacity-50 cursor-not-allowed">
+                  <div className="flex items-center gap-3">
+                    <Megaphone className="h-4 w-4" />
+                    <span>Google Ads</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">Em breve</span>
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
