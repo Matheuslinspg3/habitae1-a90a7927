@@ -72,7 +72,7 @@ export function usePushNotifications() {
         }
       });
 
-      if (typeof unsub === "function") {
+      if (unsub) {
         cleanup = unsub;
       } else {
         // Messaging not ready yet, retry in 2s
@@ -156,23 +156,22 @@ export function usePushNotifications() {
       }
       addDebug(`Token obtido: ${token.substring(0, 20)}...`);
 
-      // Delete old subscriptions for this user first
+      // Upsert: insert or update if this user+token already exists
       addDebug("Salvando token no banco...");
-      await supabase
-        .from("push_subscriptions")
-        .delete()
-        .eq("user_id", user.id);
-
-      const { error } = await supabase.from("push_subscriptions").insert({
-        user_id: user.id,
-        organization_id: profile.organization_id,
-        fcm_token: token,
-        device_info: {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          language: navigator.language,
+      const { error } = await supabase.from("push_subscriptions").upsert(
+        {
+          user_id: user.id,
+          organization_id: profile.organization_id,
+          fcm_token: token,
+          device_info: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+          },
+          updated_at: new Date().toISOString(),
         },
-      });
+        { onConflict: "user_id,fcm_token" }
+      );
 
       if (error) {
         addDebug(`❌ Erro ao salvar: ${error.message}`);

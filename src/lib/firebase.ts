@@ -84,9 +84,9 @@ export async function requestPushToken(vapidKey: string): Promise<string | null>
   }
 }
 
-export function onForegroundMessage(callback: (payload: any) => void) {
+export function onForegroundMessage(callback: (payload: any) => void): (() => void) | null {
   const msg = getFirebaseMessaging();
-  if (!msg) return () => {};
+  if (!msg) return null;
 
   return onMessage(msg, callback);
 }
