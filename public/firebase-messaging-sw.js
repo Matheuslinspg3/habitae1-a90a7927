@@ -54,7 +54,7 @@ function normalizePayload(payload) {
   const data = normalizeObject(payload?.data);
   const notification = normalizeObject(payload?.notification);
 
-  const title = data.title || notification.title || "Habitae";
+  const title = data.title || notification.title || "Porta do Corretor";
   const body = data.body || data.message || notification.body || "";
   const collapseKey = data.collapse_key || data.collapseKey || payload?.collapseKey;
   const tag = data.tag || notification.tag || collapseKey || data.notification_type || "default";
