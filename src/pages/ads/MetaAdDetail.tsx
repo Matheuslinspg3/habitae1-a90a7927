@@ -24,7 +24,7 @@ export default function MetaAdDetail() {
   if (!ad) {
     return (
       <div className="p-4 md:p-6 space-y-4">
-        <Button variant="ghost" onClick={() => navigate("/anuncios/meta/ads")}>
+        <Button variant="ghost" onClick={() => navigate("/anuncios")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
         </Button>
         <p className="text-muted-foreground">Anúncio não encontrado.</p>
@@ -34,7 +34,7 @@ export default function MetaAdDetail() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => navigate("/anuncios/meta/ads")}>
+      <Button variant="ghost" size="sm" onClick={() => navigate("/anuncios")}>
         <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
       </Button>
 
