@@ -7,14 +7,14 @@
 @tailwind utilities;
 
 /* ========================================
-   HABITAE DESIGN SYSTEM v3
-   "Clarity" — Sophisticated blue, warm whites,
-   human, breathable, premium-accessible
+   PORTA DO CORRETOR — DESIGN SYSTEM v4
+   "Performance" — Warm, bold, conversion-driven
+   Palette: Red #D62828 · Orange #F77F00 · Yellow #FCBF49
    ======================================== */
 
 @layer base {
   :root {
-    /* Motion tokens — A-04/A-05 */
+    /* Motion tokens */
     --motion-fast: 120ms;
     --motion-base: 200ms;
     --motion-slow: 320ms;
@@ -22,101 +22,102 @@
     --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
     --ease-decel: cubic-bezier(0.22, 1, 0.36, 1);
 
-    /* Light Mode — Warm, breathable, clear */
-    --background: 40 20% 98%;
-    --foreground: 220 25% 14%;
+    /* Light Mode — Warm, clean, professional */
+    --background: 210 17% 98%;
+    --foreground: 210 11% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 14%;
+    --card-foreground: 210 11% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 14%;
+    --popover-foreground: 210 11% 15%;
 
-    /* Blue Primary */
-    --primary: 215 65% 48%;
+    /* Primary — Sophisticated Red */
+    --primary: 0 72% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 93%;
-    --secondary-foreground: 215 30% 18%;
+    /* Secondary — Neutral warm gray */
+    --secondary: 210 11% 93%;
+    --secondary-foreground: 210 11% 20%;
 
-    --muted: 215 16% 95%;
-    --muted-foreground: 215 12% 46%;
+    --muted: 210 11% 95%;
+    --muted-foreground: 208 7% 46%;
 
-    /* Accent — lighter, warmer blue */
-    --accent: 205 55% 55%;
+    /* Accent — Orange CTA */
+    --accent: 31 100% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 14% 90%;
-    --input: 215 14% 90%;
-    --ring: 215 65% 48%;
+    --border: 210 14% 89%;
+    --input: 210 14% 89%;
+    --ring: 31 100% 48%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    /* Semantic tokens — blue-derived tones */
-    --success: 200 55% 42%;
-    --warning: 215 45% 60%;
-    --info: 225 60% 56%;
+    /* Semantic tokens */
+    --success: 152 56% 42%;
+    --warning: 40 97% 64%;
+    --info: 210 60% 52%;
 
-    /* Sidebar Light */
-    --sidebar-background: 215 18% 96%;
-    --sidebar-foreground: 215 25% 18%;
-    --sidebar-primary: 215 65% 48%;
+    /* Sidebar — Dark professional */
+    --sidebar-background: 210 18% 11%;
+    --sidebar-foreground: 210 14% 82%;
+    --sidebar-primary: 31 100% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 16% 92%;
-    --sidebar-accent-foreground: 215 25% 14%;
-    --sidebar-border: 215 14% 89%;
-    --sidebar-ring: 215 65% 48%;
+    --sidebar-accent: 210 16% 16%;
+    --sidebar-accent-foreground: 210 14% 92%;
+    --sidebar-border: 210 14% 16%;
+    --sidebar-ring: 31 100% 48%;
   }
 
   .dark {
-    /* Dark Mode — Soft graphite, blue luminous */
-    --background: 220 22% 8%;
-    --foreground: 215 16% 92%;
+    /* Dark Mode — Deep graphite, warm accents */
+    --background: 210 18% 7%;
+    --foreground: 210 14% 92%;
 
-    --card: 220 20% 12%;
-    --card-foreground: 215 16% 92%;
+    --card: 210 16% 11%;
+    --card-foreground: 210 14% 92%;
 
-    --popover: 220 20% 12%;
-    --popover-foreground: 215 16% 92%;
+    --popover: 210 16% 11%;
+    --popover-foreground: 210 14% 92%;
 
-    /* Blue Primary — slightly lighter for dark */
-    --primary: 215 70% 56%;
-    --primary-foreground: 220 22% 8%;
+    /* Primary — Slightly lighter red for dark */
+    --primary: 0 68% 56%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 18% 17%;
-    --secondary-foreground: 215 16% 88%;
+    --secondary: 210 14% 16%;
+    --secondary-foreground: 210 14% 88%;
 
-    --muted: 220 18% 15%;
-    --muted-foreground: 215 12% 55%;
+    --muted: 210 14% 14%;
+    --muted-foreground: 208 7% 55%;
 
-    /* Accent — lighter blue */
-    --accent: 205 52% 52%;
-    --accent-foreground: 220 22% 8%;
+    /* Accent — Orange */
+    --accent: 31 95% 52%;
+    --accent-foreground: 210 18% 7%;
 
     --destructive: 0 55% 42%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 16% 18%;
-    --input: 220 16% 18%;
-    --ring: 215 70% 56%;
+    --border: 210 14% 17%;
+    --input: 210 14% 17%;
+    --ring: 31 95% 52%;
 
-    /* Semantic tokens — blue-derived */
-    --success: 200 50% 48%;
-    --warning: 215 40% 62%;
-    --info: 225 55% 60%;
+    /* Semantic */
+    --success: 152 50% 48%;
+    --warning: 40 90% 60%;
+    --info: 210 55% 58%;
 
     /* Sidebar Dark */
-    --sidebar-background: 220 24% 6%;
-    --sidebar-foreground: 215 16% 88%;
-    --sidebar-primary: 215 70% 56%;
-    --sidebar-primary-foreground: 220 22% 8%;
-    --sidebar-accent: 220 20% 14%;
-    --sidebar-accent-foreground: 215 16% 92%;
-    --sidebar-border: 220 16% 15%;
-    --sidebar-ring: 215 70% 56%;
+    --sidebar-background: 210 22% 5%;
+    --sidebar-foreground: 210 14% 80%;
+    --sidebar-primary: 31 95% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 18% 12%;
+    --sidebar-accent-foreground: 210 14% 92%;
+    --sidebar-border: 210 14% 12%;
+    --sidebar-ring: 31 95% 52%;
   }
 }
 
@@ -148,7 +149,6 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* A-11: Scroll behavior — auto by default, smooth only when explicitly needed */
   html {
     scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
@@ -182,11 +182,11 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(220 14% 30% / 0.4);
+  background: hsl(210 14% 30% / 0.4);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 14% 40% / 0.5);
+  background: hsl(210 14% 40% / 0.5);
 }
 
 /* Hide scrollbar for horizontal scrollable areas */
@@ -230,12 +230,12 @@
   }
 
   .glow-primary-hover:hover {
-    box-shadow: 0 0 24px -6px hsl(var(--primary) / 0.35);
+    box-shadow: 0 0 24px -6px hsl(var(--accent) / 0.35);
   }
 
-  /* Text gradients — blue monochromatic */
+  /* Text gradients — warm red-orange */
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(215 70% 50%), hsl(205 55% 58%));
+    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -243,22 +243,22 @@
 
   /* Legacy alias */
   .text-gradient-gold {
-    background: linear-gradient(135deg, hsl(215 65% 48%), hsl(225 60% 60%));
+    background: linear-gradient(135deg, hsl(31 100% 48%), hsl(40 97% 64%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-ocean {
-    background: linear-gradient(135deg, hsl(225 60% 48%), hsl(205 55% 55%));
+    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 52%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Vibrant gradient — blue tones */
+  /* Vibrant gradient — warm performance */
   .text-gradient-vibrant {
-    background: linear-gradient(135deg, hsl(225 65% 50%), hsl(215 70% 55%), hsl(205 60% 58%), hsl(195 55% 52%));
+    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%), hsl(40 97% 64%), hsl(31 100% 52%));
     background-size: 300% 100%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -271,15 +271,15 @@
     50% { background-position: 100% 50%; }
   }
 
-  /* Warm gradient — deeper blues */
+  /* Warm gradient */
   .text-gradient-warm {
-    background: linear-gradient(135deg, hsl(225 60% 50%), hsl(215 65% 55%), hsl(200 55% 52%));
+    background: linear-gradient(135deg, hsl(0 72% 50%), hsl(31 100% 48%), hsl(40 97% 64%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Editorial section label — Lightweight style */
+  /* Editorial section label */
   .editorial-label {
     @apply text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.25em];
     color: hsl(var(--primary));
@@ -295,7 +295,7 @@
     color: hsl(var(--muted-foreground));
   }
 
-  /* Colorful section divider — horizontal gradient line */
+  /* Colorful section divider — red to orange */
   .section-divider {
     height: 2px;
     border: none;
@@ -327,7 +327,7 @@
   .bg-radial-gradient {
     background: radial-gradient(
       ellipse 80% 50% at 50% -20%,
-      hsl(var(--primary) / 0.06),
+      hsl(var(--primary) / 0.05),
       transparent
     );
   }
@@ -342,16 +342,16 @@
 
   .bg-gradient-mesh {
     background:
-      radial-gradient(ellipse at 20% 0%, hsl(var(--primary) / 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 0%, hsl(var(--primary) / 0.03) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 100%, hsl(var(--accent) / 0.04) 0%, transparent 50%);
   }
 
-  /* Colorful mesh — more vibrant */
+  /* Vibrant mesh */
   .bg-gradient-mesh-vibrant {
     background:
-      radial-gradient(ellipse at 15% 0%, hsl(var(--primary) / 0.07) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 30%, hsl(225 60% 55% / 0.05) 0%, transparent 40%),
-      radial-gradient(ellipse at 50% 100%, hsl(var(--accent) / 0.06) 0%, transparent 50%);
+      radial-gradient(ellipse at 15% 0%, hsl(var(--primary) / 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 30%, hsl(var(--accent) / 0.04) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 100%, hsl(var(--warning) / 0.03) 0%, transparent 50%);
   }
 
   /* Section with colored left border */
@@ -361,11 +361,11 @@
   }
 
   .section-accent-border-warm {
-    border-left: 3px solid hsl(var(--warning));
+    border-left: 3px solid hsl(var(--accent));
     padding-left: 1rem;
   }
 
-  /* Card hover lift — softer */
+  /* Card hover lift */
   .card-hover-lift {
     @apply transition-all duration-300;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
@@ -404,19 +404,15 @@
   }
 
   /* ========================================
-     MOTION DESIGN SYSTEM — Habitae
-     Philosophy: Functional, organic, fluid
-     Performance: GPU-accelerated, 60fps
+     MOTION DESIGN SYSTEM
      ======================================== */
 
-  /* --- Micro-interaction: press scale --- */
   .press-scale {
     @apply transition-transform active:scale-[0.97];
     transition-duration: 150ms;
     transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* --- Page entrance animation --- */
   .page-enter {
     animation: pageEnter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -432,7 +428,6 @@
     }
   }
 
-  /* --- Stagger children — apply to parent, children animate in sequence --- */
   .stagger-children > * {
     opacity: 0;
     animation: staggerFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -454,7 +449,6 @@
     }
   }
 
-  /* --- Float animation --- */
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
@@ -464,17 +458,15 @@
     50% { transform: translateY(-8px); }
   }
 
-  /* --- Soft pulse glow --- */
   .animate-glow-pulse {
     animation: glow-pulse 4s ease-in-out infinite;
   }
 
   @keyframes glow-pulse {
-    0%, 100% { box-shadow: 0 0 16px -4px hsl(var(--primary) / 0.2); }
-    50% { box-shadow: 0 0 32px -4px hsl(var(--primary) / 0.35); }
+    0%, 100% { box-shadow: 0 0 16px -4px hsl(var(--accent) / 0.2); }
+    50% { box-shadow: 0 0 32px -4px hsl(var(--accent) / 0.35); }
   }
 
-  /* --- Shimmer loading (skeleton) --- */
   .animate-shimmer {
     background: linear-gradient(
       90deg,
@@ -491,7 +483,6 @@
     100% { background-position: -200% 0; }
   }
 
-  /* --- Heart favorite pop --- */
   .favorite-pop {
     animation: favoritePop 0.4s cubic-bezier(0.17, 0.89, 0.32, 1.28);
   }
@@ -503,7 +494,6 @@
     100% { transform: scale(1); }
   }
 
-  /* --- Slide up with fade (for modals, sheets, CTA bars) --- */
   .slide-up-enter {
     animation: slideUpEnter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -519,7 +509,6 @@
     }
   }
 
-  /* --- Slide down exit --- */
   .slide-down-exit {
     animation: slideDownExit 0.25s cubic-bezier(0.55, 0, 1, 0.45) both;
   }
@@ -535,7 +524,6 @@
     }
   }
 
-  /* --- Scale pop (for badges, confirmations) --- */
   .scale-pop {
     animation: scalePop 0.3s cubic-bezier(0.17, 0.89, 0.32, 1.28);
   }
@@ -546,7 +534,6 @@
     100% { transform: scale(1); opacity: 1; }
   }
 
-  /* --- Error shake --- */
   .error-shake {
     animation: errorShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
   }
@@ -558,7 +545,6 @@
     40%, 60% { transform: translateX(3px); }
   }
 
-  /* --- Success check draw --- */
   .success-check {
     animation: successCheck 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -569,7 +555,6 @@
     100% { transform: scale(1); opacity: 1; }
   }
 
-  /* --- FAB radial expand --- */
   .fab-expand {
     animation: fabExpand 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -600,7 +585,6 @@
     }
   }
 
-  /* --- Smooth image reveal (no blur for perf) --- */
   .image-reveal {
     animation: imageReveal 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -616,7 +600,6 @@
     }
   }
 
-  /* --- Dark mode crossfade --- */
   .dark-mode-transition,
   .dark-mode-transition *,
   .dark-mode-transition *::before,
@@ -624,7 +607,6 @@
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
   }
 
-  /* --- Skeleton pulse (elegant, slow) --- */
   .skeleton-elegant {
     @apply rounded-lg;
     background: linear-gradient(
@@ -642,18 +624,15 @@
     100% { background-position: -200% 0; }
   }
 
-  /* --- Onboarding dot progress --- */
   .onboarding-dot {
     transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
                 background-color 0.3s ease;
   }
 
-  /* --- Bottom nav indicator --- */
   .nav-indicator {
     transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* --- Search expand --- */
   .search-expand {
     animation: searchExpand 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -669,7 +648,6 @@
     }
   }
 
-  /* --- Smooth card touch (for property cards) --- */
   .card-touch {
     transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
                 box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1);
@@ -679,7 +657,6 @@
     transform: scale(0.98);
   }
 
-  /* --- Backdrop blur transition --- */
   .backdrop-enter {
     animation: backdropEnter 0.25s ease-out both;
   }
@@ -698,7 +675,6 @@
     100% { opacity: 0; }
   }
 
-  /* --- Counter number animation --- */
   .counter-enter {
     animation: counterEnter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -714,7 +690,6 @@
     }
   }
 
-  /* --- Parallax scroll hint --- */
   .parallax-subtle {
     will-change: transform;
     transition: transform 0.1s linear;
@@ -722,8 +697,7 @@
 }
 
 /* ========================================
-   GPU ACCELERATION HINTS — 60fps guarantee
-   Only apply will-change during active animations
+   GPU ACCELERATION
    ======================================== */
 .page-enter,
 .slide-up-enter,
@@ -733,10 +707,9 @@
 }
 
 /* ========================================
-   REDUCED MOTION — Respect user preferences
+   REDUCED MOTION
    ======================================== */
 @media (prefers-reduced-motion: reduce) {
-  /* A-11: Also neutralize smooth scroll */
   html, .scroll-smooth {
     scroll-behavior: auto !important;
   }
@@ -783,15 +756,13 @@
     transition: none !important;
   }
 
-  /* A-04: Disable continuous decorative animations */
   .text-gradient-vibrant {
     animation: none !important;
   }
 }
 
 /* ========================================
-   LOW-END MODE — .low-end-mode on <html>
-   Reduces blur, shadows, complex effects
+   LOW-END MODE
    ======================================== */
 .low-end-mode .glass-card,
 .low-end-mode .glass-subtle,
@@ -836,7 +807,6 @@
    CARNIVAL THEME — February only
    ======================================== */
 
-/* Light Carnival */
 .carnival {
   --primary: 270 70% 50%;
   --primary-foreground: 0 0% 100%;
@@ -851,7 +821,6 @@
   --sidebar-ring: 270 70% 50%;
 }
 
-/* Dark Carnival */
 .dark.carnival {
   --primary: 270 65% 60%;
   --primary-foreground: 270 30% 8%;
@@ -866,7 +835,6 @@
   --sidebar-ring: 270 65% 60%;
 }
 
-/* Confetti rain keyframe */
 @keyframes confettiFall {
   0% {
     transform: translateY(-10px) rotate(0deg) translateX(0px);
@@ -884,7 +852,6 @@
   }
 }
 
-/* Samba pulse for buttons & icons */
 .carnival .carnival-samba-pulse {
   animation: sambaPulse 1.2s ease-in-out infinite;
 }
@@ -896,7 +863,6 @@
   75% { transform: scale(1.04); }
 }
 
-/* Rainbow shimmer on carnival cards */
 .carnival .glass-card {
   background-image: linear-gradient(
     135deg,
@@ -908,7 +874,6 @@
   );
 }
 
-/* Carnival radial gradient */
 .carnival .bg-radial-gradient {
   background: radial-gradient(
     ellipse 80% 50% at 50% -20%,
@@ -918,7 +883,6 @@
   );
 }
 
-/* Carnival text gradient */
 .carnival .text-gradient-primary {
   background: linear-gradient(135deg, hsl(270 70% 55%), hsl(45 90% 55%), hsl(330 70% 55%));
   -webkit-background-clip: text;
@@ -926,7 +890,6 @@
   background-clip: text;
 }
 
-/* Reduced motion: disable carnival animations */
 @media (prefers-reduced-motion: reduce) {
   .carnival-confetti-piece,
   .carnival-samba-pulse {
@@ -937,7 +900,6 @@
   }
 }
 
-/* Low-end mode: disable carnival extras */
 .low-end-mode .carnival-confetti-container {
   display: none !important;
 }

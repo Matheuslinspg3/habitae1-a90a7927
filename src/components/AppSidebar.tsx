@@ -89,7 +89,7 @@ export function AppSidebar() {
   }, [currentPath, isMobile, setOpenMobile]);
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border/50 bg-sidebar/95 backdrop-blur-xl">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border/30 bg-sidebar backdrop-blur-xl">
       <SidebarHeader className="p-4">
         <div>
           {collapsed ? (
@@ -293,7 +293,7 @@ export function AppSidebar() {
         {collapsed && organizationType && (
           <div className="flex justify-center mb-2">
             {organizationType === 'imobiliaria' ? (
-              <Building2 className="h-4 w-4 text-amber-500" />
+              <Building2 className="h-4 w-4 text-accent" />
             ) : (
               <User className="h-4 w-4 text-muted-foreground" />
             )}

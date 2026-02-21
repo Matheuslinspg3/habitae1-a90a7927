@@ -47,7 +47,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, onClick, i
         <polyline
           points={points}
           fill="none"
-          stroke="hsl(var(--primary))"
+          stroke="hsl(var(--accent))"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -83,7 +83,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, onClick, i
             className="h-9 w-9 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center group-hover:scale-110 transition-all duration-300 shrink-0"
             style={{ background: colorSet.accent }}
           >
-            <Icon className="h-4 w-4 sm:h-4 sm:w-4 text-primary" />
+            <Icon className="h-4 w-4 sm:h-4 sm:w-4 text-accent" />
           </div>
         </div>
 
