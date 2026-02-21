@@ -2,6 +2,21 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Capture beforeinstallprompt globally so it's available even if Install page mounts later
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: Event;
+  }
+  interface Window {
+    __pwaInstallPrompt: Event | null;
+  }
+}
+window.__pwaInstallPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  window.__pwaInstallPrompt = e;
+});
+
 const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
 
 function setupServiceWorkerUpdateRoutine() {
