@@ -16,7 +16,7 @@ export function WelcomeHeader() {
     <div className="space-y-3 page-enter">
       <span className="editorial-label flex items-center gap-2">
         <span className="color-dot-accent" />
-        {isCarnival ? `Carnaval 2026 🎉` : "Dashboard"}
+        {isCarnival ? `Carnaval 2026 🎉` : "Central de Performance"}
       </span>
       <p className="editorial-label-muted capitalize" style={{ animationDelay: "50ms" }}>
         {dateStr}

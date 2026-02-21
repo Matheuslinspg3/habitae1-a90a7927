@@ -95,40 +95,39 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-background">
-      {/* Vibrant mesh background */}
+      {/* Warm mesh background */}
       <div className="absolute inset-0 pointer-events-none bg-gradient-mesh-vibrant" />
 
-      {/* Colored gradient orbs */}
+      {/* Warm gradient orbs */}
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute -top-[25%] -right-[15%] w-[70vw] h-[70vw] max-w-[800px] max-h-[800px] rounded-full opacity-[0.08]"
+          className="absolute -top-[25%] -right-[15%] w-[70vw] h-[70vw] max-w-[800px] max-h-[800px] rounded-full opacity-[0.07]"
           style={{
-            background: "radial-gradient(circle, hsl(215 70% 55%), transparent 70%)",
+            background: "radial-gradient(circle, hsl(0 72% 50%), transparent 70%)",
             filter: "blur(80px)",
           }}
         />
         <div
-          className="absolute top-[40%] -left-[20%] w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] rounded-full opacity-[0.06]"
+          className="absolute top-[40%] -left-[20%] w-[50vw] h-[50vw] max-w-[500px] max-h-[500px] rounded-full opacity-[0.05]"
           style={{
-            background: "radial-gradient(circle, hsl(270 60% 58%), transparent 70%)",
+            background: "radial-gradient(circle, hsl(31 100% 48%), transparent 70%)",
             filter: "blur(60px)",
           }}
         />
         <div
-          className="absolute -bottom-[15%] right-[20%] w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full opacity-[0.05]"
+          className="absolute -bottom-[15%] right-[20%] w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full opacity-[0.04]"
           style={{
-            background: "radial-gradient(circle, hsl(168 50% 42%), transparent 70%)",
+            background: "radial-gradient(circle, hsl(40 97% 64%), transparent 70%)",
             filter: "blur(50px)",
           }}
         />
-        {/* Subtle grid overlay */}
         <div
           className="absolute inset-0 opacity-[0.012]"
           style={{
@@ -148,9 +147,9 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
         <div className="w-full max-w-md space-y-10 page-enter">
           {/* Editorial label + oversized headline */}
           <div className="space-y-4">
-            <span className="editorial-label flex items-center gap-2">
-              <span className="color-dot" />
-              Gestão Imobiliária
+            <span className="editorial-label-accent flex items-center gap-2">
+              <span className="color-dot-accent" />
+              Plataforma de Performance
             </span>
             <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-foreground">
               Bem-vindo
@@ -158,11 +157,11 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
               <span className="text-gradient-vibrant">de volta.</span>
             </h1>
             <p className="text-muted-foreground text-base sm:text-lg max-w-sm">
-              Entre na sua conta para gerenciar seus imóveis e acompanhar seu funil.
+              Entre na sua conta para gerenciar leads, converter mais e escalar seus resultados.
             </p>
           </div>
 
-          {/* Colorful section divider */}
+          {/* Section divider */}
           <hr className="section-divider" />
 
           {showForgotPassword ? (
@@ -191,14 +190,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   placeholder="seu@email.com"
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                  className="h-12 bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-accent/40 transition-all duration-300"
                   autoFocus
                 />
               </div>
               <Button
                 type="submit"
                 size="lg"
-                className="w-full h-14 rounded-xl text-base font-semibold transition-all duration-300"
+                variant="gold"
+                className="w-full h-14 text-base"
                 disabled={sendingReset || !resetEmail.trim()}
               >
                 {sendingReset ? (
@@ -224,7 +224,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                     aria-invalid={!!errors.email}
                     aria-describedby={errors.email ? "login-email-error" : undefined}
-                    className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                    className="h-12 bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-accent/40 transition-all duration-300"
                   />
                   {errors.email && <p id="login-email-error" role="alert" className="text-xs text-destructive mt-1">{errors.email}</p>}
                 </div>
@@ -240,7 +240,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                     aria-invalid={!!errors.password}
                     aria-describedby={errors.password ? "login-password-error" : undefined}
-                    className="h-12 rounded-xl bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-primary/40 transition-all duration-300"
+                    className="h-12 bg-muted/40 border-border/50 text-base placeholder:text-muted-foreground/50 focus:bg-card focus:border-accent/40 transition-all duration-300"
                   />
                   {errors.password && <p id="login-password-error" role="alert" className="text-xs text-destructive mt-1">{errors.password}</p>}
                 </div>
@@ -249,7 +249,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   <button
                     type="button"
                     onClick={() => { setShowForgotPassword(true); setResetEmail(loginForm.email); }}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    className="text-sm text-muted-foreground hover:text-accent transition-colors"
                   >
                     Esqueci minha senha
                   </button>
@@ -258,14 +258,15 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full h-14 rounded-xl text-base font-semibold group glow-primary-hover transition-all duration-300"
+                  variant="gold"
+                  className="w-full h-14 text-base group glow-primary-hover"
                   disabled={isLoading}
                 >
                   {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      Entrar
+                      Entrar na plataforma
                       <ArrowRight className="h-5 w-5 ml-2 transition-transform duration-300 group-hover:translate-x-1.5" />
                     </>
                   )}
@@ -276,7 +277,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground/60 tracking-widest uppercase">
-            Habitae — Simplificando o mercado imobiliário
+            Porta do Corretor — Performance e Conversão
           </p>
         </div>
       </main>

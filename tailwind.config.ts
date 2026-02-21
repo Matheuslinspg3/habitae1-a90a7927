@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -73,7 +73,7 @@ export default {
       boxShadow: {
         "elegant": "0 1px 2px hsl(var(--foreground) / 0.03), 0 4px 12px hsl(var(--foreground) / 0.04)",
         "elevated": "0 4px 8px hsl(var(--foreground) / 0.04), 0 12px 32px hsl(var(--foreground) / 0.06)",
-        "glow": "0 0 24px -6px hsl(var(--primary) / 0.25)",
+        "glow": "0 0 24px -6px hsl(var(--accent) / 0.25)",
       },
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.22, 1, 0.36, 1)",

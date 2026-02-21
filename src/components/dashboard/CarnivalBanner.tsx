@@ -34,7 +34,7 @@ export function CarnivalBanner() {
               🎭 Carnaval 2026!
             </h3>
             <p className="text-white/80 text-xs sm:text-sm">
-              Bons negócios e muita festa! A Habitae está no clima 🎉
+              Bons negócios e muita festa! O Porta está no clima 🎉
             </p>
           </div>
         </div>

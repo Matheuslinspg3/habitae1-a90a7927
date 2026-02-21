@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-interface HabitaeLogoProps {
+interface PortaLogoProps {
   variant?: "horizontal" | "icon";
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -34,26 +34,15 @@ const LogoMark = React.forwardRef<HTMLDivElement, { size?: "sm" | "md" | "lg" }>
       <div className="relative" ref={ref}>
         <div 
           className={cn(
-            "flex items-center justify-center rounded-2xl bg-primary shadow-sm",
+            "flex items-center justify-center rounded-xl bg-primary shadow-sm",
             sizes.container
           )}
         >
+          {/* Stylized "P" door icon */}
           <svg viewBox="0 0 24 24" fill="none" className="w-[55%] h-[55%]">
-            <path 
-              d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z" 
-              stroke="hsl(0 0% 100%)" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-              fill="none"
-            />
-            <path 
-              d="M9 22V12h6v10" 
-              stroke="hsl(0 0% 100%)" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
+            <rect x="4" y="3" width="16" height="18" rx="2" stroke="hsl(0 0% 100%)" strokeWidth="2" fill="none" />
+            <circle cx="16" cy="12" r="1.5" fill="hsl(0 0% 100%)" />
+            <path d="M4 8h16" stroke="hsl(0 0% 100%)" strokeWidth="1.5" />
           </svg>
         </div>
         {isCarnival && (
@@ -67,7 +56,7 @@ const LogoMark = React.forwardRef<HTMLDivElement, { size?: "sm" | "md" | "lg" }>
 );
 LogoMark.displayName = "LogoMark";
 
-export const HabitaeLogo = React.forwardRef<HTMLDivElement, HabitaeLogoProps>(
+export const HabitaeLogo = React.forwardRef<HTMLDivElement, PortaLogoProps>(
   ({ variant = "horizontal", size = "md", className }, ref) => {
     const sizes = sizeClasses[size];
 
@@ -83,11 +72,11 @@ export const HabitaeLogo = React.forwardRef<HTMLDivElement, HabitaeLogoProps>(
       <div className={cn("flex items-center gap-2.5", className)} ref={ref}>
         <LogoMark size={size} />
         <div className="flex flex-col">
-          <span className={cn("font-display font-bold text-foreground tracking-tight", sizes.text)}>
-            Habitae
+          <span className={cn("font-display font-bold text-foreground tracking-tight leading-tight", sizes.text)}>
+            Porta<span className="text-primary">.</span>
           </span>
           <span className={cn("text-muted-foreground leading-tight font-medium", sizes.subtitle)}>
-            Gestão Imobiliária
+            do Corretor
           </span>
         </div>
       </div>

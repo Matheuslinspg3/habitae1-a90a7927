@@ -5,30 +5,31 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97]",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
+        default: "bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 hover:shadow-md",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent/10 hover:text-accent-foreground hover:border-accent/30",
+        outline: "border border-input bg-background hover:bg-muted hover:text-foreground hover:border-border",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent/10 hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        // Premium CTA variant
-        gold: "bg-primary text-primary-foreground font-semibold shadow-md hover:shadow-lg hover:shadow-primary/20 hover:bg-primary/90 transition-all duration-300",
-        // Outline primary
-        "gold-outline": "border-2 border-primary text-primary bg-transparent hover:bg-primary/8 font-semibold transition-all duration-300",
+        ghost: "hover:bg-muted hover:text-foreground",
+        link: "text-accent underline-offset-4 hover:underline",
+        // Premium CTA variant — Orange bold
+        gold: "bg-accent text-accent-foreground font-semibold shadow-md hover:shadow-lg hover:shadow-accent/20 hover:bg-accent/90 transition-all duration-300",
+        // Outline with accent
+        "gold-outline": "border-2 border-accent text-accent bg-transparent hover:bg-accent/8 font-semibold transition-all duration-300",
         // Soft glass variant
         glass: "bg-foreground/5 backdrop-blur-md border border-border/40 text-foreground hover:bg-foreground/10 transition-all duration-300",
+        // Red brand variant
+        brand: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md",
       },
       size: {
         default: "h-11 md:h-10 px-5 py-2",
-        sm: "h-9 rounded-lg px-3.5 text-xs",
-        lg: "h-12 rounded-xl px-8 text-base",
-        xl: "h-14 rounded-2xl px-10 text-lg",
+        sm: "h-9 rounded-md px-3.5 text-xs",
+        lg: "h-12 rounded-lg px-8 text-base",
+        xl: "h-14 rounded-xl px-10 text-lg",
         icon: "h-10 w-10",
-        // Touch-friendly size (44px minimum)
         touch: "min-h-[44px] min-w-[44px] px-5 py-2",
         "icon-touch": "min-h-[44px] min-w-[44px]",
       },
