@@ -3,8 +3,8 @@ import { useAdAccount, useAdSettings } from "@/hooks/useAdSettings";
 import { useLeadStages } from "@/hooks/useLeadStages";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -63,47 +63,45 @@ export default function MetaSettingsContent() {
     }
   }, [settings]);
 
-  const handleConnectMeta = () => {
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
+    setIsRedirecting(true);
 
-    const state = btoa(JSON.stringify({
-      user_id: profile.user_id,
-      org_id: profile.organization_id,
-      redirect: window.location.pathname,
-    }));
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-app-id");
+      if (error || !data?.app_id) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível obter o App ID do Meta. Verifique a configuração.",
+          variant: "destructive",
+        });
+        setIsRedirecting(false);
+        return;
+      }
 
-    const appId = import.meta.env.VITE_META_APP_ID;
-    if (!appId) {
-      // Fallback: use project ID to construct callback URL
+      const state = btoa(JSON.stringify({
+        user_id: profile.user_id,
+        org_id: profile.organization_id,
+        redirect: window.location.pathname,
+      }));
+
       const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const redirectUri = `https://${supabaseProjectId}.supabase.co/functions/v1/meta-oauth-callback`;
-      
+
       const oauthUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
-      oauthUrl.searchParams.set("client_id", ""); // Will need META_APP_ID in env
+      oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
       oauthUrl.searchParams.set("scope", "ads_read,ads_management,leads_retrieval,pages_show_list");
       oauthUrl.searchParams.set("response_type", "code");
 
-      toast({
-        title: "Configuração necessária",
-        description: "O VITE_META_APP_ID precisa ser configurado.",
-        variant: "destructive",
-      });
-      return;
+      window.location.href = oauthUrl.toString();
+    } catch {
+      toast({ title: "Erro", description: "Falha ao iniciar conexão.", variant: "destructive" });
+      setIsRedirecting(false);
     }
-
-    const supabaseProjectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const redirectUri = `https://${supabaseProjectId}.supabase.co/functions/v1/meta-oauth-callback`;
-
-    const oauthUrl = new URL("https://www.facebook.com/v21.0/dialog/oauth");
-    oauthUrl.searchParams.set("client_id", appId);
-    oauthUrl.searchParams.set("redirect_uri", redirectUri);
-    oauthUrl.searchParams.set("state", state);
-    oauthUrl.searchParams.set("scope", "ads_read,ads_management,leads_retrieval,pages_show_list");
-    oauthUrl.searchParams.set("response_type", "code");
-
-    window.location.href = oauthUrl.toString();
   };
 
   const handleSaveAutomation = () => {
@@ -152,9 +150,10 @@ export default function MetaSettingsContent() {
                 onClick={handleConnectMeta}
                 className="gap-2"
                 size="lg"
+                disabled={isRedirecting}
               >
-                <LogIn className="h-4 w-4" />
-                Conectar com Meta
+                {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                {isRedirecting ? "Redirecionando..." : "Conectar com Meta"}
               </Button>
               <p className="text-xs text-muted-foreground">
                 Permissões solicitadas: leitura de anúncios, gerenciamento de anúncios, 
