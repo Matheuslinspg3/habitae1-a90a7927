@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.meta-oauth-callback]
 verify_jwt = false
+
+[functions.meta-app-id]
+verify_jwt = false
