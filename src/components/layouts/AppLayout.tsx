@@ -8,6 +8,7 @@ import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
+import { PushNotificationPrompt } from "@/components/PushNotificationPrompt";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
@@ -26,6 +27,7 @@ export function AppLayout() {
             <Outlet />
           </main>
         </div>
+        <PushNotificationPrompt />
         <MobileFAB />
         <MobileBottomNav />
         <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v3.0</span>
