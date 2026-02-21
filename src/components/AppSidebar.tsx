@@ -95,7 +95,7 @@ export function AppSidebar() {
           {collapsed ? (
             <HabitaeLogo variant="icon" size="sm" />
           ) : (
-            <HabitaeLogo variant="horizontal" size="md" />
+            <HabitaeLogo variant="icon" size="md" />
           )}
         </div>
       </SidebarHeader>
