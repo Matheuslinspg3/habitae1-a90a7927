@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
@@ -8,11 +9,24 @@ import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
-  // Initialize performance detection (auto-adds .low-end-mode to html)
   usePerformanceMode();
+
+  // Auto-prompt push notification permission once per session
+  const { isSupported, permission, subscribe } = usePushNotifications();
+  const prompted = useRef(false);
+
+  useEffect(() => {
+    if (isSupported && permission === "default" && !prompted.current) {
+      prompted.current = true;
+      // Small delay so the page renders first
+      const timer = setTimeout(() => subscribe(), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSupported, permission, subscribe]);
 
   return (
     <SidebarProvider>
