@@ -1,21 +1,44 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Send, Loader2 } from "lucide-react";
-import { useBrokers } from "@/hooks/useBrokers";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function SendPushCard() {
-  const { brokers, isLoading: loadingBrokers } = useBrokers();
   const [selectedUserId, setSelectedUserId] = useState("");
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["all-profiles-dev"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("user_id, full_name, organization_id");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: authUsers = [] } = useQuery({
+    queryKey: ["admin-users-emails"],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
+        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+      );
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json() as Promise<{ id: string; email: string }[]>;
+    },
+  });
+
+  const getEmail = (userId: string) => authUsers.find((u) => u.id === userId)?.email || "";
 
   const handleSend = async () => {
     if (!selectedUserId || !title.trim()) {
@@ -64,14 +87,17 @@ export function SendPushCard() {
           <Label htmlFor="push-user">Destinatário</Label>
           <Select value={selectedUserId} onValueChange={setSelectedUserId}>
             <SelectTrigger id="push-user">
-              <SelectValue placeholder={loadingBrokers ? "Carregando..." : "Selecione um usuário"} />
+              <SelectValue placeholder="Selecione um usuário" />
             </SelectTrigger>
             <SelectContent>
-              {brokers.map((b) => (
-                <SelectItem key={b.user_id} value={b.user_id}>
-                  {b.full_name || "Sem nome"}
-                </SelectItem>
-              ))}
+              {profiles.map((p) => {
+                const email = getEmail(p.user_id);
+                return (
+                  <SelectItem key={p.user_id} value={p.user_id}>
+                    {p.full_name || "Sem nome"} {email ? `(${email})` : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
