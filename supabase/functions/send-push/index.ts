@@ -232,6 +232,7 @@ Deno.serve(async (req) => {
           sent++;
           const okData = await res.json();
           console.log("FCM send success:", JSON.stringify(okData));
+        } else {
           failed++;
           const errData = await res.json();
 
