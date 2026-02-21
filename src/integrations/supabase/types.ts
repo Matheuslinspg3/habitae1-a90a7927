@@ -2776,6 +2776,47 @@ export type Database = {
           },
         ]
       }
+      property_share_links: {
+        Row: {
+          active: boolean
+          broker_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          property_id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          broker_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          property_id: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          broker_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          property_id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       property_type_codes: {
         Row: {
           code: string
@@ -3727,6 +3768,7 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      get_public_property_by_slug: { Args: { p_slug: string }; Returns: Json }
       get_public_property_images: {
         Args: { p_property_id: string }
         Returns: {

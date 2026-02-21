@@ -16,6 +16,7 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { useAuth } from "@/contexts/AuthContext";
+import { useShareLink } from "@/hooks/useShareLink";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -88,6 +89,7 @@ export default function PropertyDetails() {
   const [formOpen, setFormOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
 
   const property = properties.find((p) => p.id === id);
   const { logActivity } = useActivityLogger();
@@ -166,18 +168,23 @@ export default function PropertyDetails() {
   };
 
   const handleCopyLink = async () => {
-    const url = generateLandingPageUrl();
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast({
-      title: "Link copiado!",
-      description: "O link da landing page foi copiado para a área de transferência.",
-    });
-    setTimeout(() => setCopied(false), 2000);
+    if (!id) return;
+    const url = await generateShareLink(id);
+    if (url) {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast({
+        title: "Link seguro copiado!",
+        description: "O link público (sem dados do proprietário) foi copiado.",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleShare = async () => {
-    const url = generateLandingPageUrl();
+    if (!id) return;
+    const url = await generateShareLink(id);
+    if (!url) return;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -185,11 +192,13 @@ export default function PropertyDetails() {
           text: `Confira este imóvel: ${property?.title}`,
           url,
         });
-      } catch (error) {
-        handleCopyLink();
+      } catch {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copiado!" });
       }
     } else {
-      handleCopyLink();
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copiado!" });
     }
   };
 

@@ -44,6 +44,7 @@ import Administration from "./pages/Administration";
 import Anuncios from "./pages/Anuncios";
 import MetaAdDetail from "./pages/ads/MetaAdDetail";
 import Owners from "./pages/Owners";
+import PublicPropertyBySlug from "./pages/PublicPropertyBySlug";
 
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
 import Onboarding from "./pages/app/Onboarding";
@@ -82,6 +83,7 @@ const App = () => (
                     <Route path="/demo" element={<Demo />} />
                     <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                     <Route path="/instalar" element={<Install />} />
+                    <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/acesso-negado" element={<AccessDenied />} />
 
