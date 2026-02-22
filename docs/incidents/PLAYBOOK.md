@@ -69,3 +69,24 @@ Ações em curso: [o que está sendo feito]
 2. Causa raiz identificada (mesmo que preliminar).
 3. Timeline documentada.
 4. Postmortem agendado com owner.
+
+---
+
+## Push Notifications — Secrets obrigatórios (mínimo)
+
+Para diagnóstico e envio de push via `send-push`, garantir no ambiente **Production**:
+
+- `APP_URL`
+  - Formato esperado: URL absoluta com `https://`.
+  - Exemplo: `https://habitae1.lovable.app`
+- `FIREBASE_SERVICE_ACCOUNT_KEY`
+  - Formato esperado: JSON válido em linha única da Service Account Firebase.
+  - Campos mínimos obrigatórios: `project_id`, `client_email`, `private_key`.
+
+### Erros de healthcheck e ação recomendada
+
+- `missing_app_url`: configurar `APP_URL` em Production.
+- `invalid_app_url`: corrigir `APP_URL` para URL absoluta válida.
+- `missing_service_account`: configurar secret `FIREBASE_SERVICE_ACCOUNT_KEY` em Production.
+- `invalid_service_account_json`: atualizar `FIREBASE_SERVICE_ACCOUNT_KEY` com JSON válido (sem truncamento).
+- `invalid_service_account_fields`: regerar Service Account Firebase e incluir campos obrigatórios.

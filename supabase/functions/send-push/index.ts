@@ -23,6 +23,21 @@ interface FcmErrorMetadata {
   detailStatuses: string[];
 }
 
+type PushHealthStatus =
+  | "ok"
+  | "missing_app_url"
+  | "invalid_app_url"
+  | "missing_service_account"
+  | "invalid_service_account_json"
+  | "invalid_service_account_fields";
+
+interface PushDiagnostics {
+  status: PushHealthStatus;
+  appUrl?: string;
+  projectId?: string;
+  message: string;
+}
+
 /** Get an OAuth2 access token for FCM v1 API using service account */
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -126,13 +141,92 @@ function getRequiredAppUrl(): string {
   return parsed.origin;
 }
 
+function getPushDiagnostics(): PushDiagnostics {
+  const appUrl = Deno.env.get("APP_URL")?.trim();
+  if (!appUrl) {
+    return {
+      status: "missing_app_url",
+      message: "APP_URL não configurada. Defina APP_URL (ex: https://habitae1.lovable.app).",
+    };
+  }
+
+  let appOrigin: string;
+  try {
+    appOrigin = new URL(appUrl).origin;
+  } catch {
+    return {
+      status: "invalid_app_url",
+      message: `APP_URL inválida (${appUrl}). Use URL absoluta com https://.`,
+    };
+  }
+
+  const serviceAccountRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY")?.trim();
+  if (!serviceAccountRaw) {
+    return {
+      status: "missing_service_account",
+      appUrl: appOrigin,
+      message:
+        "FIREBASE_SERVICE_ACCOUNT_KEY não configurada. Configure o secret FIREBASE_SERVICE_ACCOUNT_KEY no ambiente Production.",
+    };
+  }
+
+  let serviceAccount: Record<string, unknown>;
+  try {
+    serviceAccount = JSON.parse(serviceAccountRaw);
+  } catch {
+    return {
+      status: "invalid_service_account_json",
+      appUrl: appOrigin,
+      message:
+        "FIREBASE_SERVICE_ACCOUNT_KEY inválida. O valor deve ser JSON válido em linha única (service account do Firebase).",
+    };
+  }
+
+  const requiredFields = ["project_id", "client_email", "private_key"];
+  const missingFields = requiredFields.filter(
+    (field) => typeof serviceAccount[field] !== "string" || !String(serviceAccount[field]).trim()
+  );
+
+  if (missingFields.length > 0) {
+    return {
+      status: "invalid_service_account_fields",
+      appUrl: appOrigin,
+      message: `FIREBASE_SERVICE_ACCOUNT_KEY sem campos obrigatórios: ${missingFields.join(", ")}.`,
+    };
+  }
+
+  return {
+    status: "ok",
+    appUrl: appOrigin,
+    projectId: String(serviceAccount.project_id),
+    message: "Configuração mínima de push válida.",
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const APP_URL = getRequiredAppUrl();
+    const url = new URL(req.url);
+    const diagnostics = getPushDiagnostics();
+
+    if (url.searchParams.get("health") === "1") {
+      return new Response(
+        JSON.stringify(diagnostics),
+        {
+          status: diagnostics.status === "ok" ? 200 : 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (diagnostics.status !== "ok") {
+      throw new Error(diagnostics.message);
+    }
+
+    const APP_URL = diagnostics.appUrl ?? getRequiredAppUrl();
     const body: PushPayload = await req.json();
     const { user_id, title, message, entity_id, entity_type, notification_type } = body;
 
@@ -143,11 +237,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const serviceAccountRaw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountRaw) {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY not configured");
-    }
-    const serviceAccount = JSON.parse(serviceAccountRaw);
+    const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY")!);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
