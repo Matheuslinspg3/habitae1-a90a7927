@@ -58,69 +58,16 @@ function normalizePayload(payload) {
   const body = data.body || data.message || notification.body || "";
   const collapseKey = data.collapse_key || data.collapseKey || payload?.collapseKey;
   const tag = data.tag || notification.tag || collapseKey || data.notification_type || "default";
+  const icon = data.icon || notification.icon || "/pwa-192x192.png";
+  const badge = data.badge || notification.badge || "/pwa-192x192.png";
+  const link = data.link || notification.link || "/dashboard";
 
-  return { title, body, tag, collapseKey, data, notification };
+  return { title, body, tag, collapseKey, icon, badge, link, data, notification };
 }
 
-// --- Flag to coordinate push listener fallback ---
-let bgMessageHandled = false;
-
-// --- Raw push event listener (fallback if onBackgroundMessage doesn't fire) ---
-self.addEventListener("push", (event) => {
-  bgMessageHandled = false;
-
-  console.log("[firebase-messaging-sw][push-raw]", {
-    hasData: !!event.data,
-    text: event.data ? event.data.text().substring(0, 200) : null,
-  });
-
-  const showFallback = async () => {
-    // Aguardar um tick para dar chance ao onBackgroundMessage
-    await new Promise((r) => setTimeout(r, 150));
-
-    if (bgMessageHandled) return;
-
-    if (!event.data) return;
-
-    let payload;
-    try {
-      payload = event.data.json();
-    } catch {
-      return;
-    }
-
-    const normalized = normalizePayload(payload);
-
-    console.log("[firebase-messaging-sw][push-fallback]", JSON.stringify({
-      title: normalized.title,
-      tag: normalized.tag,
-    }));
-
-    await self.registration.showNotification(normalized.title, {
-      body: normalized.body,
-      icon: "/pwa-192x192.png",
-      badge: "/pwa-192x192.png",
-      vibrate: [200, 100, 200],
-      tag: normalized.tag,
-      renotify: true,
-      data: {
-        ...normalized.notification,
-        ...normalized.data,
-        __meta: {
-          receivedAt: new Date().toISOString(),
-          source: "push-fallback",
-        },
-      },
-    });
-  };
-
-  event.waitUntil(showFallback());
-});
-
 // --- Background message handler (deterministic showNotification) ---
+// Data-only messages always trigger onBackgroundMessage reliably
 messaging.onBackgroundMessage((payload) => {
-  bgMessageHandled = true;
-
   const normalized = normalizePayload(payload);
 
   console.log("[firebase-messaging-sw][received]", JSON.stringify({
@@ -133,13 +80,12 @@ messaging.onBackgroundMessage((payload) => {
 
   const notificationOptions = {
     body: normalized.body,
-    icon: "/pwa-192x192.png",
-    badge: "/pwa-192x192.png",
+    icon: normalized.icon,
+    badge: normalized.badge,
     vibrate: [200, 100, 200],
     tag: normalized.tag,
     renotify: true,
     data: {
-      ...normalized.notification,
       ...normalized.data,
       __meta: {
         messageId: payload?.messageId || null,

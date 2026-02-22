@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug, Monitor } from "lucide-react";
+import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug, Monitor, Search } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,12 @@ export function PushTestCard() {
   const { isSupported, isSubscribed, isLoading, permission, subscribe, unsubscribe, debugInfo } = usePushNotifications();
   const [isSending, setIsSending] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [localDebug, setLocalDebug] = useState<string[]>([]);
+
+  const addDebug = useCallback((msg: string) => {
+    console.log("[PushTest]", msg);
+    setLocalDebug((prev) => [...prev.slice(-19), `${new Date().toLocaleTimeString()}: ${msg}`]);
+  }, []);
 
   const checkSW = async () => {
     try {
@@ -46,33 +52,74 @@ export function PushTestCard() {
   const handleTestPush = async () => {
     if (!user) return;
     setIsSending(true);
+    addDebug("Enviando push de teste...");
     try {
       const { data, error } = await supabase.functions.invoke("send-push", {
         body: {
           user_id: user.id,
-          title: "🔔 Teste Habitae",
+          title: "Teste Habitae",
           message: "Esta é uma notificação de teste. Se você está vendo isso, o push está funcionando!",
           notification_type: "test",
         },
       });
 
+      addDebug(`Resultado: ${JSON.stringify(data || error)}`);
+
       if (error) throw error;
 
       if (data?.sent > 0) {
-        toast.success(`Push enviado com sucesso! (${data.sent} dispositivo${data.sent > 1 ? "s" : ""})`);
+        toast.success(`Push enviado! (${data.sent} dispositivo${data.sent > 1 ? "s" : ""})`);
+      } else if (data?.staleRemoved > 0) {
+        toast.warning("Todos os tokens estavam expirados. Desative e reative as notificações push.");
+        addDebug("Tokens expirados removidos: " + data.staleRemoved);
       } else {
-        toast.warning(`Nenhum dispositivo recebeu. Tokens removidos: ${data?.staleRemoved || 0}. Reative as notificações.`);
+        toast.warning("Nenhum dispositivo encontrado. Ative as notificações primeiro.");
       }
     } catch (e: any) {
       console.error("Test push error:", e);
       const msg = e.message || "erro desconhecido";
-      if (msg.includes("APP_URL") || msg.includes("FIREBASE_SERVICE_ACCOUNT")) {
-        toast.error("Erro de configuração no servidor: " + msg + ". Verifique os Secrets das Edge Functions.");
+      if (msg.includes("FIREBASE_SERVICE_ACCOUNT_KEY")) {
+        toast.error("FIREBASE_SERVICE_ACCOUNT_KEY não configurada nos Secrets do Supabase");
+        addDebug("Falta secret: FIREBASE_SERVICE_ACCOUNT_KEY");
+      } else if (msg.includes("APP_URL")) {
+        toast.error("APP_URL não configurada nos Secrets do Supabase");
+        addDebug("Falta secret: APP_URL");
       } else {
         toast.error("Erro ao enviar push: " + msg);
       }
+      addDebug(`Erro completo: ${msg}`);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const checkSubscriptions = async () => {
+    if (!user) return;
+    addDebug("Consultando subscriptions...");
+    try {
+      const { data, error } = await supabase
+        .from("push_subscriptions")
+        .select("id, fcm_token, created_at, device_info")
+        .eq("user_id", user.id);
+
+      if (error) {
+        addDebug(`Erro ao consultar subscriptions: ${error.message}`);
+        toast.error("Erro ao verificar subscriptions");
+        return;
+      }
+
+      addDebug(`${data.length} subscription(s) encontrada(s)`);
+      data.forEach((sub, i) => {
+        addDebug(`  ${i + 1}. Token: ${sub.fcm_token.substring(0, 20)}... | Criado: ${new Date(sub.created_at).toLocaleString()}`);
+      });
+
+      if (data.length === 0) {
+        toast.warning("Nenhuma subscription encontrada. Ative as notificações push primeiro.");
+      } else {
+        toast.success(`${data.length} subscription(s) ativa(s)`);
+      }
+    } catch (e: any) {
+      addDebug(`Erro: ${e.message}`);
     }
   };
 
@@ -153,6 +200,16 @@ export function PushTestCard() {
           </Button>
 
           <Button
+            onClick={checkSubscriptions}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Search className="h-4 w-4" />
+            Verificar Subscriptions
+          </Button>
+
+          <Button
             onClick={handleTestPush}
             disabled={isSending || !isSubscribed}
             variant="gold"
@@ -176,10 +233,10 @@ export function PushTestCard() {
         </p>
 
         {/* Debug Info */}
-        {showDebug && debugInfo.length > 0 && (
+        {showDebug && (debugInfo.length > 0 || localDebug.length > 0) && (
           <div className="rounded-md bg-muted p-3 space-y-1">
             <p className="text-xs font-medium text-muted-foreground mb-2">Debug Log:</p>
-            {debugInfo.map((line, i) => (
+            {[...debugInfo, ...localDebug].map((line, i) => (
               <p key={i} className="text-xs font-mono text-muted-foreground">
                 {line}
               </p>
