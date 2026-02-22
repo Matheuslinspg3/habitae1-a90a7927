@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.meta-app-id]
 verify_jwt = false
+
+[functions.cleanup-orphan-media]
+verify_jwt = false
+
+[functions.migrate-to-r2]
+verify_jwt = false
+
+[functions.r2-presign]
+verify_jwt = false
