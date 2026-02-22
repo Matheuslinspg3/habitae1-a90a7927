@@ -6,7 +6,9 @@ export function MobileTopBar() {
   return (
     <header className="sticky top-0 z-40 md:hidden bg-background/95 backdrop-blur-lg border-b border-border/50 safe-area-top">
       <div className="flex items-center justify-between h-16 px-4">
-        <HabitaeLogo variant="icon" size="sm" />
+        <a href="/dashboard" className="block cursor-pointer">
+          <HabitaeLogo variant="icon" size="sm" />
+        </a>
         <div className="flex items-center gap-2">
           <NotificationBell />
           <ThemeToggle />

@@ -94,13 +94,13 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border/30 bg-sidebar backdrop-blur-xl">
       <SidebarHeader className="p-4">
-        <div>
+        <a href="/dashboard" className="block cursor-pointer">
           {collapsed ? (
             <HabitaeLogo variant="icon" size="sm" />
           ) : (
             <HabitaeLogo variant="horizontal" size="md" />
           )}
-        </div>
+        </a>
       </SidebarHeader>
 
       <SidebarContent>
