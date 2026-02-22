@@ -22,6 +22,9 @@ interface ImageData {
   is_cover?: boolean;
   display_order?: number;
   phash?: string;
+  r2_key_full?: string;
+  r2_key_thumb?: string;
+  storage_provider?: string;
 }
 
 interface OwnerData {
@@ -130,6 +133,9 @@ export function useProperties() {
           is_cover: img.is_cover || index === 0,
           display_order: img.display_order ?? index,
           ...(img.phash ? { phash: img.phash } : {}),
+          ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
+          ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
+          ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
         }));
 
         const { error: imagesError } = await supabase
@@ -310,6 +316,9 @@ export function useProperties() {
             is_cover: img.is_cover || index === 0,
             display_order: img.display_order ?? index,
             ...(img.phash ? { phash: img.phash } : {}),
+            ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
+            ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
+            ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
           }));
 
           await supabase
