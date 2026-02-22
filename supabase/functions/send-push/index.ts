@@ -192,32 +192,22 @@ Deno.serve(async (req) => {
               Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
             },
+            // Data-only message — SW controls display via onBackgroundMessage
             body: JSON.stringify({
               message: {
                 token: sub.fcm_token,
-                notification: {
-                  title,
-                  body: message || "",
-                },
-                webpush: {
-                  notification: {
-                    icon: `${APP_URL}/pwa-192x192.png`,
-                    badge: `${APP_URL}/pwa-192x192.png`,
-                    tag: notification_type || "default",
-                    renotify: true,
-                  },
-                  fcm_options: {
-                    link: entity_type && entity_id
-                      ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
-                      : `${APP_URL}/dashboard`,
-                  },
-                },
                 data: {
                   title: title || "",
                   message: message || "",
                   entity_id: entity_id || "",
                   entity_type: entity_type || "",
                   notification_type: notification_type || "",
+                  icon: `${APP_URL}/pwa-192x192.png`,
+                  badge: `${APP_URL}/pwa-192x192.png`,
+                  tag: notification_type || "default",
+                  link: entity_type && entity_id
+                    ? `${APP_URL}${getEntityLink(entity_type, entity_id)}`
+                    : `${APP_URL}/dashboard`,
                 },
               },
             }),

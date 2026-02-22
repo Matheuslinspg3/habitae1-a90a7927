@@ -106,18 +106,6 @@ export function usePushNotifications() {
           const body = payload?.notification?.body || payload?.data?.message || "";
 
           toast(title, { description: body });
-
-          if (Notification.permission === "granted") {
-            try {
-              new Notification(title, {
-                body,
-                icon: "/pwa-192x192.png",
-                tag: payload?.data?.notification_type || "foreground",
-              });
-            } catch {
-              // Notification constructor may fail in some contexts
-            }
-          }
         });
 
         // onForegroundMessage returns () => {} even when messaging is null
