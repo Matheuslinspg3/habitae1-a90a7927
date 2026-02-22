@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Zap, LogIn } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Zap, LogIn, WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function MetaSettingsContent() {
@@ -202,31 +202,98 @@ export default function MetaSettingsContent() {
       </Card>
 
       {/* Sync buttons */}
-      {isConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Sincronização</CardTitle>
-            <CardDescription>Sincronize dados manualmente com o Meta Ads.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              A sincronização completa será realizada pelas funções de backend. Use os botões abaixo para disparar manualmente.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Sincronizar Ads
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Sincronizar Estatísticas (30 dias)
-              </Button>
-              <Button variant="outline" size="sm" disabled>
-                <RefreshCw className="h-4 w-4 mr-2" /> Backfill Leads (7 dias)
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground italic">Os endpoints de sincronização serão habilitados após configuração do backend.</p>
-          </CardContent>
-        </Card>
-      )}
+      {isConnected && <SyncSection />}
     </div>
+  );
+}
+
+function SyncSection() {
+  const { toast } = useToast();
+  const [syncingEntities, setSyncingEntities] = useState(false);
+  const [syncingLeads, setSyncingLeads] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [lastSyncResult, setLastSyncResult] = useState<Record<string, any> | null>(null);
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-sync-entities", {
+        body: { days_back: 1 },
+      });
+      if (error) throw error;
+      toast({ title: "Conexão OK!", description: `Encontrados ${data.campaigns} campanhas, ${data.ads} anúncios.` });
+    } catch (err: any) {
+      toast({ title: "Falha na conexão", description: err.message || "Verifique se o token não expirou.", variant: "destructive" });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleSyncEntities = async () => {
+    setSyncingEntities(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-sync-entities", {
+        body: { days_back: 30 },
+      });
+      if (error) throw error;
+      setLastSyncResult(data);
+      toast({ title: "Sincronização concluída", description: `${data.entities} entidades e ${data.insights} métricas sincronizadas.` });
+    } catch (err: any) {
+      toast({ title: "Erro na sincronização", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncingEntities(false);
+    }
+  };
+
+  const handleSyncLeads = async (daysBack: number) => {
+    setSyncingLeads(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meta-sync-leads", {
+        body: { days_back: daysBack },
+      });
+      if (error) throw error;
+      setLastSyncResult(data);
+      toast({ title: "Leads sincronizados", description: `${data.synced} leads sincronizados. ${data.auto_sent > 0 ? `${data.auto_sent} enviados ao CRM automaticamente.` : ""}` });
+    } catch (err: any) {
+      toast({ title: "Erro ao sincronizar leads", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncingLeads(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Sincronização</CardTitle>
+        <CardDescription>Sincronize dados manualmente com o Meta Ads.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" size="sm" onClick={handleTestConnection} disabled={testingConnection}>
+            {testingConnection ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <WifiOff className="h-4 w-4 mr-2" />}
+            Testar Conexão
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSyncEntities} disabled={syncingEntities}>
+            {syncingEntities ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Sincronizar Ads + Métricas (30d)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleSyncLeads(7)} disabled={syncingLeads}>
+            {syncingLeads ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Backfill Leads (7d)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleSyncLeads(30)} disabled={syncingLeads}>
+            {syncingLeads ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Backfill Leads (30d)
+          </Button>
+        </div>
+
+        {lastSyncResult && (
+          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
+            <p className="font-medium mb-1">Último resultado:</p>
+            <pre className="whitespace-pre-wrap">{JSON.stringify(lastSyncResult, null, 2)}</pre>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
