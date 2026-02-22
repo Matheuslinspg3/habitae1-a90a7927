@@ -195,10 +195,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               message: {
                 token: sub.fcm_token,
-                notification: {
-                  title,
-                  body: message || "",
-                },
+                // SEM chave "notification" aqui — forçar data-only message
                 webpush: {
                   notification: {
                     icon: `${APP_URL}/pwa-192x192.png`,

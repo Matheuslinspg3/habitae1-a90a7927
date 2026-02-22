@@ -1,8 +1,8 @@
 /* eslint-disable no-undef */
 // Firebase Messaging Service Worker
 
-importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/11.6.0/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/12.9.0/firebase-messaging-compat.js");
 
 firebase.initializeApp({
   apiKey: "AIzaSyAzZKKnALAb-uoUtlvhGDFZ5Gf0huxQqr8",
@@ -16,7 +16,7 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-const SW_VERSION = "2026.02.21";
+const SW_VERSION = "2026.02.22";
 
 console.log("[firebase-messaging-sw] SW inicializado", {
   version: SW_VERSION,
@@ -33,14 +33,6 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   console.log("[firebase-messaging-sw] activate", { version: SW_VERSION });
   event.waitUntil(clients.claim());
-});
-
-// --- Raw push event listener (fallback if onBackgroundMessage doesn't fire) ---
-self.addEventListener("push", (event) => {
-  console.log("[firebase-messaging-sw][push-raw]", {
-    hasData: !!event.data,
-    text: event.data ? event.data.text().substring(0, 200) : null,
-  });
 });
 
 // --- Payload normalization utilities ---
@@ -70,8 +62,65 @@ function normalizePayload(payload) {
   return { title, body, tag, collapseKey, data, notification };
 }
 
+// --- Flag to coordinate push listener fallback ---
+let bgMessageHandled = false;
+
+// --- Raw push event listener (fallback if onBackgroundMessage doesn't fire) ---
+self.addEventListener("push", (event) => {
+  bgMessageHandled = false;
+
+  console.log("[firebase-messaging-sw][push-raw]", {
+    hasData: !!event.data,
+    text: event.data ? event.data.text().substring(0, 200) : null,
+  });
+
+  const showFallback = async () => {
+    // Aguardar um tick para dar chance ao onBackgroundMessage
+    await new Promise((r) => setTimeout(r, 150));
+
+    if (bgMessageHandled) return;
+
+    if (!event.data) return;
+
+    let payload;
+    try {
+      payload = event.data.json();
+    } catch {
+      return;
+    }
+
+    const normalized = normalizePayload(payload);
+
+    console.log("[firebase-messaging-sw][push-fallback]", JSON.stringify({
+      title: normalized.title,
+      tag: normalized.tag,
+    }));
+
+    await self.registration.showNotification(normalized.title, {
+      body: normalized.body,
+      icon: "/pwa-192x192.png",
+      badge: "/pwa-192x192.png",
+      vibrate: [200, 100, 200],
+      tag: normalized.tag,
+      renotify: true,
+      data: {
+        ...normalized.notification,
+        ...normalized.data,
+        __meta: {
+          receivedAt: new Date().toISOString(),
+          source: "push-fallback",
+        },
+      },
+    });
+  };
+
+  event.waitUntil(showFallback());
+});
+
 // --- Background message handler (deterministic showNotification) ---
 messaging.onBackgroundMessage((payload) => {
+  bgMessageHandled = true;
+
   const normalized = normalizePayload(payload);
 
   console.log("[firebase-messaging-sw][received]", JSON.stringify({

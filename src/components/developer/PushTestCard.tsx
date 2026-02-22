@@ -65,7 +65,12 @@ export function PushTestCard() {
       }
     } catch (e: any) {
       console.error("Test push error:", e);
-      toast.error("Erro ao enviar push: " + (e.message || "erro desconhecido"));
+      const msg = e.message || "erro desconhecido";
+      if (msg.includes("APP_URL") || msg.includes("FIREBASE_SERVICE_ACCOUNT")) {
+        toast.error("Erro de configuração no servidor: " + msg + ". Verifique os Secrets das Edge Functions.");
+      } else {
+        toast.error("Erro ao enviar push: " + msg);
+      }
     } finally {
       setIsSending(false);
     }
