@@ -13,6 +13,9 @@ interface PropertyImage {
   is_cover?: boolean;
   display_order?: number;
   phash?: string;
+  r2_key_full?: string;
+  r2_key_thumb?: string;
+  storage_provider?: string;
 }
 
 interface PropertyImageUploadProps {
@@ -20,9 +23,10 @@ interface PropertyImageUploadProps {
   onChange: (images: PropertyImage[]) => void;
   maxImages?: number;
   organizationId?: string;
+  propertyId?: string;
 }
 
-export function PropertyImageUpload({ images, onChange, maxImages = 200, organizationId }: PropertyImageUploadProps) {
+export function PropertyImageUpload({ images, onChange, maxImages = 200, organizationId, propertyId }: PropertyImageUploadProps) {
   const { uploadMultipleImages, isUploading, uploadProgress } = useImageUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -38,6 +42,7 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
 
     const uploadedImages = await uploadMultipleImages(filesToUpload, 'properties', {
       organizationId,
+      propertyId,
     });
 
     if (uploadedImages.length > 0) {
@@ -47,6 +52,9 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
         is_cover: images.length === 0 && index === 0,
         display_order: images.length + index,
         phash: img.phash,
+        r2_key_full: img.r2KeyFull,
+        r2_key_thumb: img.r2KeyThumb,
+        storage_provider: img.storageProvider,
       }));
 
       onChange([...images, ...newImages]);

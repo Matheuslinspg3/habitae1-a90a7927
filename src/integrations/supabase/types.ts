@@ -2392,8 +2392,11 @@ export type Database = {
           is_cover: boolean | null
           phash: string | null
           property_id: string
+          r2_key_full: string | null
+          r2_key_thumb: string | null
           scraped_from_url: string | null
           source: string | null
+          storage_provider: string
           url: string
         }
         Insert: {
@@ -2407,8 +2410,11 @@ export type Database = {
           is_cover?: boolean | null
           phash?: string | null
           property_id: string
+          r2_key_full?: string | null
+          r2_key_thumb?: string | null
           scraped_from_url?: string | null
           source?: string | null
+          storage_provider?: string
           url: string
         }
         Update: {
@@ -2422,8 +2428,11 @@ export type Database = {
           is_cover?: boolean | null
           phash?: string | null
           property_id?: string
+          r2_key_full?: string | null
+          r2_key_thumb?: string | null
           scraped_from_url?: string | null
           source?: string | null
+          storage_provider?: string
           url?: string
         }
         Relationships: [

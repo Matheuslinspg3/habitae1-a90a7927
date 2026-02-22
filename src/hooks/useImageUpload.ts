@@ -2,16 +2,134 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { generateImagePhash, hammingDistance, PHASH_DUPLICATE_THRESHOLD } from '@/lib/imagePhash';
-import { normalizeImageBeforeUpload, computeFileHash } from '@/lib/imageNormalizer';
+import { generateImageVariants } from '@/lib/imageVariants';
 
 interface UploadedImage {
   url: string;
   publicId: string;
   storageProvider?: 'r2' | 'cloudinary';
+  r2KeyFull?: string;
+  r2KeyThumb?: string;
+  publicUrlThumb?: string;
   phash?: string;
   isDuplicate?: boolean;
   duplicateOf?: string;
 }
+
+interface DuplicateMatch {
+  url: string;
+  phash: string;
+  property_title?: string;
+}
+
+// ── Presigned R2 Upload ──
+
+interface PresignResult {
+  uploadId: string;
+  r2KeyFull: string;
+  r2KeyThumb: string;
+  presignedPutUrlFull: string;
+  presignedPutUrlThumb: string;
+  publicUrlFull: string;
+  publicUrlThumb: string;
+  requiredHeaders: Record<string, string>;
+}
+
+async function getPresignedUrls(
+  propertyId: string,
+  files: Array<{ mimeType: string; sizeBytes: number }>,
+): Promise<PresignResult[] | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('r2-presign', {
+      body: { propertyId, files },
+    });
+
+    if (error || !data?.uploads) {
+      console.warn('Presign failed:', error || data);
+      return null;
+    }
+
+    return data.uploads;
+  } catch (e) {
+    console.warn('Presign request failed:', e);
+    return null;
+  }
+}
+
+async function uploadBlobToPresignedUrl(
+  blob: Blob,
+  presignedUrl: string,
+  headers: Record<string, string>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: {
+        ...headers,
+        'Content-Type': 'image/webp',
+      },
+      body: blob,
+    });
+
+    if (!res.ok) {
+      console.error(`PUT failed (${res.status}):`, await res.text().catch(() => ''));
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error('PUT to presigned URL failed:', e);
+    return false;
+  }
+}
+
+async function uploadToR2WithPresign(
+  file: File,
+  propertyId: string,
+): Promise<UploadedImage | null> {
+  // 1. Get presigned URLs
+  const presigned = await getPresignedUrls(propertyId, [
+    { mimeType: file.type, sizeBytes: file.size },
+  ]);
+
+  if (!presigned || presigned.length === 0) return null;
+  const p = presigned[0];
+
+  // 2. Generate thumb + full variants client-side
+  let variants;
+  try {
+    variants = await generateImageVariants(file);
+  } catch (e) {
+    console.error('Variant generation failed:', e);
+    return null;
+  }
+
+  // 3. Upload both variants in parallel
+  const [fullOk, thumbOk] = await Promise.all([
+    uploadBlobToPresignedUrl(variants.full.blob, p.presignedPutUrlFull, p.requiredHeaders),
+    uploadBlobToPresignedUrl(variants.thumb.blob, p.presignedPutUrlThumb, p.requiredHeaders),
+  ]);
+
+  if (!fullOk || !thumbOk) {
+    console.error(`R2 upload partial failure: full=${fullOk}, thumb=${thumbOk}`);
+    return null;
+  }
+
+  const fullKB = (variants.full.blob.size / 1024).toFixed(0);
+  const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0);
+  console.log(`[R2] Upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${p.r2KeyFull}`);
+
+  return {
+    url: p.publicUrlFull,
+    publicId: p.r2KeyFull,
+    storageProvider: 'r2',
+    r2KeyFull: p.r2KeyFull,
+    r2KeyThumb: p.r2KeyThumb,
+    publicUrlThumb: p.publicUrlThumb,
+  };
+}
+
+// ── Cloudinary Fallback ──
 
 interface CloudinarySignature {
   signature: string;
@@ -24,37 +142,6 @@ interface CloudinarySignature {
   unique_filename: boolean;
   public_id?: string;
 }
-
-interface DuplicateMatch {
-  url: string;
-  phash: string;
-  property_title?: string;
-}
-
-// ── R2 Upload ──
-
-async function uploadToR2(file: File, folder: string): Promise<UploadedImage | null> {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('folder', folder);
-
-  const { data, error } = await supabase.functions.invoke('r2-upload', {
-    body: formData,
-  });
-
-  if (error || !data?.url) {
-    console.warn('R2 upload failed, will try fallback:', error || data);
-    return null;
-  }
-
-  return {
-    url: data.url,
-    publicId: data.key,
-    storageProvider: 'r2',
-  };
-}
-
-// ── Cloudinary Upload (with incoming transformation + hash dedupe) ──
 
 async function getCloudinarySignature(folder: string, fileHash?: string): Promise<CloudinarySignature | null> {
   try {
@@ -73,11 +160,16 @@ async function getCloudinarySignature(folder: string, fileHash?: string): Promis
 }
 
 async function uploadToCloudinary(file: File, folder: string, fileHash?: string): Promise<UploadedImage | null> {
-  const signature = await getCloudinarySignature(folder, fileHash);
+  // Import normalizer only for Cloudinary path (legacy)
+  const { normalizeImageBeforeUpload, computeFileHash: computeHash } = await import('@/lib/imageNormalizer');
+  const normalizedFile = await normalizeImageBeforeUpload(file);
+  const hash = fileHash || await computeHash(normalizedFile);
+
+  const signature = await getCloudinarySignature(folder, hash);
   if (!signature) return null;
 
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', normalizedFile);
   formData.append('api_key', signature.api_key);
   formData.append('timestamp', signature.timestamp.toString());
   formData.append('signature', signature.signature);
@@ -85,14 +177,11 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
   formData.append('overwrite', String(signature.overwrite));
   formData.append('transformation', signature.transformation);
   formData.append('unique_filename', String(signature.unique_filename));
-
-  if (signature.public_id) {
-    formData.append('public_id', signature.public_id);
-  }
+  if (signature.public_id) formData.append('public_id', signature.public_id);
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${signature.cloud_name}/image/upload`,
-    { method: 'POST', body: formData }
+    { method: 'POST', body: formData },
   );
 
   if (!response.ok) {
@@ -102,8 +191,7 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
   }
 
   const result = await response.json();
-  const reduction = file.size > 0 ? Math.round((1 - result.bytes / file.size) * 100) : 0;
-  console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored (sent ${(file.size / 1024).toFixed(0)}KB, ${reduction}% saving)`);
+  console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored`);
 
   return {
     url: result.secure_url,
@@ -117,7 +205,7 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
 async function findDuplicateByPhash(
   phash: string,
   organizationId: string,
-  _excludePropertyId?: string
+  _excludePropertyId?: string,
 ): Promise<DuplicateMatch | null> {
   const { data: existingImages } = await supabase
     .from('property_images')
@@ -162,9 +250,13 @@ export function useImageUpload() {
   const uploadImage = useCallback(async (
     file: File,
     folder: string = 'properties',
-    options?: { organizationId?: string; skipDuplicateCheck?: boolean; excludePropertyId?: string }
+    options?: {
+      organizationId?: string;
+      skipDuplicateCheck?: boolean;
+      excludePropertyId?: string;
+      propertyId?: string;
+    },
   ): Promise<UploadedImage | null> => {
-    const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
     setIsUploading(true);
     setUploadProgress(0);
 
@@ -174,6 +266,10 @@ export function useImageUpload() {
         toast({ title: 'Erro no upload', description: 'Apenas imagens são permitidas', variant: 'destructive' });
         return null;
       }
+      if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+        toast({ title: 'Erro no upload', description: 'SVG e GIF não são permitidos', variant: 'destructive' });
+        return null;
+      }
       if (file.size > 10 * 1024 * 1024) {
         toast({ title: 'Erro no upload', description: 'A imagem deve ter no máximo 10MB', variant: 'destructive' });
         return null;
@@ -181,24 +277,16 @@ export function useImageUpload() {
 
       setUploadProgress(5);
 
-      // ─── Step 1: Normalize image (resize, strip EXIF, compress) ───
-      const normalizedFile = await normalizeImageBeforeUpload(file, {
-        maxDimension: 2048,
-        quality: 0.82,
-        outputFormat: 'image/webp',
-      });
-      setUploadProgress(15);
-
-      // ─── Step 2: Generate pHash for visual dedupe ───
+      // ─── Step 1: Generate pHash for visual dedupe ───
       let phash: string | undefined;
       try {
-        phash = await generateImagePhash(normalizedFile);
+        phash = await generateImagePhash(file);
       } catch (e) {
         console.warn('Falha ao gerar pHash:', e);
       }
-      setUploadProgress(20);
+      setUploadProgress(15);
 
-      // ─── Step 3: Check pHash duplicates in DB ───
+      // ─── Step 2: Check pHash duplicates in DB ───
       if (phash && options?.organizationId && !options?.skipDuplicateCheck) {
         const duplicate = await findDuplicateByPhash(phash, options.organizationId, options.excludePropertyId);
         if (duplicate) {
@@ -219,20 +307,24 @@ export function useImageUpload() {
           };
         }
       }
-      setUploadProgress(30);
+      setUploadProgress(25);
 
-      // ─── Step 4: Compute SHA-256 hash for Cloudinary dedupe ───
-      const fileHash = await computeFileHash(normalizedFile);
-      setUploadProgress(35);
+      // ─── Step 3: Upload (R2 presigned primary, Cloudinary fallback) ───
+      let result: UploadedImage | null = null;
 
-      // ─── Step 5: Upload (R2 primary, Cloudinary fallback) ───
-      console.log(`[UPLOAD] Tentando R2 (${(normalizedFile.size / 1024).toFixed(0)}KB, pasta: ${orgFolder})...`);
-      let result = await uploadToR2(normalizedFile, orgFolder);
+      if (options?.propertyId) {
+        console.log(`[UPLOAD] Tentando R2 presigned (property: ${options.propertyId})...`);
+        setUploadProgress(30);
+        result = await uploadToR2WithPresign(file, options.propertyId);
+        setUploadProgress(80);
+      }
 
       if (!result) {
-        console.log('[UPLOAD] R2 falhou. Tentando Cloudinary com normalização incoming...');
+        console.log('[UPLOAD] R2 não disponível ou falhou. Tentando Cloudinary...');
         setUploadProgress(50);
-        result = await uploadToCloudinary(normalizedFile, orgFolder, fileHash);
+        const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
+        result = await uploadToCloudinary(file, orgFolder);
+        setUploadProgress(90);
       }
 
       if (!result) {
@@ -256,7 +348,12 @@ export function useImageUpload() {
   const uploadMultipleImages = useCallback(async (
     files: File[],
     folder: string = 'properties',
-    options?: { organizationId?: string; skipDuplicateCheck?: boolean; excludePropertyId?: string }
+    options?: {
+      organizationId?: string;
+      skipDuplicateCheck?: boolean;
+      excludePropertyId?: string;
+      propertyId?: string;
+    },
   ): Promise<UploadedImage[]> => {
     setDuplicatesFound(0);
     const results: UploadedImage[] = [];
