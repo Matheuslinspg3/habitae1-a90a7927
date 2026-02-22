@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Stethoscope } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -15,6 +15,7 @@ export function SendPushCard() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["all-profiles-dev"],
@@ -40,11 +41,57 @@ export function SendPushCard() {
 
   const getEmail = (userId: string) => authUsers.find((u) => u.id === userId)?.email || "";
 
+  const diagnosePush = async () => {
+    setIsDiagnosing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-push?health=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        }
+      );
+
+      const payload = await res.json();
+      const status = payload?.status;
+
+      if (status === "ok") {
+        toast.success("Diagnóstico Push OK: APP_URL e FIREBASE_SERVICE_ACCOUNT_KEY válidos.");
+        return true;
+      }
+
+      const actions: Record<string, string> = {
+        missing_app_url: "Configurar secret APP_URL no ambiente Production com URL pública (https://...).",
+        invalid_app_url: "Corrigir APP_URL para uma URL absoluta válida em Production.",
+        missing_service_account: "Configurar secret FIREBASE_SERVICE_ACCOUNT_KEY no ambiente Production.",
+        invalid_service_account_json: "Atualizar FIREBASE_SERVICE_ACCOUNT_KEY com JSON válido em linha única.",
+        invalid_service_account_fields: "Regerar a service account Firebase e garantir project_id, client_email e private_key.",
+      };
+
+      toast.error(`Diagnóstico Push: ${payload?.message || status || "falha desconhecida"}`);
+      if (status && actions[status]) {
+        toast.warning(actions[status]);
+      }
+      return false;
+    } catch (e: any) {
+      console.error("Push diagnosis error:", e);
+      toast.error("Falha ao executar diagnóstico de push.");
+      return false;
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!selectedUserId || !title.trim()) {
       toast.error("Selecione um usuário e preencha o título");
       return;
     }
+
+    const healthy = await diagnosePush();
+    if (!healthy) return;
 
     setIsSending(true);
     try {
@@ -125,14 +172,26 @@ export function SendPushCard() {
           />
         </div>
 
-        <Button
-          onClick={handleSend}
-          disabled={isSending || !selectedUserId || !title.trim()}
-          className="w-full gap-2"
-        >
-          {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar Notificação
-        </Button>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            variant="outline"
+            onClick={diagnosePush}
+            disabled={isDiagnosing}
+            className="w-full gap-2"
+          >
+            {isDiagnosing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}
+            Diagnóstico Push
+          </Button>
+
+          <Button
+            onClick={handleSend}
+            disabled={isSending || isDiagnosing || !selectedUserId || !title.trim()}
+            className="w-full gap-2"
+          >
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Enviar Notificação
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
