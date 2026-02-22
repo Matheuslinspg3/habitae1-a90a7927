@@ -47,6 +47,7 @@ const Anuncios = lazy(() => import("./pages/Anuncios"));
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
 const AppHome = lazy(() => import("./pages/app/Home"));
@@ -91,6 +92,7 @@ const App = () => (
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
+                      <Route path="/privacidade" element={<PrivacyPolicy />} />
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/acesso-negado" element={<AccessDenied />} />
 
