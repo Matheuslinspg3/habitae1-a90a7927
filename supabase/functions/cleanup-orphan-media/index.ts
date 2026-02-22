@@ -218,6 +218,7 @@ async function deleteFromR2(keys: string[]): Promise<{ deleted: string[]; failed
   return { deleted, failed };
 }
 
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -425,3 +426,4 @@ async function deleteFromR2(keys: string[]): Promise<{ deleted: string[]; failed
     );
   }
 });
+
