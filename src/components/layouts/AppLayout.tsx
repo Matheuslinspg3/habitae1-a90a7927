@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
@@ -9,24 +8,13 @@ import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
   usePerformanceMode();
 
-  // Auto-prompt push notification permission once per session
-  const { isSupported, permission, subscribe } = usePushNotifications();
-  const prompted = useRef(false);
-
-  useEffect(() => {
-    if (isSupported && permission === "default" && !prompted.current) {
-      prompted.current = true;
-      // Small delay so the page renders first
-      const timer = setTimeout(() => subscribe(), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSupported, permission, subscribe]);
+  // Push notification permission is now requested only via explicit user gesture
+  // (Settings page or notification bell) — not auto-prompted here
 
   return (
     <SidebarProvider>
