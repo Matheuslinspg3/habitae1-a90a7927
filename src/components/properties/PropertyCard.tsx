@@ -15,6 +15,7 @@ import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { proxyDriveImageUrl } from "@/lib/utils";
+import { getImageUrl, getImageSrcSet, type ImageRecord } from "@/lib/imageUrl";
 
 interface PropertyCardProps {
   property: PropertyWithDetails;
@@ -27,19 +28,25 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
   const navigate = useNavigate();
   const isAvailable = property.status === "disponivel";
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
-  const coverImageRaw = coverImageData?.url || null;
   
-  // If we have a drive_file_id, use the proxy directly (URLs expire but file IDs don't)
+  // Use optimized image URL helper for R2/Cloudinary
   const getCoverImage = () => {
     if (!isAvailable || !coverImageData) return null;
+    // Check for R2 image first
+    const imageRecord = coverImageData as unknown as ImageRecord;
+    if (imageRecord.storage_provider === 'r2' || imageRecord.r2_key_thumb) {
+      return getImageUrl(imageRecord, 'thumb');
+    }
+    // Drive file ID proxy
     const driveFileId = (coverImageData as any).drive_file_id;
     if (driveFileId) {
       const baseUrl = import.meta.env.VITE_SUPABASE_URL;
       return `${baseUrl}/functions/v1/drive-image-proxy?id=${driveFileId}&sz=w800`;
     }
-    return coverImageRaw ? proxyDriveImageUrl(coverImageRaw) : null;
+    return coverImageData.url ? proxyDriveImageUrl(coverImageData.url) : null;
   };
   const coverImage = getCoverImage();
+  const coverSrcSet = coverImageData ? getImageSrcSet(coverImageData as unknown as ImageRecord) : undefined;
   const imageCount = isAvailable ? (property.images?.length || 0) : 0;
 
   const formatPrice = (price: number | null, isRent: boolean = false) => {
@@ -132,6 +139,8 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
           <>
             <img
               src={coverImage}
+              srcSet={coverSrcSet}
+              sizes={coverSrcSet ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px" : undefined}
               alt={property.title || "Imóvel"}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"

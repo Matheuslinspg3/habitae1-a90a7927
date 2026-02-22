@@ -15,6 +15,9 @@ interface DeletedMedia {
   cloudinary_public_id: string | null;
   cloudinary_url: string;
   storage_path: string | null;
+  r2_key_full?: string | null;
+  r2_key_thumb?: string | null;
+  storage_provider?: string | null;
 }
 
 function extractPublicIdFromUrl(url: string): string | null {
@@ -136,7 +139,85 @@ async function singleDeleteFromCloudinary(publicId: string, cloudName: string, a
   }
 }
 
-Deno.serve(async (req) => {
+// ── R2 Delete ──
+
+async function deleteFromR2(keys: string[]): Promise<{ deleted: string[]; failed: string[] }> {
+  const accessKey = (Deno.env.get('R2_ACCESS_KEY_ID') ?? '').trim();
+  const secretKey = (Deno.env.get('R2_SECRET_ACCESS_KEY') ?? '').trim();
+  const endpoint = (Deno.env.get('R2_ENDPOINT') ?? '').trim().replace(/\/$/, '');
+  const bucket = (Deno.env.get('R2_BUCKET_NAME') ?? '').trim();
+
+  if (!accessKey || !secretKey || !endpoint || !bucket) {
+    console.warn('[CLEANUP] R2 credentials not configured');
+    return { deleted: [], failed: keys };
+  }
+
+  const deleted: string[] = [];
+  const failed: string[] = [];
+  const host = new URL(endpoint).host;
+
+  for (const key of keys) {
+    try {
+      const now = new Date();
+      const amzDate = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const dateStamp = amzDate.slice(0, 8);
+      const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+      const canonicalUri = `/${bucket}/${key}`;
+
+      const payloadHash = Array.from(new Uint8Array(
+        await crypto.subtle.digest('SHA-256', new TextEncoder().encode(''))
+      )).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const canonicalHeaders = `host:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+      const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+      const canonicalRequest = `DELETE\n${canonicalUri}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+
+      const crHash = Array.from(new Uint8Array(
+        await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalRequest))
+      )).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const stringToSign = `AWS4-HMAC-SHA256\n${amzDate}\n${credentialScope}\n${crHash}`;
+
+      // Signing key
+      const enc = new TextEncoder();
+      let sk: ArrayBuffer = await crypto.subtle.sign('HMAC',
+        await crypto.subtle.importKey('raw', enc.encode('AWS4' + secretKey).buffer, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
+        enc.encode(dateStamp));
+      sk = await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', sk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), enc.encode('auto'));
+      sk = await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', sk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), enc.encode('s3'));
+      sk = await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', sk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), enc.encode('aws4_request'));
+
+      const signature = Array.from(new Uint8Array(
+        await crypto.subtle.sign('HMAC', await crypto.subtle.importKey('raw', sk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']), enc.encode(stringToSign))
+      )).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const authorization = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+      const res = await fetch(`${endpoint}${canonicalUri}`, {
+        method: 'DELETE',
+        headers: {
+          'x-amz-content-sha256': payloadHash,
+          'x-amz-date': amzDate,
+          'Authorization': authorization,
+        },
+      });
+
+      if (res.ok || res.status === 404) {
+        deleted.push(key);
+      } else {
+        console.warn(`[CLEANUP] R2 DELETE ${key} returned ${res.status}`);
+        failed.push(key);
+      }
+    } catch (e) {
+      console.error(`[CLEANUP] R2 DELETE error for ${key}:`, e);
+      failed.push(key);
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  return { deleted, failed };
+}
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -209,13 +290,22 @@ Deno.serve(async (req) => {
 
     console.log(`[CLEANUP] Found ${pendingMedia.length} items to clean`);
 
-    // Separate Cloudinary from non-Cloudinary URLs
+    // Separate by provider
     const cloudinaryItems: { id: string; publicId: string }[] = [];
+    const r2Items: { id: string; keys: string[] }[] = [];
     const nonCloudinaryIds: string[] = [];
 
     for (const media of pendingMedia as DeletedMedia[]) {
-      const publicId = media.cloudinary_public_id || extractPublicIdFromUrl(media.cloudinary_url);
+      // Check R2 keys first
+      if (media.r2_key_full || media.r2_key_thumb) {
+        const keys: string[] = [];
+        if (media.r2_key_full) keys.push(media.r2_key_full);
+        if (media.r2_key_thumb) keys.push(media.r2_key_thumb);
+        r2Items.push({ id: media.id, keys });
+        continue;
+      }
 
+      const publicId = media.cloudinary_public_id || extractPublicIdFromUrl(media.cloudinary_url);
       if (!publicId || !media.cloudinary_url.includes('cloudinary.com')) {
         nonCloudinaryIds.push(media.id);
       } else {
@@ -223,13 +313,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Mark non-Cloudinary as cleaned immediately
+    // Mark non-cloud as cleaned immediately
     if (nonCloudinaryIds.length > 0) {
       await supabaseAdmin
         .from('deleted_property_media')
-        .update({ cleaned_at: new Date().toISOString(), cleanup_error: 'Not a Cloudinary URL' })
+        .update({ cleaned_at: new Date().toISOString(), cleanup_error: 'Not a cloud URL' })
         .in('id', nonCloudinaryIds);
-      console.log(`[CLEANUP] Marked ${nonCloudinaryIds.length} non-Cloudinary items as cleaned`);
+      console.log(`[CLEANUP] Marked ${nonCloudinaryIds.length} non-cloud items as cleaned`);
     }
 
     // Bulk delete from Cloudinary
@@ -271,13 +361,54 @@ Deno.serve(async (req) => {
       failed = failIds.length;
     }
 
+    // ── R2 cleanup ──
+    let r2Deleted = 0;
+    let r2Failed = 0;
+
+    if (r2Items.length > 0) {
+      const allKeys = r2Items.flatMap(i => i.keys);
+      const r2Result = await deleteFromR2(allKeys);
+      const deletedKeySet = new Set(r2Result.deleted);
+
+      const r2SuccessIds: string[] = [];
+      const r2FailIds: string[] = [];
+
+      for (const item of r2Items) {
+        const allDeleted = item.keys.every(k => deletedKeySet.has(k));
+        if (allDeleted) {
+          r2SuccessIds.push(item.id);
+        } else {
+          r2FailIds.push(item.id);
+        }
+      }
+
+      if (r2SuccessIds.length > 0) {
+        await supabaseAdmin
+          .from('deleted_property_media')
+          .update({ cleaned_at: new Date().toISOString() })
+          .in('id', r2SuccessIds);
+      }
+
+      if (r2FailIds.length > 0) {
+        await supabaseAdmin
+          .from('deleted_property_media')
+          .update({ cleanup_error: 'R2 deletion failed' })
+          .in('id', r2FailIds);
+      }
+
+      r2Deleted = r2SuccessIds.length;
+      r2Failed = r2FailIds.length;
+    }
+
     const duration = Date.now() - startTime;
     const summary = {
       success: true,
       processed: pendingMedia.length,
       cloudinary_deleted: deleted,
       cloudinary_failed: failed,
-      non_cloudinary_skipped: nonCloudinaryIds.length,
+      r2_deleted: r2Deleted,
+      r2_failed: r2Failed,
+      non_cloud_skipped: nonCloudinaryIds.length,
       duration_ms: duration,
     };
     console.log(`[CLEANUP] Completed:`, summary);
