@@ -195,7 +195,6 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               message: {
                 token: sub.fcm_token,
-                // SEM chave "notification" no nível raiz — data-only + webpush display
                 webpush: {
                   notification: {
                     title,
@@ -205,11 +204,6 @@ Deno.serve(async (req) => {
                     vibrate: [200, 100, 200],
                     tag: notification_type || "default",
                     renotify: true,
-                    data: {
-                      ...notificationData,
-                      title,
-                      message: message || "",
-                    },
                   },
                   fcm_options: {
                     link: entity_type && entity_id
@@ -218,9 +212,11 @@ Deno.serve(async (req) => {
                   },
                 },
                 data: {
-                  ...notificationData,
-                  title,
+                  title: title || "",
                   message: message || "",
+                  entity_id: entity_id || "",
+                  entity_type: entity_type || "",
+                  notification_type: notification_type || "",
                 },
               },
             }),
