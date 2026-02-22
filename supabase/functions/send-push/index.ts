@@ -195,9 +195,11 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               message: {
                 token: sub.fcm_token,
-                // SEM chave "notification" aqui — forçar data-only message
+                // SEM chave "notification" no nível raiz — data-only + webpush display
                 webpush: {
                   notification: {
+                    title,
+                    body: message || "",
                     icon: `${APP_URL}/pwa-192x192.png`,
                     badge: `${APP_URL}/pwa-192x192.png`,
                     vibrate: [200, 100, 200],
