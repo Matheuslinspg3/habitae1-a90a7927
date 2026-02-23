@@ -8,6 +8,8 @@ declare global {
 }
 
 let appIdCache: string | null = null;
+let initPromise: Promise<boolean> | null = null;
+let sdkReady = false;
 
 /** Fetch OneSignal App ID from edge function */
 async function fetchAppId(): Promise<string | null> {
@@ -26,17 +28,41 @@ async function fetchAppId(): Promise<string | null> {
   }
 }
 
-/** Initialize OneSignal — call once at app startup */
-export async function initOneSignal(): Promise<void> {
-  const appId = await fetchAppId();
-  if (!appId) {
-    console.warn("[OneSignal] App ID not available — push disabled");
-    return;
-  }
+/** Wait for the OneSignal SDK script to be loaded and available */
+function waitForSDK(timeoutMs = 10000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (window.OneSignal && typeof window.OneSignal.init === "function") {
+      return resolve(window.OneSignal);
+    }
 
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async (OneSignal: any) => {
+    const start = Date.now();
+    const check = setInterval(() => {
+      if (window.OneSignal && typeof window.OneSignal.init === "function") {
+        clearInterval(check);
+        resolve(window.OneSignal);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(check);
+        reject(new Error("OneSignal SDK load timeout"));
+      }
+    }, 200);
+  });
+}
+
+/** Initialize OneSignal — returns true if ready */
+export async function initOneSignal(): Promise<boolean> {
+  if (sdkReady) return true;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
     try {
+      const appId = await fetchAppId();
+      if (!appId) {
+        console.warn("[OneSignal] App ID not available — push disabled");
+        return false;
+      }
+
+      const OneSignal = await waitForSDK();
+
       await OneSignal.init({
         appId,
         serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js",
@@ -44,34 +70,38 @@ export async function initOneSignal(): Promise<void> {
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: false },
       });
+
       console.log("[OneSignal] SDK initialized successfully");
+      sdkReady = true;
+      return true;
     } catch (err) {
-      console.error("[OneSignal] SDK init failed:", err);
+      console.error("[OneSignal] Init failed:", err);
+      initPromise = null; // allow retry
+      return false;
     }
-  });
+  })();
+
+  return initPromise;
 }
 
-/** Login user + re-opt-in if permission was already granted but subscription dropped */
+/** Login user + re-opt-in if permission was already granted */
 export async function loginOneSignal(userId: string): Promise<void> {
-  // Wait a tick so SDK init completes inside the deferred queue
-  await new Promise((r) => setTimeout(r, 500));
-
-  const OneSignal = window.OneSignal;
-  if (!OneSignal) {
-    console.warn("[OneSignal] SDK not loaded, skipping login");
+  const ready = await initOneSignal();
+  if (!ready || !window.OneSignal) {
+    console.warn("[OneSignal] SDK not ready, skipping login");
     return;
   }
 
   try {
-    await OneSignal.login(userId);
+    await window.OneSignal.login(userId);
     console.log("[OneSignal] User logged in:", userId);
 
     // Re-opt in if permission was granted but subscription dropped
-    const permission = OneSignal.Notifications?.permission;
-    if (permission) {
-      const opted = await OneSignal.User?.PushSubscription?.optedIn;
-      if (!opted) {
-        await OneSignal.User?.PushSubscription?.optIn();
+    const permission = window.OneSignal.Notifications?.permission;
+    if (permission === true) {
+      const optedIn = window.OneSignal.User?.PushSubscription?.optedIn;
+      if (optedIn === false) {
+        await window.OneSignal.User.PushSubscription.optIn();
         console.log("[OneSignal] Re-opted in user after login");
       }
     }
@@ -105,8 +135,10 @@ export function getPermissionState(): NotificationPermission {
 
 /** Request push permission */
 export async function requestPushPermission(): Promise<boolean> {
+  const ready = await initOneSignal();
+  if (!ready || !window.OneSignal) return false;
+
   try {
-    if (!window.OneSignal) return false;
     await window.OneSignal.Notifications.requestPermission();
     return Notification.permission === "granted";
   } catch (e) {
@@ -120,6 +152,7 @@ export function getDiagnostics(): Record<string, unknown> {
   const info: Record<string, unknown> = {
     appIdCached: !!appIdCache,
     sdkLoaded: !!window.OneSignal,
+    sdkReady,
     notificationPermission: "Notification" in window ? Notification.permission : "unsupported",
     serviceWorkerSupported: "serviceWorker" in navigator,
     pushManagerSupported: "PushManager" in window,
