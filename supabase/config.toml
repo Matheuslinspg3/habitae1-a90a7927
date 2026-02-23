@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.meta-sync-entities]
 verify_jwt = false
+
+[functions.onesignal-app-id]
+verify_jwt = false

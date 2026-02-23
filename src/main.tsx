@@ -17,8 +17,6 @@ window.addEventListener("beforeinstallprompt", (e) => {
   window.__pwaInstallPrompt = e;
 });
 
-const FIREBASE_SW_SCOPE = "/firebase-cloud-messaging-push-scope/";
-
 function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
 
@@ -52,8 +50,9 @@ function setupServiceWorkerUpdateRoutine() {
   };
 
   window.addEventListener("load", async () => {
-    const registration = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE);
-    observeRegistration(registration);
+    // Observe PWA service worker for updates
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    registrations.forEach(observeRegistration);
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       console.log("[SW Update] controllerchange");
