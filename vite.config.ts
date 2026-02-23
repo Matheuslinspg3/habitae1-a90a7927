@@ -38,8 +38,8 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/OneSignalSDK/],
-        globIgnores: ["**/OneSignalSDKWorker.js"],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/push\//, /^\/OneSignalSDK/],
+        globIgnores: ["**/OneSignalSDKWorker.js", "**/push/**"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
