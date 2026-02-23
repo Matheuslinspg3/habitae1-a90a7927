@@ -20,21 +20,20 @@ window.addEventListener("beforeinstallprompt", (e) => {
 function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
 
-  const promptRefresh = (reason: string) => {
-    console.log("[SW Update] Nova versão detectada", { reason });
-    const shouldReload = window.confirm(
-      "Uma nova versão do app está disponível. Clique em OK para atualizar agora."
-    );
-    if (shouldReload) {
-      window.location.reload();
+  const forceActivate = (registration: ServiceWorkerRegistration) => {
+    const waiting = registration.waiting;
+    if (waiting) {
+      console.log("[SW Update] Forçando skipWaiting no SW em espera");
+      waiting.postMessage({ type: "SKIP_WAITING" });
     }
   };
 
   const observeRegistration = (registration: ServiceWorkerRegistration | undefined) => {
     if (!registration) return;
 
+    // Se já tem um worker esperando, forçar ativação imediata
     if (registration.waiting) {
-      promptRefresh("waiting-worker");
+      forceActivate(registration);
     }
 
     registration.addEventListener("updatefound", () => {
@@ -43,19 +42,28 @@ function setupServiceWorkerUpdateRoutine() {
 
       installingWorker.addEventListener("statechange", () => {
         if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
-          promptRefresh("installed-worker");
+          console.log("[SW Update] Novo SW instalado, forçando ativação");
+          forceActivate(registration);
         }
       });
     });
   };
 
-  window.addEventListener("load", async () => {
-    // Observe PWA service worker for updates
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    registrations.forEach(observeRegistration);
+  // Quando um novo SW assume controle, recarregar automaticamente
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    console.log("[SW Update] Novo SW ativo, recarregando...");
+    window.location.reload();
+  });
 
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      console.log("[SW Update] controllerchange");
+  window.addEventListener("load", async () => {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    registrations.forEach((reg) => {
+      observeRegistration(reg);
+      // Forçar checagem de atualização
+      reg.update().catch(() => {});
     });
   });
 }
