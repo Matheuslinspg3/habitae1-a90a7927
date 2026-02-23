@@ -8,6 +8,7 @@ import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
@@ -30,7 +31,8 @@ export function AppLayout() {
         </div>
         <MobileFAB />
         <MobileBottomNav />
-        <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v3.1.5</span>
+        <UpdateBanner />
+        <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v3.1.6</span>
       </div>
     </SidebarProvider>
   );
