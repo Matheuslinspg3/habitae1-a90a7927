@@ -83,8 +83,9 @@ export async function initOneSignal(): Promise<boolean> {
             appId,
             allowLocalhostAsSecureOrigin: true,
             // Use dedicated scope to avoid conflict with PWA Workbox SW
+            // Per OneSignal docs: serviceWorkerPath without leading slash
             serviceWorkerParam: { scope: "/push/onesignal/" },
-            serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js",
+            serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js",
           });
           initialized = true;
           
