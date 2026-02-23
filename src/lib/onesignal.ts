@@ -8,8 +8,9 @@ declare global {
 }
 
 let appIdCache: string | null = null;
-let initPromise: Promise<boolean> | null = null;
 let sdkReady = false;
+let sdkReadyPromise: Promise<boolean> | null = null;
+let sdkReadyResolve: ((v: boolean) => void) | null = null;
 
 /** Fetch OneSignal App ID from edge function */
 async function fetchAppId(): Promise<string | null> {
@@ -28,41 +29,27 @@ async function fetchAppId(): Promise<string | null> {
   }
 }
 
-/** Wait for the OneSignal SDK script to be loaded and available */
-function waitForSDK(timeoutMs = 10000): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if (window.OneSignal && typeof window.OneSignal.init === "function") {
-      return resolve(window.OneSignal);
-    }
-
-    const start = Date.now();
-    const check = setInterval(() => {
-      if (window.OneSignal && typeof window.OneSignal.init === "function") {
-        clearInterval(check);
-        resolve(window.OneSignal);
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(check);
-        reject(new Error("OneSignal SDK load timeout"));
-      }
-    }, 200);
-  });
-}
-
-/** Initialize OneSignal — returns true if ready */
+/** Initialize OneSignal using the official OneSignalDeferred queue pattern */
 export async function initOneSignal(): Promise<boolean> {
   if (sdkReady) return true;
-  if (initPromise) return initPromise;
+  if (sdkReadyPromise) return sdkReadyPromise;
 
-  initPromise = (async () => {
+  sdkReadyPromise = new Promise<boolean>((resolve) => {
+    sdkReadyResolve = resolve;
+  });
+
+  const appId = await fetchAppId();
+  if (!appId) {
+    console.warn("[OneSignal] App ID not available — push disabled");
+    sdkReadyResolve?.(false);
+    sdkReadyPromise = null;
+    return false;
+  }
+
+  // Use the official OneSignalDeferred queue pattern (SDK v16)
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async (OneSignal: any) => {
     try {
-      const appId = await fetchAppId();
-      if (!appId) {
-        console.warn("[OneSignal] App ID not available — push disabled");
-        return false;
-      }
-
-      const OneSignal = await waitForSDK();
-
       await OneSignal.init({
         appId,
         serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js",
@@ -70,23 +57,34 @@ export async function initOneSignal(): Promise<boolean> {
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: false },
       });
-
-      console.log("[OneSignal] SDK initialized successfully");
+      console.log("[OneSignal] SDK initialized via Deferred queue ✅");
       sdkReady = true;
-      return true;
+      sdkReadyResolve?.(true);
     } catch (err) {
       console.error("[OneSignal] Init failed:", err);
-      initPromise = null; // allow retry
-      return false;
+      sdkReadyResolve?.(false);
+      sdkReadyPromise = null;
     }
-  })();
+  });
 
-  return initPromise;
+  return sdkReadyPromise;
+}
+
+/** Wait for SDK to be ready with a timeout */
+async function waitForReady(timeoutMs = 15000): Promise<boolean> {
+  if (sdkReady) return true;
+  
+  const ready = initOneSignal();
+  const timeout = new Promise<boolean>((resolve) =>
+    setTimeout(() => resolve(false), timeoutMs)
+  );
+  
+  return Promise.race([ready, timeout]);
 }
 
 /** Login user + re-opt-in if permission was already granted */
 export async function loginOneSignal(userId: string): Promise<void> {
-  const ready = await initOneSignal();
+  const ready = await waitForReady();
   if (!ready || !window.OneSignal) {
     console.warn("[OneSignal] SDK not ready, skipping login");
     return;
@@ -105,6 +103,33 @@ export async function loginOneSignal(userId: string): Promise<void> {
         console.log("[OneSignal] Re-opted in user after login");
       }
     }
+
+    // Poll for token to confirm registration
+    let attempts = 0;
+    const maxAttempts = 10;
+    const pollInterval = 500;
+    
+    const poll = () => {
+      return new Promise<void>((resolve) => {
+        const check = setInterval(() => {
+          attempts++;
+          const token = window.OneSignal?.User?.PushSubscription?.token;
+          if (token) {
+            clearInterval(check);
+            console.log("[OneSignal] Token confirmed after login ✅ (attempt", attempts, ")");
+            resolve();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(check);
+            console.warn("[OneSignal] Token not found after", maxAttempts, "attempts. Permission:", 
+              window.OneSignal?.Notifications?.permission,
+              "OptedIn:", window.OneSignal?.User?.PushSubscription?.optedIn);
+            resolve();
+          }
+        }, pollInterval);
+      });
+    };
+
+    await poll();
   } catch (e) {
     console.error("[OneSignal] Login error:", e);
   }
@@ -113,7 +138,7 @@ export async function loginOneSignal(userId: string): Promise<void> {
 /** Logout user from OneSignal */
 export async function logoutOneSignal(): Promise<void> {
   try {
-    if (window.OneSignal) {
+    if (window.OneSignal && sdkReady) {
       await window.OneSignal.logout();
       console.log("[OneSignal] User logged out");
     }
@@ -135,7 +160,7 @@ export function getPermissionState(): NotificationPermission {
 
 /** Request push permission */
 export async function requestPushPermission(): Promise<boolean> {
-  const ready = await initOneSignal();
+  const ready = await waitForReady();
   if (!ready || !window.OneSignal) return false;
 
   try {

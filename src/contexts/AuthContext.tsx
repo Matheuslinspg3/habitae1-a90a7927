@@ -130,8 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               await fixLegacyUser(session.user.id, session.user.email!, fullName);
             }
             
-            // Vincular usuário ao OneSignal
-            loginOneSignal(session.user.id);
+            // Vincular usuário ao OneSignal (await para capturar erros)
+            loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
             
             setLoading(false);
           }, 0);
@@ -155,8 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await fixLegacyUser(session.user.id, session.user.email!, fullName);
         }
         
-        // Vincular usuário ao OneSignal
-        loginOneSignal(session.user.id);
+        // Vincular usuário ao OneSignal (await para capturar erros)
+        loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
         
         setLoading(false);
       } else {

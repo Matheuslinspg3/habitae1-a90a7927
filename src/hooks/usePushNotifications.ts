@@ -40,40 +40,46 @@ export function usePushNotifications() {
     let cancelled = false;
 
     const setup = async () => {
-      addDebug("Inicializando OneSignal...");
-      await initOneSignal();
+      addDebug("Inicializando OneSignal via Deferred...");
+      const ready = await initOneSignal();
+      if (cancelled || !ready) {
+        addDebug(ready ? "Cancelado" : "❌ SDK não ficou pronto");
+        return;
+      }
+
+      addDebug("✅ SDK pronto, fazendo login...");
+      await loginOneSignal(user.id);
       if (cancelled) return;
 
-      addDebug("✅ SDK inicializado, fazendo login...");
-      await loginOneSignal(user.id);
-
-      // Check subscription state
+      // Check subscription state after login
       if (window.OneSignal) {
         const pushSub = window.OneSignal.User?.PushSubscription;
         const perm = window.OneSignal.Notifications?.permission;
-
-        if (!cancelled) {
-          const hasToken = !!pushSub?.token;
-          setIsSubscribed(perm === true && hasToken);
-          setPermission(getPermissionState());
-          addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
-        }
+        const hasToken = !!pushSub?.token;
+        
+        setIsSubscribed(perm === true && hasToken);
+        setPermission(getPermissionState());
+        addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
 
         // Listen for subscription changes
-        window.OneSignal.User?.PushSubscription?.addEventListener("change", (event: any) => {
-          if (!cancelled) {
-            const current = event.current;
-            addDebug(`Subscription mudou: optedIn=${current?.optedIn}, token=${current?.token ? "sim" : "não"}`);
-            setIsSubscribed(current?.optedIn === true && !!current?.token);
-          }
-        });
+        try {
+          window.OneSignal.User?.PushSubscription?.addEventListener("change", (event: any) => {
+            if (!cancelled) {
+              const current = event.current;
+              addDebug(`Subscription mudou: optedIn=${current?.optedIn}, token=${current?.token ? "sim" : "não"}`);
+              setIsSubscribed(current?.optedIn === true && !!current?.token);
+            }
+          });
 
-        window.OneSignal.Notifications?.addEventListener("permissionChange", (granted: boolean) => {
-          if (!cancelled) {
-            setPermission(granted ? "granted" : "denied");
-            addDebug(`Permissão mudou: ${granted}`);
-          }
-        });
+          window.OneSignal.Notifications?.addEventListener("permissionChange", (granted: boolean) => {
+            if (!cancelled) {
+              setPermission(granted ? "granted" : "denied");
+              addDebug(`Permissão mudou: ${granted}`);
+            }
+          });
+        } catch (e) {
+          addDebug(`Erro ao registrar listeners: ${e}`);
+        }
       }
     };
 
