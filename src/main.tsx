@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { initOneSignal } from "./lib/onesignal";
 
 // Capture beforeinstallprompt globally so it's available even if Install page mounts later
 declare global {
@@ -78,5 +79,6 @@ if (
   );
 } else {
   setupServiceWorkerUpdateRoutine();
+  initOneSignal();
   createRoot(document.getElementById("root")!).render(<App />);
 }

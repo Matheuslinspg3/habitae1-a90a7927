@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
 
 interface Profile {
   id: string;
@@ -129,6 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               await fixLegacyUser(session.user.id, session.user.email!, fullName);
             }
             
+            // Vincular usuário ao OneSignal
+            loginOneSignal(session.user.id);
+            
             setLoading(false);
           }, 0);
         } else {
@@ -150,6 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const fullName = metadata?.full_name || 'Usuário';
           await fixLegacyUser(session.user.id, session.user.email!, fullName);
         }
+        
+        // Vincular usuário ao OneSignal
+        loginOneSignal(session.user.id);
         
         setLoading(false);
       } else {
@@ -193,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setProfile(null);
     setOrganizationType(null);
+    logoutOneSignal();
     await supabase.auth.signOut();
   };
 
