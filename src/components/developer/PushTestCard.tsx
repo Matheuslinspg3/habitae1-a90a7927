@@ -2,10 +2,11 @@ import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug, Monitor } from "lucide-react";
+import { Bell, BellOff, Send, Loader2, CheckCircle2, XCircle, Bug, Monitor, RefreshCw } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getDiagnostics } from "@/lib/onesignal";
 import { toast } from "sonner";
 
 export function PushTestCard() {
@@ -19,6 +20,24 @@ export function PushTestCard() {
     console.log("[PushTest]", msg);
     setLocalDebug((prev) => [...prev.slice(-19), `${new Date().toLocaleTimeString()}: ${msg}`]);
   }, []);
+
+  const runDiagnostics = useCallback(() => {
+    const diag = getDiagnostics();
+    addDebug(`=== DIAGNÓSTICO ===`);
+    Object.entries(diag).forEach(([key, value]) => {
+      addDebug(`  ${key}: ${JSON.stringify(value)}`);
+    });
+    
+    // Also check service worker registrations
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        addDebug(`Service Workers registrados: ${regs.length}`);
+        regs.forEach((reg, i) => {
+          addDebug(`  SW[${i}]: scope=${reg.scope}, active=${!!reg.active}, waiting=${!!reg.waiting}`);
+        });
+      });
+    }
+  }, [addDebug]);
 
   const testLocalNotification = () => {
     if (Notification.permission === "granted") {
@@ -53,7 +72,8 @@ export function PushTestCard() {
       if (data?.sent > 0) {
         toast.success(`Push enviado para ${data.sent} dispositivo(s)!`);
       } else {
-        toast.warning("Nenhum dispositivo encontrado. Verifique se o push está ativo.");
+        toast.warning("Nenhum dispositivo encontrado. Verifique o diagnóstico.");
+        addDebug("⚠️ sent=0 — Verifique se o token existe no diagnóstico");
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
@@ -96,7 +116,7 @@ export function PushTestCard() {
             Permissão: {permission}
           </Badge>
           <Badge variant={isSubscribed ? "default" : "outline"} className="gap-1">
-            {isSubscribed ? "Inscrito" : "Não inscrito"}
+            {isSubscribed ? "✅ Inscrito (token)" : "❌ Sem token"}
           </Badge>
         </div>
 
@@ -118,6 +138,11 @@ export function PushTestCard() {
             Teste Local
           </Button>
 
+          <Button onClick={runDiagnostics} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Diagnóstico
+          </Button>
+
           <Button
             onClick={handleTestPush}
             disabled={isSending || !isSubscribed}
@@ -130,18 +155,24 @@ export function PushTestCard() {
           </Button>
         </div>
 
-        {!isSubscribed && (
+        {!isSubscribed && permission === "granted" && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            ⚠️ Permissão concedida mas sem token push. Clique "Diagnóstico" e verifique se o OneSignal SDK está inicializado.
+          </p>
+        )}
+
+        {!isSubscribed && permission !== "granted" && (
           <p className="text-xs text-muted-foreground">
             Ative as notificações push primeiro para poder enviar um teste.
           </p>
         )}
 
         <p className="text-xs text-muted-foreground font-mono">
-          Push v2.0 (OneSignal) — TTL 7 dias
+          Push v3.0 (OneSignal scope isolado) — TTL 7 dias
         </p>
 
         {showDebug && (debugInfo.length > 0 || localDebug.length > 0) && (
-          <div className="rounded-md bg-muted p-3 space-y-1">
+          <div className="rounded-md bg-muted p-3 space-y-1 max-h-64 overflow-y-auto">
             <p className="text-xs font-medium text-muted-foreground mb-2">Debug Log:</p>
             {[...debugInfo, ...localDebug].map((line, i) => (
               <p key={i} className="text-xs font-mono text-muted-foreground">
