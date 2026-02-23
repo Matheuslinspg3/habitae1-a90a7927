@@ -53,17 +53,25 @@ export async function initOneSignal(): Promise<boolean> {
     await loadSDKScript();
 
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(async (OneSignal: any) => {
-      await OneSignal.init({
-        appId,
-        allowLocalhostAsSecureOrigin: true,
-        serviceWorkerParam: { scope: "/push/onesignal/" },
-        serviceWorkerPath: "/OneSignalSDKWorker.js",
+    
+    return new Promise<boolean>((resolve) => {
+      window.OneSignalDeferred!.push(async (OneSignal: any) => {
+        try {
+          await OneSignal.init({
+            appId,
+            allowLocalhostAsSecureOrigin: true,
+            serviceWorkerParam: { scope: "/" },
+            serviceWorkerPath: "/OneSignalSDKWorker.js",
+          });
+          console.log("[OneSignal] SDK initialized successfully");
+          initialized = true;
+          resolve(true);
+        } catch (initErr) {
+          console.error("[OneSignal] SDK init failed:", initErr);
+          resolve(false);
+        }
       });
     });
-
-    initialized = true;
-    return true;
   } catch (e) {
     console.error("[OneSignal] Init error:", e);
     return false;

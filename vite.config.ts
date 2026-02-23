@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
-        navigateFallbackDenylist: [/^\/~oauth/, /^\/push\/onesignal/],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/OneSignalSDK/],
         globIgnores: ["**/OneSignalSDKWorker.js"],
         runtimeCaching: [
           {
