@@ -2,12 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   initOneSignal,
-  setExternalUserId,
-  removeExternalUserId,
+  loginOneSignal,
+  logoutOneSignal,
   isPushSupported,
   getPermissionState,
-  optInPush,
-  optOutPush,
+  requestPushPermission,
   getDiagnostics,
 } from "@/lib/onesignal";
 import { toast } from "sonner";
@@ -34,7 +33,7 @@ export function usePushNotifications() {
     }
   }, []);
 
-  // Initialize OneSignal and set external user ID
+  // Initialize and login when user is available
   useEffect(() => {
     if (!user) return;
 
@@ -42,30 +41,22 @@ export function usePushNotifications() {
 
     const setup = async () => {
       addDebug("Inicializando OneSignal...");
-      const ok = await initOneSignal();
+      await initOneSignal();
       if (cancelled) return;
-      
-      if (!ok) {
-        addDebug("❌ Falha ao inicializar OneSignal SDK");
-        return;
-      }
-      
-      addDebug("✅ SDK inicializado, fazendo login...");
-      await setExternalUserId(user.id);
 
-      // Check subscription state using PushSubscription API
+      addDebug("✅ SDK inicializado, fazendo login...");
+      await loginOneSignal(user.id);
+
+      // Check subscription state
       if (window.OneSignal) {
         const pushSub = window.OneSignal.User?.PushSubscription;
         const perm = window.OneSignal.Notifications?.permission;
-        
+
         if (!cancelled) {
-          // A user is truly subscribed only if they have a push token
           const hasToken = !!pushSub?.token;
-          const optedIn = pushSub?.optedIn === true;
           setIsSubscribed(perm === true && hasToken);
           setPermission(getPermissionState());
-          
-          addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${optedIn}`);
+          addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
         }
 
         // Listen for subscription changes
@@ -77,7 +68,6 @@ export function usePushNotifications() {
           }
         });
 
-        // Listen for permission changes
         window.OneSignal.Notifications?.addEventListener("permissionChange", (granted: boolean) => {
           if (!cancelled) {
             setPermission(granted ? "granted" : "denied");
@@ -88,16 +78,13 @@ export function usePushNotifications() {
     };
 
     setup();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user, addDebug]);
 
-  // Logout OneSignal when user logs out
+  // Logout when user signs out
   useEffect(() => {
     if (!user) {
-      removeExternalUserId();
+      logoutOneSignal();
       setIsSubscribed(false);
     }
   }, [user]);
@@ -107,37 +94,28 @@ export function usePushNotifications() {
 
     setIsLoading(true);
     try {
-      addDebug("Solicitando permissão OneSignal...");
-      
-      // Ensure SDK is initialized first
-      const sdkOk = await initOneSignal();
-      if (!sdkOk) {
-        addDebug("❌ SDK não inicializou");
-        toast.error("Erro ao inicializar push notifications");
-        return false;
-      }
+      addDebug("Solicitando permissão...");
+      await initOneSignal();
 
-      const granted = await optInPush();
+      const granted = await requestPushPermission();
       setPermission(getPermissionState());
 
       if (granted) {
-        await setExternalUserId(user.id);
-        
-        // Wait a moment for the push subscription to be created
+        await loginOneSignal(user.id);
         await new Promise(r => setTimeout(r, 2000));
-        
+
         const diag = getDiagnostics();
         addDebug(`Diagnóstico: ${JSON.stringify(diag)}`);
-        
+
         const hasToken = !!diag.pushToken;
         setIsSubscribed(hasToken);
-        
+
         if (hasToken) {
           addDebug("✅ Push ativado com token!");
           toast.success("Notificações push ativadas!");
         } else {
-          addDebug("⚠️ Permissão OK mas sem token — pode haver conflito de SW");
-          toast.warning("Permissão concedida, mas registro pode estar pendente. Recarregue a página.");
+          addDebug("⚠️ Permissão OK mas sem token");
+          toast.warning("Permissão concedida, mas registro pendente. Recarregue a página.");
         }
         return hasToken;
       } else {
@@ -147,9 +125,8 @@ export function usePushNotifications() {
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
-      console.error("Push subscription error:", e);
       addDebug(`❌ Erro: ${msg}`);
-      toast.error("Erro ao ativar notificações push: " + msg);
+      toast.error("Erro ao ativar push: " + msg);
       return false;
     } finally {
       setIsLoading(false);
@@ -161,12 +138,12 @@ export function usePushNotifications() {
 
     setIsLoading(true);
     try {
-      await optOutPush();
+      await logoutOneSignal();
       setIsSubscribed(false);
       toast.success("Notificações push desativadas");
     } catch (e) {
       console.error("Push unsubscribe error:", e);
-      toast.error("Erro ao desativar notificações push");
+      toast.error("Erro ao desativar push");
     } finally {
       setIsLoading(false);
     }
