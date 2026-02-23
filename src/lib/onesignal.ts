@@ -53,25 +53,31 @@ export async function initOneSignal(): Promise<void> {
 
 /** Login user + re-opt-in if permission was already granted but subscription dropped */
 export async function loginOneSignal(userId: string): Promise<void> {
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async (OneSignal: any) => {
-    try {
-      await OneSignal.login(userId);
-      console.log("[OneSignal] User logged in:", userId);
+  // Wait a tick so SDK init completes inside the deferred queue
+  await new Promise((r) => setTimeout(r, 500));
 
-      // Re-opt in if permission was granted but subscription dropped
-      const permission = OneSignal.Notifications?.permission;
-      if (permission) {
-        const opted = await OneSignal.User?.PushSubscription?.optedIn;
-        if (!opted) {
-          await OneSignal.User?.PushSubscription?.optIn();
-          console.log("[OneSignal] Re-opted in user after login");
-        }
+  const OneSignal = window.OneSignal;
+  if (!OneSignal) {
+    console.warn("[OneSignal] SDK not loaded, skipping login");
+    return;
+  }
+
+  try {
+    await OneSignal.login(userId);
+    console.log("[OneSignal] User logged in:", userId);
+
+    // Re-opt in if permission was granted but subscription dropped
+    const permission = OneSignal.Notifications?.permission;
+    if (permission) {
+      const opted = await OneSignal.User?.PushSubscription?.optedIn;
+      if (!opted) {
+        await OneSignal.User?.PushSubscription?.optIn();
+        console.log("[OneSignal] Re-opted in user after login");
       }
-    } catch (e) {
-      console.error("[OneSignal] Login error:", e);
     }
-  });
+  } catch (e) {
+    console.error("[OneSignal] Login error:", e);
+  }
 }
 
 /** Logout user from OneSignal */
