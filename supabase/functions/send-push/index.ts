@@ -37,6 +37,8 @@ Deno.serve(async (req) => {
     const body: PushPayload = await req.json();
     const { user_id, title, message, entity_id, entity_type, notification_type } = body;
 
+    console.log("send-push called for user_id:", user_id, "title:", title);
+
     if (!user_id || !title) {
       return new Response(
         JSON.stringify({ error: "user_id and title are required" }),
@@ -84,16 +86,25 @@ Deno.serve(async (req) => {
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("OneSignal API error:", JSON.stringify(data));
+      console.error("OneSignal API error for user", user_id, ":", JSON.stringify(data));
       return new Response(
-        JSON.stringify({ sent: 0, error: data.errors || data }),
+        JSON.stringify({ sent: 0, error: data.errors || data, user_id }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("OneSignal send success:", JSON.stringify(data));
+    // Check for "all not subscribed" soft error
+    if (data.errors && Array.isArray(data.errors) && data.errors.includes("All included players are not subscribed")) {
+      console.warn("OneSignal: user", user_id, "has no subscribed devices. Response:", JSON.stringify(data));
+      return new Response(
+        JSON.stringify({ sent: 0, warning: "No subscribed devices for this user", user_id, raw: data }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("OneSignal send success for user", user_id, ":", JSON.stringify(data));
     return new Response(
-      JSON.stringify({ sent: data.recipients || 0, id: data.id }),
+      JSON.stringify({ sent: data.recipients || 0, id: data.id, user_id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
