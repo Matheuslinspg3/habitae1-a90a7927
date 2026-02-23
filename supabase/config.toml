@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.onesignal-app-id]
 verify_jwt = false
+
+[functions.cloudflare-purge-cache]
+verify_jwt = false
