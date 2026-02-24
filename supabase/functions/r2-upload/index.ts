@@ -42,11 +42,15 @@ async function putObjectToR2(
   const amzDate = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const dateStamp = amzDate.slice(0, 8);
 
-  // Use UNSIGNED-PAYLOAD to simplify signing (matches presign approach)
   const payloadHash = 'UNSIGNED-PAYLOAD';
 
-  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\n`;
-  const signedHeaders = 'content-type;host';
+  // All x-amz-* headers MUST be signed per SigV4 spec
+  const canonicalHeaders =
+    `content-type:${contentType}\n` +
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`;
+  const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
 
   const canonicalRequest =
     'PUT\n' + canonicalUri + '\n\n' + canonicalHeaders + '\n' + signedHeaders + '\n' + payloadHash;
