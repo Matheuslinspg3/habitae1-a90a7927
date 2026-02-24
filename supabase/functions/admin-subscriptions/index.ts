@@ -17,8 +17,11 @@ Deno.serve(async (req) => {
     );
 
     // Verify caller is system admin or developer
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization") || req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
+    if (!token) {
+      return new Response(JSON.stringify({ error: "No token provided" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
