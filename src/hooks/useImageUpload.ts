@@ -185,8 +185,15 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
   );
 
   if (!response.ok) {
-    const errorData = await response.json();
-    console.error('Cloudinary upload error:', errorData);
+    let errorMsg = `Status ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData?.error?.message || JSON.stringify(errorData);
+      console.error('Cloudinary upload error:', errorData);
+    } catch {
+      console.error('Cloudinary upload error: status', response.status);
+    }
+    console.error(`[UPLOAD] Cloudinary failed: ${errorMsg}`);
     return null;
   }
 
@@ -328,7 +335,8 @@ export function useImageUpload() {
       }
 
       if (!result) {
-        toast({ title: 'Erro no upload', description: 'Não foi possível enviar a imagem para nenhum storage', variant: 'destructive' });
+        console.error('[UPLOAD] Falha em todos os providers (R2 + Cloudinary)');
+        toast({ title: 'Erro no upload', description: 'Falha ao enviar imagem. Verifique sua conexão e tente novamente.', variant: 'destructive' });
         return null;
       }
 
