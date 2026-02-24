@@ -1,113 +1,51 @@
 
 
-# Plano: Corrigir Notificacoes Push (OneSignal)
+## Problem
 
-## Problema Diagnosticado
+The R2 presigned URL upload flow fails because the R2 bucket does not have CORS configured, causing browser `PUT` requests to be blocked. Cloudinary (the fallback) is also disabled ("cloud_name is disabled"). Result: no image uploads work.
 
-O erro "All included players are not subscribed" indica que o OneSignal recebe o pedido de push corretamente, encontra o `external_id` do usuario, mas **nenhum dispositivo tem uma inscricao push ativa** associada a esse usuario.
+## Solution
 
-A causa raiz e um **conflito de inicializacao**: o SDK v16 do OneSignal usa o padrao `OneSignalDeferred` (fila de comandos), mas o codigo atual chama `OneSignal.init()` diretamente, o que pode causar inicializacao duplicada ou silenciosamente falhar sem registrar o token push.
+Replace the client-side presigned URL upload with a **server-side proxy** approach using the existing `r2-upload` edge function. This avoids CORS entirely since the upload goes through the edge function (server-to-server to R2).
 
-## Solucao
+## Changes
 
-### 1. Reescrever `src/lib/onesignal.ts` usando o padrao oficial `OneSignalDeferred`
+### 1. Update `r2-upload` edge function to support the two-variant pattern
 
-O SDK v16 espera que comandos sejam enfileirados via `window.OneSignalDeferred`, e NAO chamados diretamente via `window.OneSignal.init()`.
+The current `r2-upload` accepts a single file via FormData. We need to update it to:
+- Accept two files (`full` and `thumb`) in one request, both as WebP blobs
+- Accept an optional `propertyId` to build the correct key path (`imoveis/{propertyId}/{uuid}_full.webp`)
+- Return both public URLs and R2 keys in the response
 
-Mudancas:
-- Remover a chamada manual `waitForSDK()` + `OneSignal.init()`
-- Usar `window.OneSignalDeferred.push(async (OneSignal) => { ... })` que e o padrao oficial
-- Garantir que `login(userId)` so execute depois que o `init` completar via a mesma fila
-- Adicionar retry com backoff no `loginOneSignal` para garantir que o token seja registrado
-- Adicionar polling para confirmar que o `PushSubscription.token` existe apos login
+### 2. Update `useImageUpload.ts` client-side upload logic
 
-### 2. Atualizar `index.html` para inicializacao via `OneSignalDeferred`
+Replace the `uploadToR2WithPresign` function with a new `uploadToR2Proxy` function that:
+- Generates image variants client-side (full + thumb WebP) as it does today
+- Sends both blobs to the `r2-upload` edge function via FormData (server-side proxy)
+- Returns the same `UploadedImage` shape with `r2KeyFull`, `r2KeyThumb`, public URLs
 
-Mudancas:
-- Inicializar a fila `window.OneSignalDeferred = window.OneSignalDeferred || []` antes do script do SDK
-- Mover a chamada `init()` para dentro da fila deferred
+The presigned URL flow (`getPresignedUrls`, `uploadBlobToPresignedUrl`) will remain in the code but won't be called -- the proxy is used instead.
 
-### 3. Simplificar `src/main.tsx`
+### 3. Keep Cloudinary as last-resort fallback
 
-- Remover a chamada `initOneSignal()` do main.tsx (a inicializacao sera feita pela fila deferred automaticamente)
-- O login continuara sendo feito no `AuthContext`
+The existing Cloudinary fallback stays in place. If R2 proxy also fails, it tries Cloudinary (which will likely fail too since the account is disabled, but it's harmless to keep).
 
-### 4. Atualizar `src/contexts/AuthContext.tsx`
+---
 
-- Garantir que `loginOneSignal(userId)` use `await` para capturar erros
-- Adicionar log de diagnostico no login
+### Technical Details
 
-### 5. Atualizar `src/hooks/usePushNotifications.ts`
+**`supabase/functions/r2-upload/index.ts`** changes:
+- Accept `full` and `thumb` File fields from FormData, plus a `propertyId` string field
+- Generate a UUID upload ID
+- Build keys: `imoveis/{propertyId}/{uploadId}_full.webp` and `_thumb.webp`
+- Upload both to R2 server-side using SigV4
+- Return `{ r2KeyFull, r2KeyThumb, publicUrlFull, publicUrlThumb, uploadId }`
 
-- Simplificar o fluxo de `subscribe` para usar o padrao deferred
-- Melhorar o estado de `isSubscribed` com polling mais robusto apos opt-in
-
-### 6. Melhorar `supabase/functions/send-push/index.ts`
-
-- Adicionar log do `external_id` sendo buscado para facilitar debug
-- Adicionar tentativa de envio via `include_subscription_ids` como fallback caso `include_aliases` falhe
-
-## Detalhes Tecnicos
-
-### `src/lib/onesignal.ts` (reescrita principal)
-
-```text
-Fluxo atual (quebrado):
-  main.tsx -> initOneSignal() -> waitForSDK() -> OneSignal.init()
-  AuthContext -> loginOneSignal() -> initOneSignal() -> OneSignal.login()
-
-Fluxo novo (correto):
-  index.html -> OneSignalDeferred = []
-  index.html -> <script src="OneSignalSDK.page.js">
-  lib/onesignal.ts -> OneSignalDeferred.push(async (OS) => { OS.init({...}) })
-  AuthContext -> loginOneSignal() -> aguarda SDK pronto -> OS.login(userId)
-```
-
-A funcao `initOneSignal()` vai:
-1. Buscar o App ID via edge function (com cache)
-2. Enfileirar `init()` via `OneSignalDeferred.push()`
-3. Resolver uma Promise quando o SDK estiver pronto
-4. Marcar `sdkReady = true`
-
-A funcao `loginOneSignal(userId)` vai:
-1. Aguardar `initOneSignal()` completar
-2. Chamar `OneSignal.login(userId)`
-3. Verificar se `PushSubscription.optedIn === false` e chamar `optIn()` se permissao ja concedida
-4. Fazer polling por ate 5s para confirmar que o token foi gerado
-5. Logar resultado com diagnostico
-
-### `index.html`
-
-Adicionar antes do script do SDK:
-```html
-<script>window.OneSignalDeferred = window.OneSignalDeferred || [];</script>
-```
-
-### `src/main.tsx`
-
-Remover `initOneSignal()` — sera chamado pelo AuthContext quando o usuario logar.
-
-### `send-push/index.ts`
-
-Melhorar logging para incluir o `user_id` tentado e resposta completa da API.
-
-## Arquivos Modificados
-
-| Arquivo | Acao |
-|---------|------|
-| `src/lib/onesignal.ts` | Reescrever usando padrao OneSignalDeferred |
-| `index.html` | Adicionar inicializacao da fila deferred |
-| `src/main.tsx` | Remover chamada `initOneSignal()` |
-| `src/contexts/AuthContext.tsx` | Melhorar chamada loginOneSignal com await |
-| `src/hooks/usePushNotifications.ts` | Ajustar para novo fluxo |
-| `supabase/functions/send-push/index.ts` | Melhorar logging e diagnostico |
-
-## Resultado Esperado
-
-Apos o deploy:
-1. O SDK inicializa corretamente via fila deferred (padrao oficial v16)
-2. O login associa o `external_id` ao dispositivo
-3. O token push e registrado e confirmado via polling
-4. O `send-push` encontra o dispositivo e entrega a notificacao
-5. Deve-se fazer logout e login novamente no PC e celular para testar
+**`src/hooks/useImageUpload.ts`** changes:
+- New `uploadToR2Proxy(file, propertyId)` function that:
+  1. Calls `generateImageVariants(file)` for full + thumb blobs
+  2. Builds a FormData with both blobs + propertyId
+  3. Calls `supabase.functions.invoke('r2-upload', { body: formData })` 
+  4. Returns the `UploadedImage` result
+- `uploadImage` calls `uploadToR2Proxy` instead of `uploadToR2WithPresign`
 
