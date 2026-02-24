@@ -131,17 +131,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Validate user can edit this property ──
-    const { data: property, error: propError } = await supabase
+    // ── Validate user can edit this property (skip for temp uploads of new properties) ──
+    const { data: property } = await supabase
       .from('properties')
       .select('id, organization_id')
       .eq('id', propertyId)
       .single();
 
-    if (propError || !property) {
-      return new Response(JSON.stringify({ error: 'Imóvel não encontrado ou sem permissão' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // If property doesn't exist, verify user belongs to an org (temp upload for new property)
+    if (!property) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!profile?.organization_id) {
+        return new Response(JSON.stringify({ error: 'Usuário sem organização' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // ── Validate each file ──
