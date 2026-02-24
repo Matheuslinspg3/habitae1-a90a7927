@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Store } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { TAB_FIELDS } from "./form/constants";
 import { BasicTab } from "./form/BasicTab";
@@ -64,7 +65,7 @@ const propertySchema = z.object({
   youtube_url: z.string().url().optional().nullable().or(z.literal("")),
   amenities: z.array(z.string()).optional().nullable(),
   payment_options: z.array(z.string()).optional().nullable(),
-  owner_name: z.string().min(1, 'Nome do proprietário é obrigatório'),
+  owner_name: z.string().optional().nullable().or(z.literal("")),
   owner_phone: z.string().optional().nullable(),
   owner_email: z.string().email().optional().nullable().or(z.literal("")),
   owner_document: z.string().optional().nullable(),
@@ -143,36 +144,65 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   // Reset form when property changes
   useEffect(() => {
     if (property) {
-      form.reset({
-        title: property.title, property_type_id: property.property_type_id,
-        transaction_type: property.transaction_type, status: property.status,
-        launch_stage: (property as any).launch_stage || "nenhum",
-        development_name: (property as any).development_name || null,
-        property_condition: (property as any).property_condition || null,
-        captador_id: (property as any).captador_id || null,
-        sale_price: property.sale_price, sale_price_financed: (property as any).sale_price_financed || null,
-        rent_price: property.rent_price, condominium_fee: property.condominium_fee,
-        iptu: property.iptu, iptu_monthly: (property as any).iptu_monthly || null,
-        inspection_fee: (property as any).inspection_fee || null,
-        commission_type: (property as any).commission_type || "percentual",
-        commission_value: (property as any).commission_value || null,
-        bedrooms: property.bedrooms, suites: property.suites,
-        bathrooms: property.bathrooms, parking_spots: property.parking_spots,
-        area_useful: (property as any).area_useful ? Number((property as any).area_useful) : null,
-        area_total: property.area_total ? Number(property.area_total) : null,
-        area_built: property.area_built ? Number(property.area_built) : null,
-        floor: property.floor, beach_distance_meters: (property as any).beach_distance_meters || null,
-        address_zipcode: property.address_zipcode || "", address_street: property.address_street || "",
-        address_number: property.address_number || "", address_complement: property.address_complement || "",
-        address_neighborhood: property.address_neighborhood || "",
-        address_city: property.address_city || "", address_state: property.address_state || "",
-        description: property.description || "", youtube_url: (property as any).youtube_url || "",
-        amenities: property.amenities || [], payment_options: (property as any).payment_options || [],
-        owner_name: "", owner_phone: "", owner_email: "", owner_document: "", owner_notes: "",
-      });
-      setImages(property.images?.map(img => ({
-        id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
-      })) || []);
+      const loadPropertyData = async () => {
+        let ownerName = "";
+        let ownerPhone = "";
+        let ownerEmail = "";
+        let ownerDocument = "";
+        let ownerNotes = "";
+
+        // Pre-load owner data for editing
+        try {
+          const { data: owner } = await supabase
+            .from("property_owners")
+            .select("name, phone, email, document, notes")
+            .eq("property_id", property.id)
+            .eq("is_primary", true)
+            .maybeSingle();
+          if (owner) {
+            ownerName = owner.name || "";
+            ownerPhone = owner.phone || "";
+            ownerEmail = owner.email || "";
+            ownerDocument = owner.document || "";
+            ownerNotes = owner.notes || "";
+          }
+        } catch (e) {
+          // ignore – owner fields will remain empty
+        }
+
+        form.reset({
+          title: property.title, property_type_id: property.property_type_id,
+          transaction_type: property.transaction_type, status: property.status,
+          launch_stage: (property as any).launch_stage || "nenhum",
+          development_name: (property as any).development_name || null,
+          property_condition: (property as any).property_condition || null,
+          captador_id: (property as any).captador_id || null,
+          sale_price: property.sale_price, sale_price_financed: (property as any).sale_price_financed || null,
+          rent_price: property.rent_price, condominium_fee: property.condominium_fee,
+          iptu: property.iptu, iptu_monthly: (property as any).iptu_monthly || null,
+          inspection_fee: (property as any).inspection_fee || null,
+          commission_type: (property as any).commission_type || "percentual",
+          commission_value: (property as any).commission_value || null,
+          bedrooms: property.bedrooms, suites: property.suites,
+          bathrooms: property.bathrooms, parking_spots: property.parking_spots,
+          area_useful: (property as any).area_useful ? Number((property as any).area_useful) : null,
+          area_total: property.area_total ? Number(property.area_total) : null,
+          area_built: property.area_built ? Number(property.area_built) : null,
+          floor: property.floor, beach_distance_meters: (property as any).beach_distance_meters || null,
+          address_zipcode: property.address_zipcode || "", address_street: property.address_street || "",
+          address_number: property.address_number || "", address_complement: property.address_complement || "",
+          address_neighborhood: property.address_neighborhood || "",
+          address_city: property.address_city || "", address_state: property.address_state || "",
+          description: property.description || "", youtube_url: (property as any).youtube_url || "",
+          amenities: property.amenities || [], payment_options: (property as any).payment_options || [],
+          owner_name: ownerName, owner_phone: ownerPhone, owner_email: ownerEmail,
+          owner_document: ownerDocument, owner_notes: ownerNotes,
+        });
+        setImages(property.images?.map(img => ({
+          id: img.id, url: img.url, is_cover: img.is_cover || false, display_order: img.display_order || 0,
+        })) || []);
+      };
+      loadPropertyData();
     } else if (prefillData) {
       form.reset({ ...DEFAULT_VALUES, ...prefillData });
       setImages([]);
@@ -215,6 +245,8 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     if (firstErrorTab) {
       setActiveTab(firstErrorTab);
       toast({ title: "Campos obrigatórios", description: "Preencha os campos obrigatórios destacados em vermelho.", variant: "destructive" });
+    } else if (Object.keys(form.formState.errors).length > 0) {
+      toast({ title: "Erro no formulário", description: "Verifique os dados do proprietário e tente novamente.", variant: "destructive" });
     }
   };
 
@@ -260,7 +292,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
               <TabsContent value="description"><DescriptionTab form={form} /></TabsContent>
             </Tabs>
 
-            <OwnerSection form={form} />
+            <OwnerSection form={form} isEditing={!!property} />
 
             <DialogFooter className="flex-col sm:flex-row gap-4">
               <div className="flex items-center gap-3 mr-auto">
