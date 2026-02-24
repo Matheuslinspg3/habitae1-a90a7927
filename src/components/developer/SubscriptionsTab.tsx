@@ -130,7 +130,7 @@ export function SubscriptionsTab() {
     return (
       o.name.toLowerCase().includes(q) ||
       STATUS_LABELS[getStatus(o)]?.toLowerCase().includes(q) ||
-      o.users.some(u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
+      o.users?.some(u => u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q))
     );
   });
 
@@ -164,7 +164,7 @@ export function SubscriptionsTab() {
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={STATUS_COLORS[status] || ""}>{STATUS_LABELS[status]}</Badge>
                       {!org.is_active && <Badge variant="destructive">Inativa</Badge>}
-                      <Badge variant="secondary">{org.users.length} usuário{org.users.length !== 1 ? "s" : ""}</Badge>
+                      <Badge variant="secondary">{(org.users?.length ?? 0)} usuário{(org.users?.length ?? 0) !== 1 ? "s" : ""}</Badge>
                     </div>
                   </div>
                 </CardHeader>
@@ -194,15 +194,15 @@ export function SubscriptionsTab() {
                       <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground">
                         {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         <User className="h-3.5 w-3.5" />
-                        Ver usuários ({org.users.length})
+                        Ver usuários ({org.users?.length ?? 0})
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-border ml-2">
-                        {org.users.length === 0 ? (
+                        {!org.users?.length ? (
                           <p className="text-xs text-muted-foreground py-2">Nenhum usuário vinculado</p>
                         ) : (
-                          org.users.map((u) => (
+                          org.users?.map((u) => (
                             <div key={u.user_id} className="flex items-center gap-3 py-1.5 px-2 rounded-md text-sm hover:bg-muted/50">
                               <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               <div className="min-w-0">
