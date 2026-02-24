@@ -10,7 +10,7 @@ export function MobileTopBar() {
           <a href="/dashboard" className="block cursor-pointer">
             <HabitaeLogo variant="icon" size="sm" />
           </a>
-          <span className="text-[10px] text-muted-foreground font-medium">v3.1.8</span>
+          <span className="text-[10px] text-muted-foreground font-medium">v3.1.9</span>
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
