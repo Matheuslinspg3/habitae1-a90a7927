@@ -319,15 +319,15 @@ export function useImageUpload() {
       // ─── Step 3: Upload (R2 presigned primary, Cloudinary fallback) ───
       let result: UploadedImage | null = null;
 
-      if (options?.propertyId) {
-        console.log(`[UPLOAD] Tentando R2 presigned (property: ${options.propertyId})...`);
-        setUploadProgress(30);
-        result = await uploadToR2WithPresign(file, options.propertyId);
-        setUploadProgress(80);
-      }
+      // Always try R2 first — use a temp UUID if propertyId is not yet available
+      const effectivePropertyId = options?.propertyId || crypto.randomUUID();
+      console.log(`[UPLOAD] Tentando R2 presigned (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
+      setUploadProgress(30);
+      result = await uploadToR2WithPresign(file, effectivePropertyId);
+      setUploadProgress(80);
 
       if (!result) {
-        console.log('[UPLOAD] R2 não disponível ou falhou. Tentando Cloudinary...');
+        console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
         setUploadProgress(50);
         const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
         result = await uploadToCloudinary(file, orgFolder);
