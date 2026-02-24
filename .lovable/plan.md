@@ -1,51 +1,53 @@
 
 
-## Problem
+# Corrigir: Alteracoes nao salvas ao editar imovel
 
-The R2 presigned URL upload flow fails because the R2 bucket does not have CORS configured, causing browser `PUT` requests to be blocked. Cloudinary (the fallback) is also disabled ("cloud_name is disabled"). Result: no image uploads work.
+## Problema Identificado
 
-## Solution
+Ao editar um imovel, o formulario **nao submete** porque a validacao do campo `owner_name` (Nome do Proprietario) falha silenciosamente.
 
-Replace the client-side presigned URL upload with a **server-side proxy** approach using the existing `r2-upload` edge function. This avoids CORS entirely since the upload goes through the edge function (server-to-server to R2).
+### Causa raiz
 
-## Changes
+1. O schema Zod exige `owner_name` com no minimo 1 caractere: `z.string().min(1, ...)`
+2. Quando o formulario abre para edicao, os campos do proprietario sao resetados com valores vazios (`owner_name: ""`)
+3. O proprietario ja existe no banco de dados (tabela `property_owners`), mas esses dados **nao sao carregados** no formulario
+4. A funcao `handleInvalidSubmit` so verifica erros nas abas (basico, valores, etc.), mas o campo `owner_name` fica na secao separada `OwnerSection`, entao o usuario nao ve o erro
 
-### 1. Update `r2-upload` edge function to support the two-variant pattern
+Resultado: o botao "Salvar Alteracoes" nao faz nada -- nao aparece erro, nao salva.
 
-The current `r2-upload` accepts a single file via FormData. We need to update it to:
-- Accept two files (`full` and `thumb`) in one request, both as WebP blobs
-- Accept an optional `propertyId` to build the correct key path (`imoveis/{propertyId}/{uuid}_full.webp`)
-- Return both public URLs and R2 keys in the response
+## Solucao
 
-### 2. Update `useImageUpload.ts` client-side upload logic
+### 1. Tornar `owner_name` opcional ao editar
 
-Replace the `uploadToR2WithPresign` function with a new `uploadToR2Proxy` function that:
-- Generates image variants client-side (full + thumb WebP) as it does today
-- Sends both blobs to the `r2-upload` edge function via FormData (server-side proxy)
-- Returns the same `UploadedImage` shape with `r2KeyFull`, `r2KeyThumb`, public URLs
+Quando o imovel ja existe (edicao), o proprietario ja esta vinculado. Nao faz sentido exigir novamente. Vamos tornar o campo opcional:
 
-The presigned URL flow (`getPresignedUrls`, `uploadBlobToPresignedUrl`) will remain in the code but won't be called -- the proxy is used instead.
+- Alterar o schema para `owner_name: z.string().optional().nullable()` (ou usar `.or(z.literal(""))`)
+- Remover o `min(1)` que bloqueia a submissao
 
-### 3. Keep Cloudinary as last-resort fallback
+### 2. Pre-carregar dados do proprietario ao editar
 
-The existing Cloudinary fallback stays in place. If R2 proxy also fails, it tries Cloudinary (which will likely fail too since the account is disabled, but it's harmless to keep).
+No `PropertyForm`, quando `property` for passado (edicao), buscar os dados do proprietario existente e preencher os campos:
 
----
+- Buscar de `property_owners` onde `property_id = property.id` e `is_primary = true`
+- Preencher `owner_name`, `owner_phone`, `owner_email`, `owner_document`, `owner_notes`
 
-### Technical Details
+### 3. Melhorar feedback de erro
 
-**`supabase/functions/r2-upload/index.ts`** changes:
-- Accept `full` and `thumb` File fields from FormData, plus a `propertyId` string field
-- Generate a UUID upload ID
-- Build keys: `imoveis/{propertyId}/{uploadId}_full.webp` and `_thumb.webp`
-- Upload both to R2 server-side using SigV4
-- Return `{ r2KeyFull, r2KeyThumb, publicUrlFull, publicUrlThumb, uploadId }`
+Adicionar a secao do proprietario na checagem de erros do `handleInvalidSubmit`, para que se houver erro, o usuario seja notificado adequadamente.
 
-**`src/hooks/useImageUpload.ts`** changes:
-- New `uploadToR2Proxy(file, propertyId)` function that:
-  1. Calls `generateImageVariants(file)` for full + thumb blobs
-  2. Builds a FormData with both blobs + propertyId
-  3. Calls `supabase.functions.invoke('r2-upload', { body: formData })` 
-  4. Returns the `UploadedImage` result
-- `uploadImage` calls `uploadToR2Proxy` instead of `uploadToR2WithPresign`
+## Detalhes Tecnicos
+
+**Arquivo: `src/components/properties/PropertyForm.tsx`**
+- Alterar o schema: `owner_name: z.string().optional().nullable().or(z.literal(""))` -- remover `.min(1)`
+- No `useEffect` que reseta o formulario quando `property` muda, buscar o proprietario existente via Supabase e preencher os campos owner_*
+- No `handleInvalidSubmit`, verificar tambem campos do proprietario e mostrar mensagem adequada
+
+**Arquivo: `src/components/properties/form/OwnerSection.tsx`**
+- Remover o asterisco (*) do label quando estiver em modo edicao (opcional)
+
+## Impacto
+
+- Corrige o bug que impede qualquer alteracao em imoveis existentes
+- Melhora a experiencia preenchendo automaticamente os dados do proprietario ao editar
+- Nao afeta o fluxo de criacao de novos imoveis
 
