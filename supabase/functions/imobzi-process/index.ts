@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const IMOBZI_API_BASE = 'https://api.imobzi.app/v1';
 const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1';
@@ -520,6 +516,7 @@ async function updateRunProgressBatch(
 // ===== MAIN HANDLER =====
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
