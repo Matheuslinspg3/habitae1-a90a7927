@@ -24,6 +24,7 @@ export interface PropertyFilters {
   propertyCondition: string;
   maxBeachDistance: number | null;
   launchStage: string;
+  ownerId: string;
 }
 
 const defaultFilters: PropertyFilters = {
@@ -46,6 +47,7 @@ const defaultFilters: PropertyFilters = {
   propertyCondition: 'all',
   maxBeachDistance: null,
   launchStage: 'all',
+  ownerId: '',
 };
 
 export function usePropertyFilters() {
@@ -72,6 +74,7 @@ export function usePropertyFilters() {
     propertyCondition: searchParams.get('condicao') || 'all',
     maxBeachDistance: searchParams.get('praia_max') ? Number(searchParams.get('praia_max')) : null,
     launchStage: searchParams.get('fase') || 'all',
+    ownerId: searchParams.get('proprietario') || '',
   }));
 
   // Sync filters to URL
@@ -97,6 +100,7 @@ export function usePropertyFilters() {
     if (filters.propertyCondition !== 'all') params.set('condicao', filters.propertyCondition);
     if (filters.maxBeachDistance) params.set('praia_max', String(filters.maxBeachDistance));
     if (filters.launchStage !== 'all') params.set('fase', filters.launchStage);
+    if (filters.ownerId) params.set('proprietario', filters.ownerId);
 
     setSearchParams(params, { replace: true });
   }, [filters, setSearchParams]);
@@ -184,7 +188,8 @@ export function usePropertyFilters() {
       filters.amenities.length > 0 ||
       filters.propertyCondition !== 'all' ||
       filters.maxBeachDistance !== null ||
-      filters.launchStage !== 'all'
+      filters.launchStage !== 'all' ||
+      filters.ownerId !== ''
     );
   }, [filters]);
 
@@ -207,6 +212,7 @@ export function usePropertyFilters() {
     if (filters.propertyCondition !== 'all') count++;
     if (filters.maxBeachDistance !== null) count++;
     if (filters.launchStage !== 'all') count++;
+    if (filters.ownerId !== '') count++;
     return count;
   }, [filters]);
 

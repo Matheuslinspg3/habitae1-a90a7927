@@ -23,6 +23,7 @@ import { PropertyStatusStats } from "@/components/properties/PropertyStatusStats
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
 import { useMarketplaceStatus } from "@/hooks/useMarketplaceStatus";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +86,22 @@ export default function Properties() {
   } = useProperties();
 
   const { publishedIds } = useMarketplaceStatus();
+
+  // Fetch property IDs for selected owner
+  const { data: ownerPropertyIds } = useQuery({
+    queryKey: ['owner-property-ids', filters.ownerId],
+    queryFn: async () => {
+      if (!filters.ownerId) return null;
+      const { data, error } = await supabase
+        .from('property_owners')
+        .select('property_id')
+        .eq('owner_id', filters.ownerId);
+      if (error) throw error;
+      return new Set((data || []).map(d => d.property_id));
+    },
+    enabled: !!filters.ownerId,
+    staleTime: 30000,
+  });
 
   // Handle edit from PropertyDetails navigation
   useEffect(() => {
@@ -342,8 +359,9 @@ export default function Properties() {
     pendingBatchRef.current = null;
   }, []);
   const filteredProperties = useMemo(() => {
+    let results: PropertyWithDetails[];
     if (searchResults && searchResults.length >= 0) {
-      return searchResults.map(result => {
+      results = searchResults.map(result => {
         const fullProperty = allProperties.find(p => p.id === result.id);
         if (fullProperty) return fullProperty;
         return {
@@ -357,9 +375,17 @@ export default function Properties() {
           images: result.cover_image_url ? [{ url: result.cover_image_url, is_cover: true }] : [],
         } as PropertyWithDetails;
       });
+    } else {
+      results = allProperties;
     }
-    return allProperties;
-  }, [searchResults, allProperties]);
+
+    // Filter by owner if selected
+    if (filters.ownerId && ownerPropertyIds) {
+      results = results.filter(p => ownerPropertyIds.has(p.id));
+    }
+
+    return results;
+  }, [searchResults, allProperties, filters.ownerId, ownerPropertyIds]);
 
   // Pagination
   const paginatedProperties = useMemo(() => {
