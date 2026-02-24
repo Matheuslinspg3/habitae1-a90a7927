@@ -38,24 +38,48 @@ export function SubscriptionsTab() {
     queryKey: ["dev-org-subscriptions"],
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke("admin-subscriptions", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (res.error) throw new Error(res.error.message || "Erro ao buscar dados");
-      return res.data as OrgRow[];
+      if (!session?.access_token) throw new Error("Não autenticado");
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/admin-subscriptions`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "Erro ao buscar dados");
+      }
+      return (await res.json()) as OrgRow[];
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ orgId, trialEndsAt, trialStartedAt }: { orgId: string; trialEndsAt: string; trialStartedAt?: string }) => {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await supabase.functions.invoke("admin-subscriptions", {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: { org_id: orgId, trial_ends_at: trialEndsAt, trial_started_at: trialStartedAt },
-      });
-      if (res.error) throw new Error(res.error.message || "Erro ao atualizar");
+      if (!session?.access_token) throw new Error("Não autenticado");
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/admin-subscriptions`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ org_id: orgId, trial_ends_at: trialEndsAt, trial_started_at: trialStartedAt }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "Erro ao atualizar");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dev-org-subscriptions"] });
