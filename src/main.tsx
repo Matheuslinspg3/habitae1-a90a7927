@@ -49,20 +49,59 @@ async function autoPurgeCloudflare() {
   }
 }
 
+/** Poll for new version every 15s by checking if index.html changed */
+function setupVersionPolling() {
+  let currentHash: string | null = null;
+
+  async function getPageHash(): Promise<string | null> {
+    try {
+      const res = await fetch(`${window.location.origin}/?_vc=${Date.now()}`, {
+        cache: "no-store",
+        headers: { Accept: "text/html" },
+      });
+      if (!res.ok) return null;
+      const text = await res.text();
+      // Simple hash from script src attributes which change on every build
+      const scripts = text.match(/src="[^"]*\.js[^"]*"/g);
+      return scripts ? scripts.join("|") : text.slice(0, 500);
+    } catch {
+      return null;
+    }
+  }
+
+  async function checkForUpdate() {
+    const hash = await getPageHash();
+    if (!hash) return;
+    if (currentHash === null) {
+      currentHash = hash;
+      return;
+    }
+    if (hash !== currentHash) {
+      console.log("[Version Check] Nova versão detectada!");
+      currentHash = hash; // prevent repeated triggers
+      autoPurgeCloudflare();
+      window.__newVersionAvailable = true;
+      window.dispatchEvent(new CustomEvent("sw-update-available"));
+    }
+  }
+
+  // Start polling after page loads
+  window.addEventListener("load", () => {
+    // Initial baseline
+    checkForUpdate();
+    // Poll every 15 seconds
+    setInterval(checkForUpdate, 15_000);
+  });
+}
+
 function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
 
   const handleNewVersion = (registration: ServiceWorkerRegistration) => {
     console.log("[SW Update] Nova versão detectada! Purging Cloudflare e notificando usuário...");
-    
-    // 1. Auto-purge Cloudflare cache
     autoPurgeCloudflare();
-    
-    // 2. Signal the app to show a reload banner
     window.__newVersionAvailable = true;
     window.dispatchEvent(new CustomEvent("sw-update-available"));
-    
-    // 3. Force the new SW to activate
     const waiting = registration.waiting;
     if (waiting) {
       waiting.postMessage({ type: "SKIP_WAITING" });
@@ -71,15 +110,12 @@ function setupServiceWorkerUpdateRoutine() {
 
   const observeRegistration = (registration: ServiceWorkerRegistration | undefined) => {
     if (!registration) return;
-
     if (registration.waiting) {
       handleNewVersion(registration);
     }
-
     registration.addEventListener("updatefound", () => {
       const installingWorker = registration.installing;
       if (!installingWorker) return;
-
       installingWorker.addEventListener("statechange", () => {
         if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
           handleNewVersion(registration);
@@ -88,7 +124,6 @@ function setupServiceWorkerUpdateRoutine() {
     });
   };
 
-  // When a new SW takes control after user clicks reload
   let refreshing = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (refreshing) return;
@@ -116,5 +151,6 @@ if (
   );
 } else {
   setupServiceWorkerUpdateRoutine();
+  setupVersionPolling();
   createRoot(document.getElementById("root")!).render(<App />);
 }
