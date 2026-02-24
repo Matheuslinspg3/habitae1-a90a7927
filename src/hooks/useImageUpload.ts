@@ -279,8 +279,8 @@ export function useImageUpload() {
         toast({ title: 'Erro no upload', description: 'SVG e GIF não são permitidos', variant: 'destructive' });
         return null;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        toast({ title: 'Erro no upload', description: 'A imagem deve ter no máximo 10MB', variant: 'destructive' });
+      if (file.size > 25 * 1024 * 1024) {
+        toast({ title: 'Erro no upload', description: 'A imagem deve ter no máximo 25MB', variant: 'destructive' });
         return null;
       }
 
