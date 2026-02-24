@@ -37,8 +37,10 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
-      navigateFallbackDenylist: [/^\/~oauth/, /^\/push\//, /^\/OneSignalSDK/],
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/push\//, /^\/OneSignalSDK/],
       globIgnores: ["**/OneSignalSDKWorker.js", "**/push/**", "**/firebase-messaging-sw.js"],
         runtimeCaching: [
           {
