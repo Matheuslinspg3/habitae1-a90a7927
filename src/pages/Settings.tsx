@@ -16,7 +16,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield } from "lucide-react";
+import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug } from "lucide-react";
+import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { cn } from "@/lib/utils";
 import { PillBadge } from "@/components/ui/pill-badge";
 import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
@@ -315,7 +316,21 @@ export default function Settings() {
   return (
     <div className="flex flex-col min-h-screen relative page-enter">
       <div className="absolute inset-0 bg-gradient-mesh-vibrant pointer-events-none" />
-      <PageHeader title="Configurações" description="Gerencie as configurações do sistema" />
+      <PageHeader
+        title="Configurações"
+        description="Gerencie as configurações do sistema"
+        actions={
+          <SupportTicketDialog
+            trigger={
+              <Button variant="outline" size="sm" className="gap-2">
+                <Bug className="h-4 w-4" />
+                <span className="hidden sm:inline">Reportar problema</span>
+                <span className="sm:hidden">Reportar</span>
+              </Button>
+            }
+          />
+        }
+      />
       
       <div className="relative flex-1 p-4 sm:p-6">
         <Tabs defaultValue="profile" className="space-y-6">

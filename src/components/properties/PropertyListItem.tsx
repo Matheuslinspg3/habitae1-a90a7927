@@ -69,56 +69,71 @@ export function PropertyListItem({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 border border-border/60 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer",
+        "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 border border-border/60 rounded-lg hover:bg-accent/10 transition-colors cursor-pointer",
         isSelected && "ring-2 ring-primary bg-primary/5",
         !isAvailable && "opacity-70"
       )}
       onClick={() => navigate(`/imoveis/${property.id}`)}
     >
-      {/* Checkbox */}
-      <div
-        className={cn("transition-opacity", isSelectionMode ? "opacity-100" : "opacity-0 hover:opacity-100")}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={(checked) => onSelect(property.id, checked as boolean)}
-          className="h-5 w-5"
-        />
+      {/* Top row: checkbox + image + info */}
+      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+        {/* Checkbox */}
+        <div
+          className={cn("transition-opacity shrink-0 mt-1 sm:mt-0", isSelectionMode ? "opacity-100" : "opacity-0 hover:opacity-100")}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelect(property.id, checked as boolean)}
+            className="h-5 w-5"
+          />
+        </div>
+
+        {/* Thumbnail */}
+        {isAvailable && (
+          <div className="w-14 h-14 sm:w-20 sm:h-14 rounded-md overflow-hidden bg-muted flex-shrink-0">
+            {coverImage ? (
+              <img src={coverImage} alt={property.title || "Imóvel"} className="w-full h-full object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-muted-foreground/40" />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h4 className="font-medium truncate text-sm">{property.title || "Sem título"}</h4>
+            {(property as any).property_code && (
+              <Badge variant="outline" className="font-mono text-[10px] px-1 shrink-0 hidden sm:inline-flex">
+                <Hash className="h-2.5 w-2.5 mr-0.5" />
+                {(property as any).property_code}
+              </Badge>
+            )}
+            {isAvailable && <PropertyFreshnessBadge updatedAt={property.updated_at} compact />}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="truncate">{getAddress()}</span>
+          </div>
+          {/* Mobile: show price + status inline */}
+          <div className="flex items-center gap-1.5 mt-1 sm:hidden flex-wrap">
+            {isAvailable && getDisplayPrice() && (
+              <span className="font-semibold text-xs text-primary">{getDisplayPrice()}</span>
+            )}
+            <PropertyStatusBadge status={property.status} className="text-[10px]" />
+            {isAvailable && (
+              <Badge variant="outline" className="text-[10px] px-1">
+                {transactionLabels[property.transaction_type] || property.transaction_type}
+              </Badge>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Thumbnail - only for available */}
-      {isAvailable && (
-        <div className="w-20 h-14 rounded-md overflow-hidden bg-muted flex-shrink-0">
-          {coverImage ? (
-            <img src={coverImage} alt={property.title || "Imóvel"} className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-muted-foreground/40" />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h4 className="font-medium truncate text-sm">{property.title || "Sem título"}</h4>
-          {(property as any).property_code && (
-            <Badge variant="outline" className="font-mono text-xs shrink-0">
-              <Hash className="h-3 w-3 mr-0.5" />
-              {(property as any).property_code}
-            </Badge>
-          )}
-          {isAvailable && <PropertyFreshnessBadge updatedAt={property.updated_at} compact />}
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-          <MapPin className="h-3 w-3" />
-          <span className="truncate">{getAddress()}</span>
-        </div>
-      </div>
-
-      {/* Features - only for available */}
+      {/* Features - desktop only */}
       {isAvailable && (
         <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
           {(property.bedrooms ?? 0) > 0 && (
@@ -144,7 +159,7 @@ export function PropertyListItem({
         </div>
       )}
 
-      {/* Status & Price */}
+      {/* Status & Price - desktop */}
       <div className="hidden sm:flex flex-col items-end gap-1">
         {isAvailable && (
           <span className="font-semibold text-sm text-primary">{getDisplayPrice() || "Sob consulta"}</span>
@@ -170,7 +185,7 @@ export function PropertyListItem({
       </div>
 
       {/* Actions */}
-      <div onClick={(e) => e.stopPropagation()}>
+      <div onClick={(e) => e.stopPropagation()} className="hidden sm:block">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">

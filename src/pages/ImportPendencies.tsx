@@ -329,78 +329,84 @@ function PropertyRow({
 
   return (
     <div 
-      className={`flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
+      className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
         selected ? 'bg-primary/5' : ''
       }`}
       onClick={onToggle}
     >
-      <Checkbox checked={selected} onChange={() => {}} />
-      
-      <div className="w-16 h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0">
-        {coverImage ? (
-          <img src={coverImage} alt={property.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Building2 className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <h4 className="font-medium truncate">{property.title}</h4>
-        <p className="text-sm text-muted-foreground truncate">{location || 'Endereço não informado'}</p>
+      {/* Top row on mobile: checkbox + image + title */}
+      <div className="flex items-start gap-3 min-w-0">
+        <Checkbox checked={selected} onChange={() => {}} className="mt-1 shrink-0" />
         
-        <div className="flex flex-wrap gap-1 mt-2">
-          {property.import_warnings.map((warning) => {
-            const config = warningLabels[warning];
-            if (!config) return null;
-            const Icon = config.icon;
-            return (
-              <Badge key={warning} variant="secondary" className={`text-xs ${config.color}`}>
-                <Icon className="w-3 h-3 mr-1" />
-                {config.label}
-              </Badge>
-            );
-          })}
+        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+          {coverImage ? (
+            <img src={coverImage} alt={property.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-sm truncate">{property.title}</h4>
+          <p className="text-xs text-muted-foreground truncate">{location || 'Endereço não informado'}</p>
+          
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {property.import_warnings.map((warning) => {
+              const config = warningLabels[warning];
+              if (!config) return null;
+              const Icon = config.icon;
+              return (
+                <Badge key={warning} variant="secondary" className={`text-[10px] px-1.5 py-0 ${config.color}`}>
+                  <Icon className="w-2.5 h-2.5 mr-0.5" />
+                  {config.label}
+                </Badge>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <div className="text-right flex-shrink-0">
-        {price && (
-          <p className="font-medium text-primary">{formatCurrency(price)}</p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          {property.property_images?.length || 0} fotos
-        </p>
+      {/* Bottom row on mobile: price + actions */}
+      <div className="flex items-center justify-between sm:justify-end gap-2 pl-10 sm:pl-0 sm:shrink-0">
+        <div className="text-left sm:text-right">
+          {price && (
+            <p className="font-medium text-sm text-primary">{formatCurrency(price)}</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {property.property_images?.length || 0} fotos
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => { e.stopPropagation(); }}
+            asChild
+            title="Editar imóvel"
+          >
+            <Link to={`/imoveis/${property.id}?edit=true`}>
+              <Pencil className="w-4 h-4" />
+            </Link>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => { e.stopPropagation(); }}
+            asChild
+            title="Ver detalhes"
+          >
+            <Link to={`/imoveis/${property.id}`}>
+              <ExternalLink className="w-4 h-4" />
+            </Link>
+          </Button>
+        </div>
       </div>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        asChild
-        title="Editar imóvel"
-      >
-        <Link to={`/imoveis/${property.id}?edit=true`}>
-          <Pencil className="w-4 h-4" />
-        </Link>
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-        asChild
-        title="Ver detalhes"
-      >
-        <Link to={`/imoveis/${property.id}`}>
-          <ExternalLink className="w-4 h-4" />
-        </Link>
-      </Button>
     </div>
   );
 }
