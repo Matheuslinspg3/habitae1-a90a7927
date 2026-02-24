@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.cloudflare-purge-cache]
 verify_jwt = false
+
+[functions.admin-subscriptions]
+verify_jwt = false
