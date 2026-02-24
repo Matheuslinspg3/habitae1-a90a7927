@@ -1,53 +1,83 @@
 
 
-# Corrigir: Alteracoes nao salvas ao editar imovel
+# Corrigir: Imoveis permanecem "em revisao" apos edicao
 
-## Problema Identificado
+## Problema
 
-Ao editar um imovel, o formulario **nao submete** porque a validacao do campo `owner_name` (Nome do Proprietario) falha silenciosamente.
+Quando um imovel e importado com problemas (ex: sem fotos, sem metragem), ele recebe `import_status = 'incomplete'` e aparece na pagina de pendencias. Porem, quando o usuario edita o imovel e corrige os problemas, o sistema **nunca atualiza** o `import_status` para `complete` nem limpa o `import_warnings`. O imovel continua aparecendo na lista de pendencias indefinidamente.
 
 ### Causa raiz
 
-1. O schema Zod exige `owner_name` com no minimo 1 caractere: `z.string().min(1, ...)`
-2. Quando o formulario abre para edicao, os campos do proprietario sao resetados com valores vazios (`owner_name: ""`)
-3. O proprietario ja existe no banco de dados (tabela `property_owners`), mas esses dados **nao sao carregados** no formulario
-4. A funcao `handleInvalidSubmit` so verifica erros nas abas (basico, valores, etc.), mas o campo `owner_name` fica na secao separada `OwnerSection`, entao o usuario nao ve o erro
-
-Resultado: o botao "Salvar Alteracoes" nao faz nada -- nao aparece erro, nao salva.
+A funcao `updateProperty` em `src/hooks/useProperties.ts` faz um `update` na tabela `properties` apenas com os dados do formulario. Os campos `import_status` e `import_warnings` nunca sao incluidos na atualizacao.
 
 ## Solucao
 
-### 1. Tornar `owner_name` opcional ao editar
+Apos cada atualizacao bem-sucedida de um imovel que tenha `import_status = 'incomplete'` ou `'needs_retry'`, o sistema deve:
 
-Quando o imovel ja existe (edicao), o proprietario ja esta vinculado. Nao faz sentido exigir novamente. Vamos tornar o campo opcional:
+1. Re-avaliar os warnings com base nos dados atualizados
+2. Limpar os warnings que foram resolvidos
+3. Se nao restar nenhum warning, mudar `import_status` para `'complete'`
 
-- Alterar o schema para `owner_name: z.string().optional().nullable()` (ou usar `.or(z.literal(""))`)
-- Remover o `min(1)` que bloqueia a submissao
+### Mudancas
 
-### 2. Pre-carregar dados do proprietario ao editar
+**Arquivo: `src/hooks/useProperties.ts`** (funcao `updateProperty`)
 
-No `PropertyForm`, quando `property` for passado (edicao), buscar os dados do proprietario existente e preencher os campos:
+Apos o update bem-sucedido do imovel, adicionar logica para:
 
-- Buscar de `property_owners` onde `property_id = property.id` e `is_primary = true`
-- Preencher `owner_name`, `owner_phone`, `owner_email`, `owner_document`, `owner_notes`
+```text
+1. Verificar se o imovel atualizado tinha import_status 'incomplete' ou 'needs_retry'
+2. Se sim, re-calcular os warnings:
+   - 'sem_fotos' / 'fotos_ausentes': verificar se agora tem imagens (images.length > 0)
+   - 'sem_metragem' / 'metragem_ausente': verificar se area_useful ou area_total foi preenchido
+   - 'sem_descricao': verificar se description foi preenchido
+   - 'sem_proprietario': verificar se owner foi vinculado
+3. Atualizar import_warnings com apenas os warnings restantes
+4. Se nenhum warning restante, setar import_status = 'complete'
+```
 
-### 3. Melhorar feedback de erro
+**Arquivo: `src/pages/PropertyDetails.tsx`** (funcao `handleFormSubmit`)
 
-Adicionar a secao do proprietario na checagem de erros do `handleInvalidSubmit`, para que se houver erro, o usuario seja notificado adequadamente.
+Apos chamar `updateProperty`, verificar se o imovel tinha pendencias e atualizar o status:
 
-## Detalhes Tecnicos
+- Passar os dados necessarios para a re-avaliacao (imagens, area, descricao)
+- Chamar um update adicional no `import_status` e `import_warnings` se necessario
 
-**Arquivo: `src/components/properties/PropertyForm.tsx`**
-- Alterar o schema: `owner_name: z.string().optional().nullable().or(z.literal(""))` -- remover `.min(1)`
-- No `useEffect` que reseta o formulario quando `property` muda, buscar o proprietario existente via Supabase e preencher os campos owner_*
-- No `handleInvalidSubmit`, verificar tambem campos do proprietario e mostrar mensagem adequada
+### Abordagem tecnica detalhada
 
-**Arquivo: `src/components/properties/form/OwnerSection.tsx`**
-- Remover o asterisco (*) do label quando estiver em modo edicao (opcional)
+A implementacao mais limpa e adicionar a logica de re-avaliacao diretamente no `updateProperty` do hook `useProperties.ts`. Apos o `.update()` principal:
+
+```
+// Pseudo-codigo
+if (updated.import_status === 'incomplete' || updated.import_status === 'needs_retry') {
+  const remainingWarnings = [];
+  
+  // Checar fotos
+  const hasImages = images && images.length > 0;
+  if (!hasImages) {
+    const { count } = await supabase.from('property_images').select('id', { count: 'exact' }).eq('property_id', id);
+    if (!count || count === 0) remainingWarnings.push('sem_fotos');
+  }
+  
+  // Checar metragem
+  if (!data.area_useful && !data.area_total) remainingWarnings.push('sem_metragem');
+  
+  // Checar descricao
+  if (!data.description) remainingWarnings.push('sem_descricao');
+  
+  // Checar proprietario
+  const { count: ownerCount } = await supabase.from('property_owners').select('id', { count: 'exact' }).eq('property_id', id);
+  if (!ownerCount) remainingWarnings.push('sem_proprietario');
+  
+  // Atualizar
+  await supabase.from('properties').update({
+    import_warnings: remainingWarnings.length > 0 ? remainingWarnings : null,
+    import_status: remainingWarnings.length > 0 ? 'incomplete' : 'complete',
+  }).eq('id', id);
+}
+```
 
 ## Impacto
 
-- Corrige o bug que impede qualquer alteracao em imoveis existentes
-- Melhora a experiencia preenchendo automaticamente os dados do proprietario ao editar
-- Nao afeta o fluxo de criacao de novos imoveis
-
+- Imoveis editados na area de revisao passarao automaticamente para status `complete` quando os problemas forem corrigidos
+- O banner de pendencias e a pagina de pendencias refletirao as correcoes em tempo real
+- Nenhuma mudanca no fluxo de criacao ou importacao -- apenas o fluxo de edicao e afetado
