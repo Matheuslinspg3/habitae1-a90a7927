@@ -24,6 +24,7 @@ async function putObjectToR2(
 
   if (!res.ok) {
     const err = await res.text();
+    console.error(`[r2-upload] Error uploading ${objectKey}: ${res.status} ${err}`);
     throw new Error(`R2 PUT ${res.status}: ${err}`);
   }
 }
@@ -62,13 +63,24 @@ Deno.serve(async (req) => {
     const bucket = (Deno.env.get('R2_BUCKET_NAME') ?? '').trim();
     const publicUrl = (Deno.env.get('R2_PUBLIC_URL') ?? '').trim().replace(/\/$/, '');
 
+    // Debug credentials format
+    console.log(`[r2-upload] Config: endpoint=${endpoint}, bucket=${bucket}`);
+    console.log(`[r2-upload] AccessKey length=${accessKey.length}, startsWith=${accessKey.substring(0, 4)}...`);
+    console.log(`[r2-upload] SecretKey length=${secretKey.length}, startsWith=${secretKey.substring(0, 4)}...`);
+
     if (!accessKey || !secretKey || !endpoint || !bucket) {
       return new Response(JSON.stringify({ error: 'R2 config incompleta' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[r2-upload] endpoint=${endpoint}, bucket=${bucket}, accessKey=${accessKey.slice(0, 6)}...`);
+    // Validate R2 Key formats (approximate)
+    if (accessKey.length !== 32) {
+      console.error('[r2-upload] Access Key ID seems invalid (expected 32 chars)');
+    }
+    if (secretKey.length !== 64) {
+      console.error('[r2-upload] Secret Access Key seems invalid (expected 64 chars)');
+    }
 
     const aws = new AwsClient({
       accessKeyId: accessKey,
