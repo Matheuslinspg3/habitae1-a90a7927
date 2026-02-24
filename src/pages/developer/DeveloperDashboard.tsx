@@ -3,7 +3,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, ChevronRight, CreditCard
+  Terminal, ChevronRight, CreditCard, MessageSquare
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
@@ -13,6 +13,7 @@ import { UsersTab } from "@/components/developer/UsersTab";
 import { ImportHistoryTab } from "@/components/developer/ImportHistoryTab";
 import { DatabaseTab } from "@/components/developer/DatabaseTab";
 import { SubscriptionsTab } from "@/components/developer/SubscriptionsTab";
+import { TicketsTab } from "@/components/developer/TicketsTab";
 import { SendPushCard } from "@/components/developer/SendPushCard";
 import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -26,6 +27,7 @@ const tabs = [
   { id: "roles", label: "Roles", icon: Shield },
   { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: CreditCard },
+  { id: "tickets", label: "Tickets", icon: MessageSquare },
 ] as const;
 
 export default function DeveloperDashboard() {
@@ -87,6 +89,7 @@ export default function DeveloperDashboard() {
         <TabsContent value="roles"><RolesTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="subscriptions"><SubscriptionsTab /></TabsContent>
+        <TabsContent value="tickets"><TicketsTab /></TabsContent>
       </Tabs>
     </div>
   );
