@@ -32,7 +32,7 @@ export function AppLayout() {
         <MobileFAB />
         <MobileBottomNav />
         <UpdateBanner />
-        <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block"><span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v3.1.7</span></span>
+        <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v3.1.8</span>
       </div>
     </SidebarProvider>
   );
