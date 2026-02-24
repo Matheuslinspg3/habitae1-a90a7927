@@ -17,10 +17,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Separator } from '@/components/ui/separator';
 import { 
-  Filter, X, ChevronDown, Bed, DollarSign, MapPin, Ruler, Home, Car, Bath, Building2, Waves, Rocket,
+  Filter, X, ChevronDown, Bed, DollarSign, MapPin, Ruler, Home, Car, Bath, Building2, Waves, Rocket, User,
 } from 'lucide-react';
 import { PropertyFilters as FiltersType } from '@/hooks/usePropertyFilters';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
+import { usePropertyOwners } from '@/hooks/usePropertyOwners';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,7 @@ export function PropertyFilters({
 }: PropertyFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { propertyTypes } = usePropertyTypes();
+  const { owners } = usePropertyOwners();
 
   const handleNumericChange = (key: keyof FiltersType, value: string) => {
     const numValue = value ? Number(value.replace(/\D/g, '')) : null;
@@ -121,6 +123,26 @@ export function PropertyFilters({
                 </SelectContent>
               </Select>
             </div>
+
+            <Separator />
+
+            {/* Owner */}
+            {owners.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <User className="h-4 w-4 text-muted-foreground" /> Proprietário
+                </Label>
+                <Select value={filters.ownerId || 'all'} onValueChange={(value) => onUpdateFilter('ownerId', value === 'all' ? '' : value)}>
+                  <SelectTrigger><SelectValue placeholder="Todos os proprietários" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os proprietários</SelectItem>
+                    {owners.map((owner) => (
+                      <SelectItem key={owner.id} value={owner.id}>{owner.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <Separator />
 
@@ -452,6 +474,12 @@ export function PropertyFilters({
                filters.launchStage === 'lancamento' ? 'Lançamento' :
                filters.launchStage === 'em_construcao' ? 'Em Construção' : 'Pronto'}
               <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('launchStage', 'all')} />
+            </Badge>
+          )}
+          {filters.ownerId && (
+            <Badge variant="secondary" className="gap-1">
+              {owners.find(o => o.id === filters.ownerId)?.name || 'Proprietário'}
+              <X className="h-3 w-3 cursor-pointer" onClick={() => onUpdateFilter('ownerId', '')} />
             </Badge>
           )}
         </div>
