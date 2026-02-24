@@ -83,19 +83,11 @@ async function uploadBlobToPresignedUrl(
   }
 }
 
-async function uploadToR2WithPresign(
+async function uploadToR2Proxy(
   file: File,
   propertyId: string,
 ): Promise<UploadedImage | null> {
-  // 1. Get presigned URLs
-  const presigned = await getPresignedUrls(propertyId, [
-    { mimeType: file.type, sizeBytes: file.size },
-  ]);
-
-  if (!presigned || presigned.length === 0) return null;
-  const p = presigned[0];
-
-  // 2. Generate thumb + full variants client-side
+  // 1. Generate thumb + full variants client-side
   let variants;
   try {
     variants = await generateImageVariants(file);
@@ -104,29 +96,39 @@ async function uploadToR2WithPresign(
     return null;
   }
 
-  // 3. Upload both variants in parallel
-  const [fullOk, thumbOk] = await Promise.all([
-    uploadBlobToPresignedUrl(variants.full.blob, p.presignedPutUrlFull, p.requiredHeaders),
-    uploadBlobToPresignedUrl(variants.thumb.blob, p.presignedPutUrlThumb, p.requiredHeaders),
-  ]);
+  // 2. Build FormData with both variants
+  const fd = new FormData();
+  fd.append('full', new File([variants.full.blob], 'full.webp', { type: 'image/webp' }));
+  fd.append('thumb', new File([variants.thumb.blob], 'thumb.webp', { type: 'image/webp' }));
+  fd.append('propertyId', propertyId);
 
-  if (!fullOk || !thumbOk) {
-    console.error(`R2 upload partial failure: full=${fullOk}, thumb=${thumbOk}`);
+  // 3. Upload via edge function (server-side proxy to R2)
+  try {
+    const { data, error } = await supabase.functions.invoke('r2-upload', {
+      body: fd,
+    });
+
+    if (error || !data?.r2KeyFull) {
+      console.error('R2 proxy upload failed:', error || data);
+      return null;
+    }
+
+    const fullKB = (variants.full.blob.size / 1024).toFixed(0);
+    const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0);
+    console.log(`[R2] Proxy upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${data.r2KeyFull}`);
+
+    return {
+      url: data.publicUrlFull,
+      publicId: data.r2KeyFull,
+      storageProvider: 'r2',
+      r2KeyFull: data.r2KeyFull,
+      r2KeyThumb: data.r2KeyThumb,
+      publicUrlThumb: data.publicUrlThumb,
+    };
+  } catch (e) {
+    console.error('R2 proxy request failed:', e);
     return null;
   }
-
-  const fullKB = (variants.full.blob.size / 1024).toFixed(0);
-  const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0);
-  console.log(`[R2] Upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${p.r2KeyFull}`);
-
-  return {
-    url: p.publicUrlFull,
-    publicId: p.r2KeyFull,
-    storageProvider: 'r2',
-    r2KeyFull: p.r2KeyFull,
-    r2KeyThumb: p.r2KeyThumb,
-    publicUrlThumb: p.publicUrlThumb,
-  };
 }
 
 // ── Cloudinary Fallback ──
@@ -321,9 +323,9 @@ export function useImageUpload() {
 
       // Always try R2 first — use a temp UUID if propertyId is not yet available
       const effectivePropertyId = options?.propertyId || crypto.randomUUID();
-      console.log(`[UPLOAD] Tentando R2 presigned (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
+      console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
       setUploadProgress(30);
-      result = await uploadToR2WithPresign(file, effectivePropertyId);
+      result = await uploadToR2Proxy(file, effectivePropertyId);
       setUploadProgress(80);
 
       if (!result) {
