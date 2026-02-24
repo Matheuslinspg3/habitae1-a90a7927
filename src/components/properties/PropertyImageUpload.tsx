@@ -159,7 +159,7 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
             <ImagePlus className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="text-sm font-medium">Clique para adicionar fotos</p>
             <p className="text-xs text-muted-foreground mt-1">
-              PNG, JPG ou WEBP (máx. 10MB cada)
+              PNG, JPG ou WEBP (máx. 25MB cada)
             </p>
           </div>
         </Card>

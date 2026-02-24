@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const propertyId = (fd.get('propertyId') as string) || crypto.randomUUID();
 
     if (fullFile && thumbFile) {
-      if (fullFile.size > 10 * 1024 * 1024 || thumbFile.size > 5 * 1024 * 1024) {
+      if (fullFile.size > 25 * 1024 * 1024 || thumbFile.size > 10 * 1024 * 1024) {
         return new Response(JSON.stringify({ error: 'Arquivo muito grande' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     const folder = (fd.get('folder') as string) || 'properties';
     if (!file) return new Response(JSON.stringify({ error: 'Nenhum arquivo' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     if (!file.type.startsWith('image/')) return new Response(JSON.stringify({ error: 'Apenas imagens' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (file.size > 10 * 1024 * 1024) return new Response(JSON.stringify({ error: 'Arquivo > 10MB' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (file.size > 25 * 1024 * 1024) return new Response(JSON.stringify({ error: 'Arquivo > 25MB' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const ext = file.name.split('.').pop() || 'jpg';
     const objectKey = `${folder}/${crypto.randomUUID()}.${ext}`;
