@@ -27,9 +27,23 @@ export function UpdateBanner() {
 
   if (!show) return null;
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     sessionStorage.setItem(SUPPRESS_KEY, "1");
-    window.location.reload();
+    // Tell any waiting SW to activate immediately
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        // Force the SW to check for updates
+        await reg.update().catch(() => {});
+      }
+    }
+    // Small delay to let SW activate, then hard reload
+    setTimeout(() => {
+      window.location.reload();
+    }, 300);
   };
 
   return (
