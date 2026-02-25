@@ -109,7 +109,7 @@ export default function RDStationSettingsContent() {
   });
 
   const webhookUrl = settings
-    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/rd-station-webhook?org_id=${orgId}&secret=${settings.webhook_secret}`
+    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/rd-station-webhook?token=${settings.webhook_secret}`
     : "";
 
   const copyWebhookUrl = () => {

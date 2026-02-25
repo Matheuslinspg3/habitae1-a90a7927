@@ -17,21 +17,19 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const orgId = url.searchParams.get("org_id");
-    const secret = url.searchParams.get("secret");
+    const secret = url.searchParams.get("token");
 
-    if (!orgId || !secret) {
+    if (!secret) {
       return new Response(
-        JSON.stringify({ error: "Missing org_id or secret" }),
+        JSON.stringify({ error: "Missing token" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate webhook secret
+    // Validate webhook secret — token is unique, no need for org_id
     const { data: settings, error: settingsError } = await supabase
       .from("rd_station_settings")
       .select("*")
-      .eq("organization_id", orgId)
       .eq("webhook_secret", secret)
       .eq("is_active", true)
       .single();
@@ -42,6 +40,8 @@ Deno.serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const orgId = settings.organization_id;
 
     const payload = await req.json();
 
