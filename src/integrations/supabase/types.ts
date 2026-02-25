@@ -2966,6 +2966,105 @@ export type Database = {
           },
         ]
       }
+      rd_station_settings: {
+        Row: {
+          auto_send_to_crm: boolean
+          created_at: string
+          default_source: string
+          default_stage_id: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          updated_at: string
+          webhook_secret: string
+        }
+        Insert: {
+          auto_send_to_crm?: boolean
+          created_at?: string
+          default_source?: string
+          default_stage_id?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Update: {
+          auto_send_to_crm?: boolean
+          created_at?: string
+          default_source?: string
+          default_stage_id?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_station_settings_default_stage_id_fkey"
+            columns: ["default_stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rd_station_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rd_station_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string | null
+          id: string
+          lead_id: string | null
+          organization_id: string | null
+          payload: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string | null
+          payload: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string | null
+          id?: string
+          lead_id?: string | null
+          organization_id?: string | null
+          payload?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_station_webhook_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rd_station_webhook_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_searches: {
         Row: {
           created_at: string
