@@ -1,4 +1,14 @@
 import { createServer } from 'node:http';
+import makeWASocket, {
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  useMultiFileAuthState,
+} from '@whiskeysockets/baileys';
+import QRCode from 'qrcode';
+
+const EDGE_BASE_URL = process.env.EDGE_BASE_URL;
+const WORKER_SECRET = process.env.WORKER_SECRET;
+const INSTANCE_ID = process.env.INSTANCE_ID;
 
 function startHttpServer() {
   const port = Number(process.env.PORT || 3000);
@@ -27,9 +37,83 @@ function startHttpServer() {
   return server;
 }
 
+async function notifyStatus(status, qrCode = null) {
+  if (!EDGE_BASE_URL || !WORKER_SECRET || !INSTANCE_ID) {
+    console.warn('Missing EDGE_BASE_URL, WORKER_SECRET or INSTANCE_ID; skipping status update');
+    return;
+  }
+
+  const url = `${EDGE_BASE_URL.replace(/\/$/, '')}/update-status`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${WORKER_SECRET}`,
+      },
+      body: JSON.stringify({
+        instanceId: INSTANCE_ID,
+        status,
+        qr_code: qrCode,
+      }),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`Failed to update status (${response.status}): ${responseText}`);
+    }
+  } catch (error) {
+    console.error('Failed to call update-status proxy', error);
+  }
+}
+
 async function startBaileysWorker() {
-  // Mantenha/inicialize aqui a lógica existente do worker Baileys.
-  // Este servidor HTTP roda em paralelo e não interfere no fluxo do Baileys.
+  const { state, saveCreds } = await useMultiFileAuthState('./auth');
+  const { version } = await fetchLatestBaileysVersion();
+
+  const connect = async () => {
+    const sock = makeWASocket({
+      auth: state,
+      version,
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+
+      if (qr) {
+        const qrDataUrl = await QRCode.toDataURL(qr);
+        await notifyStatus('CONNECTING', qrDataUrl);
+        console.log('QR saved');
+      }
+
+      if (connection === 'open') {
+        await notifyStatus('CONNECTED', null);
+      }
+
+      if (connection === 'close') {
+        await notifyStatus('DISCONNECTED', null);
+
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
+        if (shouldReconnect) {
+          console.log('Connection closed, reconnecting...');
+          await connect();
+        } else {
+          console.log('Connection closed and logged out. Waiting for restart.');
+        }
+      }
+    });
+  };
+
+  await connect();
+
+  setInterval(() => {
+    console.log('worker alive');
+  }, 60_000);
 }
 
 async function bootstrap() {
@@ -39,5 +123,4 @@ async function bootstrap() {
 
 bootstrap().catch((error) => {
   console.error('Failed to start wa-worker', error);
-  process.exit(1);
 });
