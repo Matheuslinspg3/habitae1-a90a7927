@@ -13,6 +13,8 @@ const INSTANCE_ID = process.env.INSTANCE_ID;
 function startHttpServer() {
   const port = Number(process.env.PORT || 3000);
 
+  console.log('PORT env:', process.env.PORT);
+
   const server = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -30,7 +32,7 @@ function startHttpServer() {
     res.end('not found');
   });
 
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     console.log(`HTTP server listening on ${port}`);
   });
 
@@ -123,4 +125,8 @@ async function bootstrap() {
 
 bootstrap().catch((error) => {
   console.error('Failed to start wa-worker', error);
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received from platform');
 });
