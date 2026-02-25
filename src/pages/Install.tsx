@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Download, Smartphone, Share, MoreVertical, Plus, Check } from "lucide-react";
+import { Download, Smartphone, Share, MoreVertical, Plus, Check, Wrench, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { repairPwa } from "@/lib/pwaUtils";
+import { toast } from "sonner";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -43,6 +45,20 @@ export default function Install() {
     setDeferredPrompt(null);
   };
 
+  const [repairing, setRepairing] = useState(false);
+
+  const handleRepair = async () => {
+    setRepairing(true);
+    try {
+      const result = await repairPwa();
+      toast.success(`PWA reparado! ${result.cleared} caches limpos. Feche e reabra o app.`);
+    } catch {
+      toast.error("Erro ao reparar PWA");
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   if (isInstalled) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
@@ -52,6 +68,10 @@ export default function Install() {
           </div>
           <h1 className="text-2xl font-display font-semibold text-foreground">App Instalado!</h1>
           <p className="text-muted-foreground">O Porta do Corretor já está na sua tela inicial.</p>
+          <Button variant="outline" size="sm" onClick={handleRepair} disabled={repairing} className="mt-4 gap-2">
+            {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
+            Reparar PWA
+          </Button>
         </div>
       </div>
     );

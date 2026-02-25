@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { APP_VERSION } from "./config/appVersion";
 
 
 // Capture beforeinstallprompt globally so it's available even if Install page mounts later
@@ -24,7 +25,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 /** Poll for new version every 15s by checking /version.json */
 function setupVersionPolling() {
-  const CURRENT_VERSION = "3.2.0.3";
+  const CURRENT_VERSION = APP_VERSION;
 
   async function checkForUpdate() {
     try {

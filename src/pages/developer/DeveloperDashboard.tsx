@@ -16,6 +16,7 @@ import { SubscriptionsTab } from "@/components/developer/SubscriptionsTab";
 import { TicketsTab } from "@/components/developer/TicketsTab";
 import { SendPushCard } from "@/components/developer/SendPushCard";
 import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
+import { PwaDiagnosticsCard } from "@/components/developer/PwaDiagnosticsCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -50,11 +51,12 @@ export default function DeveloperDashboard() {
         </div>
       </div>
 
-      {/* System Health + Push Test + Cache */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* System Health + Push + Cache + PWA */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <SystemHealthCard />
         <SendPushCard />
         <PurgeCacheCard />
+        <PwaDiagnosticsCard />
       </div>
 
       {/* Tabs */}

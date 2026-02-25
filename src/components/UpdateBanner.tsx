@@ -1,49 +1,49 @@
 import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRegisterSW } from "virtual:pwa-register/react";
 
 const SUPPRESS_KEY = "sw-update-suppressed";
 
 export function UpdateBanner() {
   const [show, setShow] = useState(false);
 
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisteredSW(_swUrl, registration) {
+      // Check for updates every 60s via official API
+      if (registration) {
+        setInterval(() => registration.update(), 60_000);
+      }
+    },
+    onRegisterError(error) {
+      console.error("[SW] Registration error:", error);
+    },
+  });
+
   useEffect(() => {
-    // If user already clicked "Atualizar" recently, don't show again
     const suppressed = sessionStorage.getItem(SUPPRESS_KEY);
     if (suppressed) {
-      // Clear the flag so future genuine updates show the banner
       sessionStorage.removeItem(SUPPRESS_KEY);
       return;
     }
 
-    if (window.__newVersionAvailable) {
+    if (needRefresh || window.__newVersionAvailable) {
       setShow(true);
     }
 
     const handler = () => setShow(true);
     window.addEventListener("sw-update-available", handler);
     return () => window.removeEventListener("sw-update-available", handler);
-  }, []);
+  }, [needRefresh]);
 
   if (!show) return null;
 
   const handleUpdate = async () => {
     sessionStorage.setItem(SUPPRESS_KEY, "1");
-    // Tell any waiting SW to activate immediately
-    if ("serviceWorker" in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const reg of registrations) {
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        }
-        // Force the SW to check for updates
-        await reg.update().catch(() => {});
-      }
-    }
-    // Small delay to let SW activate, then hard reload
-    setTimeout(() => {
-      window.location.reload();
-    }, 300);
+    await updateServiceWorker(true); // skipWaiting + reload
   };
 
   return (
