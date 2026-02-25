@@ -146,7 +146,7 @@ export function PushTestCard() {
           <Button
             onClick={handleTestPush}
             disabled={isSending || !isSubscribed}
-            variant="gold"
+            variant="default"
             size="sm"
             className="gap-2"
           >
