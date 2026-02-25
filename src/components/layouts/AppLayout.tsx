@@ -9,6 +9,7 @@ import { MobileFAB } from "@/components/MobileFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { APP_VERSION } from "@/config/appVersion";
 
 export function AppLayout() {
@@ -32,6 +33,7 @@ export function AppLayout() {
         </div>
         <MobileFAB />
         <MobileBottomNav />
+        <PWAInstallPrompt />
         <UpdateBanner />
         <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v{APP_VERSION}</span>
       </div>
