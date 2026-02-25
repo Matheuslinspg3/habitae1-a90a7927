@@ -14,7 +14,7 @@ import { ImportHistoryTab } from "@/components/developer/ImportHistoryTab";
 import { DatabaseTab } from "@/components/developer/DatabaseTab";
 import { SubscriptionsTab } from "@/components/developer/SubscriptionsTab";
 import { TicketsTab } from "@/components/developer/TicketsTab";
-import { SendPushCard } from "@/components/developer/SendPushCard";
+
 import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -51,9 +51,8 @@ export default function DeveloperDashboard() {
       </div>
 
       {/* System Health + Push Test + Cache */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <SystemHealthCard />
-        <SendPushCard />
         <PurgeCacheCard />
       </div>
 
