@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -58,6 +58,7 @@ export default function RDStationSettingsContent() {
   const [defaultSource, setDefaultSource] = useState("RD Station");
   const [apiPublicKey, setApiPublicKey] = useState("");
   const [apiPrivateKey, setApiPrivateKey] = useState("");
+  const [integrationMode, setIntegrationMode] = useState<"api" | "webhook">("webhook");
 
   useEffect(() => {
     if (settings) {
@@ -67,6 +68,12 @@ export default function RDStationSettingsContent() {
       setDefaultSource(settings.default_source || "RD Station");
       setApiPublicKey(settings.api_public_key || "");
       setApiPrivateKey(settings.api_private_key || "");
+      // Determine mode from saved data
+      if (settings.api_public_key || settings.api_private_key) {
+        setIntegrationMode("api");
+      } else {
+        setIntegrationMode("webhook");
+      }
     }
   }, [settings]);
 
@@ -155,7 +162,7 @@ export default function RDStationSettingsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Status & Webhook URL */}
+      {/* Status & Mode */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -163,7 +170,7 @@ export default function RDStationSettingsContent() {
             RD Station Marketing
           </CardTitle>
           <CardDescription>
-            Configure o webhook no RD Station para receber leads automaticamente.
+            Escolha o modo de integração principal e configure as opções.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -177,20 +184,104 @@ export default function RDStationSettingsContent() {
             )}
           </div>
 
+          {/* Mode selector */}
+          <div className="space-y-2">
+            <Label>Modo de integração principal</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setIntegrationMode("api")}
+                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-sm transition-colors ${
+                  integrationMode === "api"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <Key className="h-5 w-5" />
+                <span className="font-medium">API</span>
+                <span className="text-xs text-muted-foreground text-center">
+                  Chaves de API do RD Station. Webhook fica opcional.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntegrationMode("webhook")}
+                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 text-sm transition-colors ${
+                  integrationMode === "webhook"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/30"
+                }`}
+              >
+                <Webhook className="h-5 w-5" />
+                <span className="font-medium">Webhook</span>
+                <span className="text-xs text-muted-foreground text-center">
+                  Receba leads via Webhook. API fica opcional.
+                </span>
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Keys — shown first when mode=api */}
+      {integrationMode === "api" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Chaves de API
+            </CardTitle>
+            <CardDescription>
+              Insira suas chaves do RD Station para sincronização de contatos e leads.
+              Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2 max-w-md">
+              <Label>Chave Pública (Public API Key)</Label>
+              <Input
+                value={apiPublicKey}
+                onChange={(e) => setApiPublicKey(e.target.value)}
+                placeholder="Sua chave pública do RD Station"
+              />
+            </div>
+            <div className="space-y-2 max-w-md">
+              <Label>Chave Privada (Private API Key)</Label>
+              <Input
+                type="password"
+                value={apiPrivateKey}
+                onChange={(e) => setApiPrivateKey(e.target.value)}
+                placeholder="Sua chave privada do RD Station"
+              />
+              <p className="text-xs text-muted-foreground">
+                A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Webhook URL — shown first when mode=webhook */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Webhook className="h-4 w-4" />
+            Webhook {integrationMode === "api" && <Badge variant="outline" className="ml-1 text-xs">opcional</Badge>}
+          </CardTitle>
+          <CardDescription>
+            {integrationMode === "webhook"
+              ? "Cole esta URL no RD Station em Integrações → Webhooks → Nova integração."
+              : "Opcionalmente, configure o webhook para também receber leads em tempo real."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label className="flex items-center gap-1">
               <Link2 className="h-3.5 w-3.5" />
               URL do Webhook
             </Label>
-            <p className="text-xs text-muted-foreground">
-              Cole esta URL no RD Station em Integrações → Webhooks → Nova integração.
-            </p>
             <div className="flex gap-2">
-              <Input
-                readOnly
-                value={webhookUrl}
-                className="text-xs font-mono"
-              />
+              <Input readOnly value={webhookUrl} className="text-xs font-mono" />
               <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
                 <Copy className="h-4 w-4" />
               </Button>
@@ -199,38 +290,43 @@ export default function RDStationSettingsContent() {
         </CardContent>
       </Card>
 
-      {/* API Keys (optional) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Chaves de API (opcional)</CardTitle>
-          <CardDescription>
-            Insira suas chaves do RD Station para funcionalidades avançadas como sincronização de contatos.
-            Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2 max-w-md">
-            <Label>Chave Pública (Public API Key)</Label>
-            <Input
-              value={apiPublicKey}
-              onChange={(e) => setApiPublicKey(e.target.value)}
-              placeholder="Sua chave pública do RD Station"
-            />
-          </div>
-          <div className="space-y-2 max-w-md">
-            <Label>Chave Privada (Private API Key)</Label>
-            <Input
-              type="password"
-              value={apiPrivateKey}
-              onChange={(e) => setApiPrivateKey(e.target.value)}
-              placeholder="Sua chave privada do RD Station"
-            />
-            <p className="text-xs text-muted-foreground">
-              A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* API Keys — shown after webhook when mode=webhook (optional) */}
+      {integrationMode === "webhook" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Chaves de API <Badge variant="outline" className="ml-1 text-xs">opcional</Badge>
+            </CardTitle>
+            <CardDescription>
+              Opcionalmente, adicione chaves de API para funcionalidades avançadas.
+              Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2 max-w-md">
+              <Label>Chave Pública (Public API Key)</Label>
+              <Input
+                value={apiPublicKey}
+                onChange={(e) => setApiPublicKey(e.target.value)}
+                placeholder="Sua chave pública do RD Station"
+              />
+            </div>
+            <div className="space-y-2 max-w-md">
+              <Label>Chave Privada (Private API Key)</Label>
+              <Input
+                type="password"
+                value={apiPrivateKey}
+                onChange={(e) => setApiPrivateKey(e.target.value)}
+                placeholder="Sua chave privada do RD Station"
+              />
+              <p className="text-xs text-muted-foreground">
+                A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* CRM Settings */}
       <Card>
