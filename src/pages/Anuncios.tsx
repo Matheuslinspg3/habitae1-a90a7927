@@ -16,6 +16,7 @@ import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
 import MetaStatsContent from "@/components/ads/MetaStatsContent";
 import MetaSettingsContent from "@/components/ads/MetaSettingsContent";
 import RDStationSettingsContent from "@/components/ads/RDStationSettingsContent";
+import RDStationStatsContent from "@/components/ads/RDStationStatsContent";
 
 export default function Anuncios() {
   const [tab, setTab] = useTabParam("tab", "ads");
@@ -43,6 +44,7 @@ export default function Anuncios() {
             </TabsTrigger>
             <TabsTrigger value="estatisticas">Estatísticas</TabsTrigger>
             <TabsTrigger value="rdstation">RD Station</TabsTrigger>
+            <TabsTrigger value="rd-stats">RD Estatísticas</TabsTrigger>
             <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
           </TabsList>
 
@@ -60,6 +62,10 @@ export default function Anuncios() {
 
           <TabsContent value="rdstation" className="mt-4">
             <RDStationSettingsContent />
+          </TabsContent>
+
+          <TabsContent value="rd-stats" className="mt-4">
+            <RDStationStatsContent />
           </TabsContent>
 
           <TabsContent value="configuracoes" className="mt-4">
