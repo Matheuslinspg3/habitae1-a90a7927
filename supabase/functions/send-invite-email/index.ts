@@ -6,41 +6,42 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function platformEmailHtml(inviteLink: string, inviterName?: string) {
+const LOGO_URL = "https://portadocorretor.com.br/email/porta-logo.png";
+
+function platformEmailHtml(inviteLink: string) {
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Inter',Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px;text-align:center;">
-    <h1 style="color:#ffffff;margin:0;font-size:28px;">Porta do Corretor</h1>
-    <p style="color:#e0e7ff;margin:8px 0 0;font-size:14px;">Plataforma Imobiliária</p>
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#D62828,#F77F00);padding:32px;text-align:center;">
+    <img src="${LOGO_URL}" alt="Porta do Corretor" width="180" style="display:block;margin:0 auto 12px;" />
+    <p style="color:#FFF3E0;margin:0;font-size:14px;">Plataforma Imobiliária</p>
   </td></tr>
   <tr><td style="padding:32px;">
-    <h2 style="color:#1f2937;margin:0 0 16px;">Você foi convidado!</h2>
+    <h2 style="color:#1f2937;margin:0 0 8px;font-size:24px;">🚪 A Porta do Corretor se abriu para você!</h2>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-      ${inviterName ? `<strong>${inviterName}</strong> convidou você para` : "Você foi convidado para"} 
-      se cadastrar na <strong>Porta do Corretor</strong>, a plataforma completa para gestão imobiliária.
+      Você foi selecionado para se cadastrar na <strong>Porta do Corretor</strong>, a plataforma completa para gestão imobiliária.
     </p>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 24px;">
       🎁 Você terá <strong>7 dias gratuitos</strong> para testar todas as funcionalidades!
     </p>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td align="center">
-        <a href="${inviteLink}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;font-size:16px;">
+        <a href="${inviteLink}" style="display:inline-block;background:linear-gradient(135deg,#D62828,#F77F00);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:bold;font-size:16px;">
           Criar minha conta
         </a>
       </td></tr>
     </table>
     <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;text-align:center;">
       Este convite expira em 7 dias. Se o botão não funcionar, copie e cole este link no navegador:<br>
-      <a href="${inviteLink}" style="color:#6366f1;word-break:break-all;">${inviteLink}</a>
+      <a href="${inviteLink}" style="color:#D62828;word-break:break-all;">${inviteLink}</a>
     </p>
   </td></tr>
-  <tr><td style="background:#f9fafb;padding:16px;text-align:center;">
+  <tr><td style="background:#FFF8F0;padding:16px;text-align:center;border-top:2px solid #FCBF49;">
     <p style="color:#9ca3af;font-size:12px;margin:0;">© Porta do Corretor — Plataforma Imobiliária</p>
   </td></tr>
 </table>
@@ -50,45 +51,44 @@ function platformEmailHtml(inviteLink: string, inviterName?: string) {
 </html>`;
 }
 
-function teamEmailHtml(inviteLink: string, orgName: string, orgCode: string, inviterName?: string) {
+function teamEmailHtml(inviteLink: string, orgName: string, orgCode: string) {
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Inter',Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
-  <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px;text-align:center;">
-    <h1 style="color:#ffffff;margin:0;font-size:28px;">Porta do Corretor</h1>
-    <p style="color:#e0e7ff;margin:8px 0 0;font-size:14px;">Plataforma Imobiliária</p>
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <tr><td style="background:linear-gradient(135deg,#D62828,#F77F00);padding:32px;text-align:center;">
+    <img src="${LOGO_URL}" alt="Porta do Corretor" width="180" style="display:block;margin:0 auto 12px;" />
+    <p style="color:#FFF3E0;margin:0;font-size:14px;">Plataforma Imobiliária</p>
   </td></tr>
   <tr><td style="padding:32px;">
-    <h2 style="color:#1f2937;margin:0 0 16px;">Você foi convidado para a equipe!</h2>
+    <h2 style="color:#1f2937;margin:0 0 8px;font-size:24px;">🚪 A Porta do Corretor se abriu para você!</h2>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
-      ${inviterName ? `<strong>${inviterName}</strong> convidou você para` : "Você foi convidado para"} 
-      fazer parte da equipe da <strong>${orgName}</strong> na Porta do Corretor.
+      Você foi convidado para fazer parte da equipe da <strong>${orgName}</strong> na Porta do Corretor.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-      <tr><td style="background:#f0f0ff;border:2px dashed #6366f1;border-radius:8px;padding:16px;text-align:center;">
+      <tr><td style="background:#FFF8F0;border:2px dashed #F77F00;border-radius:10px;padding:16px;text-align:center;">
         <p style="color:#6b7280;font-size:12px;margin:0 0 4px;">Código da Imobiliária</p>
-        <p style="color:#6366f1;font-size:28px;font-weight:bold;letter-spacing:6px;margin:0;">${orgCode}</p>
+        <p style="color:#D62828;font-size:28px;font-weight:bold;letter-spacing:6px;margin:0;">${orgCode}</p>
         <p style="color:#9ca3af;font-size:11px;margin:4px 0 0;">Use este código ao se cadastrar</p>
       </td></tr>
     </table>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td align="center">
-        <a href="${inviteLink}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;font-size:16px;">
+        <a href="${inviteLink}" style="display:inline-block;background:linear-gradient(135deg,#D62828,#F77F00);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:bold;font-size:16px;">
           Aceitar convite
         </a>
       </td></tr>
     </table>
     <p style="color:#9ca3af;font-size:12px;margin:24px 0 0;text-align:center;">
       Este convite expira em 7 dias. Se o botão não funcionar, copie e cole este link no navegador:<br>
-      <a href="${inviteLink}" style="color:#6366f1;word-break:break-all;">${inviteLink}</a>
+      <a href="${inviteLink}" style="color:#D62828;word-break:break-all;">${inviteLink}</a>
     </p>
   </td></tr>
-  <tr><td style="background:#f9fafb;padding:16px;text-align:center;">
+  <tr><td style="background:#FFF8F0;padding:16px;text-align:center;border-top:2px solid #FCBF49;">
     <p style="color:#9ca3af;font-size:12px;margin:0;">© Porta do Corretor — Plataforma Imobiliária</p>
   </td></tr>
 </table>
@@ -147,11 +147,11 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      subject = `Convite para a equipe ${org_name} — Porta do Corretor`;
-      html = teamEmailHtml(invite_link, org_name, org_code, inviter_name);
+      subject = `A Porta do Corretor se abriu para você — ${org_name}`;
+      html = teamEmailHtml(invite_link, org_name, org_code);
     } else {
-      subject = "Você foi convidado para a Porta do Corretor!";
-      html = platformEmailHtml(invite_link, inviter_name);
+      subject = "🚪 A Porta do Corretor se abriu para você!";
+      html = platformEmailHtml(invite_link);
     }
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
