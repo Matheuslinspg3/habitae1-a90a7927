@@ -115,8 +115,25 @@ export default function RDStationSettingsContent() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const regenerateWebhook = useMutation({
+    mutationFn: async () => {
+      if (!settings?.id) return;
+      const newSecret = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+      const { error } = await supabase
+        .from("rd_station_settings")
+        .update({ webhook_secret: newSecret })
+        .eq("id", settings.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
+      toast.success("Webhook regenerado! Atualize a URL no RD Station.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const webhookUrl = settings
-    ? `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
+    ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
     : "";
 
   const copyWebhookUrl = () => {
@@ -282,8 +299,21 @@ export default function RDStationSettingsContent() {
             </Label>
             <div className="flex gap-2">
               <Input readOnly value={webhookUrl} className="text-xs font-mono" />
-              <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
+              <Button variant="outline" size="icon" onClick={copyWebhookUrl} title="Copiar URL">
                 <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  if (confirm("Tem certeza? A URL atual deixará de funcionar e você precisará atualizar no RD Station.")) {
+                    regenerateWebhook.mutate();
+                  }
+                }}
+                disabled={regenerateWebhook.isPending}
+                title="Regenerar token"
+              >
+                {regenerateWebhook.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
             </div>
           </div>
