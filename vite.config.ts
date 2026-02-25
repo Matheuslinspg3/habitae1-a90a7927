@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "pwa-192x192.png", "pwa-512x512.png", "apple-touch-icon.png"],
       manifest: {
+        id: "/porta-pwa",
         name: "Porta do Corretor — Central de Performance",
         short_name: "Porta",
         description: "CRM, gestão de leads e anúncios para corretores que querem vender mais.",

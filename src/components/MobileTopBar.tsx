@@ -1,6 +1,7 @@
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { APP_VERSION } from "@/config/appVersion";
 
 export function MobileTopBar() {
   return (
@@ -10,7 +11,7 @@ export function MobileTopBar() {
           <a href="/dashboard" className="block cursor-pointer">
             <HabitaeLogo variant="icon" size="sm" />
           </a>
-          <span className="text-[10px] text-muted-foreground font-medium">v3.2.0.3</span>
+          <span className="text-[10px] text-muted-foreground font-medium">v{APP_VERSION}</span>
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
