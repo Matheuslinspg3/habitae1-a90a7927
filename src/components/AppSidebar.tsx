@@ -16,6 +16,7 @@ import {
   Zap,
   UserCog,
   Megaphone,
+  BarChart3,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -162,6 +163,23 @@ export function AppSidebar() {
                         {newAdLeadsCount}
                       </span>
                     )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* RD Station */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive("/anuncios") && new URLSearchParams(window.location.search).get("tab") === "rdstation"}
+                  tooltip="RD Station"
+                >
+                  <NavLink 
+                    to="/anuncios?tab=rdstation" 
+                    className="flex items-center gap-3"
+                    activeClassName="text-primary font-medium"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    <span>RD Station</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>

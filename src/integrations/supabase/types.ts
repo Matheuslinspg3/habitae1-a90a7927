@@ -2968,6 +2968,8 @@ export type Database = {
       }
       rd_station_settings: {
         Row: {
+          api_private_key: string | null
+          api_public_key: string | null
           auto_send_to_crm: boolean
           created_at: string
           default_source: string
@@ -2979,6 +2981,8 @@ export type Database = {
           webhook_secret: string
         }
         Insert: {
+          api_private_key?: string | null
+          api_public_key?: string | null
           auto_send_to_crm?: boolean
           created_at?: string
           default_source?: string
@@ -2990,6 +2994,8 @@ export type Database = {
           webhook_secret?: string
         }
         Update: {
+          api_private_key?: string | null
+          api_public_key?: string | null
           auto_send_to_crm?: boolean
           created_at?: string
           default_source?: string

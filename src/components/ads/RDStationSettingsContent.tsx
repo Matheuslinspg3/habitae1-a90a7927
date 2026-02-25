@@ -56,6 +56,8 @@ export default function RDStationSettingsContent() {
   const [autoSend, setAutoSend] = useState(true);
   const [stageId, setStageId] = useState("");
   const [defaultSource, setDefaultSource] = useState("RD Station");
+  const [apiPublicKey, setApiPublicKey] = useState("");
+  const [apiPrivateKey, setApiPrivateKey] = useState("");
 
   useEffect(() => {
     if (settings) {
@@ -63,6 +65,8 @@ export default function RDStationSettingsContent() {
       setAutoSend(settings.auto_send_to_crm);
       setStageId(settings.default_stage_id || "");
       setDefaultSource(settings.default_source || "RD Station");
+      setApiPublicKey(settings.api_public_key || "");
+      setApiPrivateKey(settings.api_private_key || "");
     }
   }, [settings]);
 
@@ -91,6 +95,8 @@ export default function RDStationSettingsContent() {
           auto_send_to_crm: autoSend,
           default_stage_id: stageId || null,
           default_source: defaultSource,
+          api_public_key: apiPublicKey || null,
+          api_private_key: apiPrivateKey || null,
         })
         .eq("id", settings.id);
       if (error) throw error;
@@ -189,6 +195,39 @@ export default function RDStationSettingsContent() {
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Keys (optional) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Chaves de API (opcional)</CardTitle>
+          <CardDescription>
+            Insira suas chaves do RD Station para funcionalidades avançadas como sincronização de contatos.
+            Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2 max-w-md">
+            <Label>Chave Pública (Public API Key)</Label>
+            <Input
+              value={apiPublicKey}
+              onChange={(e) => setApiPublicKey(e.target.value)}
+              placeholder="Sua chave pública do RD Station"
+            />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <Label>Chave Privada (Private API Key)</Label>
+            <Input
+              type="password"
+              value={apiPrivateKey}
+              onChange={(e) => setApiPrivateKey(e.target.value)}
+              placeholder="Sua chave privada do RD Station"
+            />
+            <p className="text-xs text-muted-foreground">
+              A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
+            </p>
           </div>
         </CardContent>
       </Card>
