@@ -16,14 +16,14 @@ function platformEmailHtml(inviteLink: string, inviterName?: string) {
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
   <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px;text-align:center;">
-    <h1 style="color:#ffffff;margin:0;font-size:28px;">Habitae</h1>
+    <h1 style="color:#ffffff;margin:0;font-size:28px;">Porta do Corretor</h1>
     <p style="color:#e0e7ff;margin:8px 0 0;font-size:14px;">Plataforma Imobiliária</p>
   </td></tr>
   <tr><td style="padding:32px;">
     <h2 style="color:#1f2937;margin:0 0 16px;">Você foi convidado!</h2>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
       ${inviterName ? `<strong>${inviterName}</strong> convidou você para` : "Você foi convidado para"} 
-      se cadastrar na <strong>Habitae</strong>, a plataforma completa para gestão imobiliária.
+      se cadastrar na <strong>Porta do Corretor</strong>, a plataforma completa para gestão imobiliária.
     </p>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 24px;">
       🎁 Você terá <strong>7 dias gratuitos</strong> para testar todas as funcionalidades!
@@ -41,7 +41,7 @@ function platformEmailHtml(inviteLink: string, inviterName?: string) {
     </p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:16px;text-align:center;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;">© Habitae — Plataforma Imobiliária</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;">© Porta do Corretor — Plataforma Imobiliária</p>
   </td></tr>
 </table>
 </td></tr>
@@ -60,14 +60,14 @@ function teamEmailHtml(inviteLink: string, orgName: string, orgCode: string, inv
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
   <tr><td style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:32px;text-align:center;">
-    <h1 style="color:#ffffff;margin:0;font-size:28px;">Habitae</h1>
+    <h1 style="color:#ffffff;margin:0;font-size:28px;">Porta do Corretor</h1>
     <p style="color:#e0e7ff;margin:8px 0 0;font-size:14px;">Plataforma Imobiliária</p>
   </td></tr>
   <tr><td style="padding:32px;">
     <h2 style="color:#1f2937;margin:0 0 16px;">Você foi convidado para a equipe!</h2>
     <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
       ${inviterName ? `<strong>${inviterName}</strong> convidou você para` : "Você foi convidado para"} 
-      fazer parte da equipe da <strong>${orgName}</strong> na Habitae.
+      fazer parte da equipe da <strong>${orgName}</strong> na Porta do Corretor.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
       <tr><td style="background:#f0f0ff;border:2px dashed #6366f1;border-radius:8px;padding:16px;text-align:center;">
@@ -89,7 +89,7 @@ function teamEmailHtml(inviteLink: string, orgName: string, orgCode: string, inv
     </p>
   </td></tr>
   <tr><td style="background:#f9fafb;padding:16px;text-align:center;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;">© Habitae — Plataforma Imobiliária</p>
+    <p style="color:#9ca3af;font-size:12px;margin:0;">© Porta do Corretor — Plataforma Imobiliária</p>
   </td></tr>
 </table>
 </td></tr>
@@ -147,10 +147,10 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      subject = `Convite para a equipe ${org_name} — Habitae`;
+      subject = `Convite para a equipe ${org_name} — Porta do Corretor`;
       html = teamEmailHtml(invite_link, org_name, org_code, inviter_name);
     } else {
-      subject = "Você foi convidado para a Habitae!";
+      subject = "Você foi convidado para a Porta do Corretor!";
       html = platformEmailHtml(invite_link, inviter_name);
     }
 
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Habitae <onboarding@resend.dev>",
+        from: "Porta do Corretor <noreply@portadocorretor.com.br>",
         to: [to],
         subject,
         html,
