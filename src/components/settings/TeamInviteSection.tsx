@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Copy, Loader2, Link, Trash2, Key, ShieldAlert } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ export function TeamInviteSection() {
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
   const canInvite = hasRole('admin') || hasRole('leader') || hasRole('developer');
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"corretor" | "assistente">("corretor");
 
   const { data: invites = [], isLoading } = useQuery({
     queryKey: ["organization-invites", profile?.organization_id],
@@ -63,7 +65,7 @@ export function TeamInviteSection() {
         .from("organization_invites")
         .insert({
           organization_id: profile.organization_id,
-          role: "corretor" as any,
+          role: inviteRole as any,
           invited_by: user.id,
           email,
         })
@@ -165,11 +167,11 @@ export function TeamInviteSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Link className="h-5 w-5" />
-            Convidar Corretor
+            Convidar Membro
           </CardTitle>
           <CardDescription>
-            Gere um link único para um corretor se cadastrar na sua imobiliária.
-            O corretor precisará informar o código da imobiliária ao se cadastrar.
+            Gere um link único para um corretor ou assistente se cadastrar na sua imobiliária.
+            O assistente terá acesso somente leitura aos mesmos dados do corretor.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -194,15 +196,29 @@ export function TeamInviteSection() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="invite-email">Email do corretor *</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="corretor@email.com"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email *</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="membro@email.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cargo</Label>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "corretor" | "assistente")}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="corretor">Corretor</SelectItem>
+                  <SelectItem value="assistente">Assistente (somente leitura)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <Button onClick={() => createInvite.mutate()} disabled={createInvite.isPending || !inviteEmail.trim()}>
@@ -229,8 +245,8 @@ export function TeamInviteSection() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{invite.email || "Sem email"}</p>
                   <p className="text-xs text-muted-foreground">
-                    Corretor · Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
-                  </p>
+                    {invite.role === 'assistente' ? 'Assistente' : 'Corretor'} · Expira em {format(new Date(invite.expires_at), "dd/MM/yyyy", { locale: ptBR })}
+                   </p>
                 </div>
                 <Badge variant={statusVariant(invite.status)}>{statusLabel(invite.status)}</Badge>
                 <div className="flex gap-1">
@@ -258,7 +274,7 @@ export function TeamInviteSection() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium truncate">{invite.email || "Sem email"}</p>
                   <p className="text-xs text-muted-foreground">
-                    Corretor · {invite.accepted_at
+                    {invite.role === 'assistente' ? 'Assistente' : 'Corretor'} · {invite.accepted_at
                       ? `Aceito em ${format(new Date(invite.accepted_at), "dd/MM/yyyy", { locale: ptBR })}`
                       : `Criado em ${format(new Date(invite.created_at), "dd/MM/yyyy", { locale: ptBR })}`
                     }
