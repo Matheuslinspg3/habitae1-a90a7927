@@ -1,6 +1,7 @@
 project_id = "aiflfkkjitvsyszwdfga"
 
 [functions.admin-users]
+# Mantido false para uso do Authorization Bearer custom; compensado no handler com rate limit e auditoria
 verify_jwt = false
 
 [functions.platform-signup]
