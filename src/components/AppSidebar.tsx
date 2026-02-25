@@ -170,11 +170,11 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   asChild 
-                  isActive={isActive("/anuncios") && new URLSearchParams(window.location.search).get("tab") === "rdstation"}
+                  isActive={isActive("/rdstation")}
                   tooltip="RD Station"
                 >
                   <NavLink 
-                    to="/anuncios?tab=rdstation" 
+                    to="/rdstation" 
                     className="flex items-center gap-3"
                     activeClassName="text-primary font-medium"
                   >

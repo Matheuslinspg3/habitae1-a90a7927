@@ -1,32 +1,22 @@
-import React, { useState } from "react";
+import React from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
-import { useAdAccount } from "@/hooks/useAdSettings";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Megaphone, Settings } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
-// Tab content components (inline imports from existing pages)
 import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
 import MetaStatsContent from "@/components/ads/MetaStatsContent";
 import MetaSettingsContent from "@/components/ads/MetaSettingsContent";
-import RDStationSettingsContent from "@/components/ads/RDStationSettingsContent";
-import RDStationStatsContent from "@/components/ads/RDStationStatsContent";
 
 export default function Anuncios() {
   const [tab, setTab] = useTabParam("tab", "ads");
   const { data: totalNew = 0 } = useAdLeadsCount();
-  const { isConnected } = useAdAccount();
 
   return (
     <div className="flex flex-col min-h-screen page-enter">
       <PageHeader
-        title="Anúncios"
+        title="Meta Ads"
         description="Gerencie seus anúncios e leads do Meta Ads"
       />
 
@@ -43,8 +33,6 @@ export default function Anuncios() {
               )}
             </TabsTrigger>
             <TabsTrigger value="estatisticas">Estatísticas</TabsTrigger>
-            <TabsTrigger value="rdstation">RD Station</TabsTrigger>
-            <TabsTrigger value="rd-stats">RD Estatísticas</TabsTrigger>
             <TabsTrigger value="configuracoes">Configurações</TabsTrigger>
           </TabsList>
 
@@ -58,14 +46,6 @@ export default function Anuncios() {
 
           <TabsContent value="estatisticas" className="mt-4">
             <MetaStatsContent />
-          </TabsContent>
-
-          <TabsContent value="rdstation" className="mt-4">
-            <RDStationSettingsContent />
-          </TabsContent>
-
-          <TabsContent value="rd-stats" className="mt-4">
-            <RDStationStatsContent />
           </TabsContent>
 
           <TabsContent value="configuracoes" className="mt-4">
