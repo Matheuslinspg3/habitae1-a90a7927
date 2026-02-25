@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const secret = url.searchParams.get("token");
+    const orgParam = url.searchParams.get("org");
 
     if (!secret) {
       return new Response(
@@ -26,19 +27,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate webhook secret — token is unique, no need for org_id
-    const { data: settings, error: settingsError } = await supabase
+    // Build query — validate token; optionally match org prefix for extra safety
+    let query = supabase
       .from("rd_station_settings")
       .select("*")
       .eq("webhook_secret", secret)
-      .eq("is_active", true)
-      .single();
+      .eq("is_active", true);
 
-    if (settingsError || !settings) {
+    const { data: allMatches, error: settingsError } = await query;
+
+    if (settingsError || !allMatches || allMatches.length === 0) {
       return new Response(
         JSON.stringify({ error: "Invalid or inactive webhook" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // If org param provided, match by prefix for extra identification
+    let settings = allMatches[0];
+    if (orgParam && allMatches.length > 0) {
+      const match = allMatches.find((s: any) => s.organization_id.startsWith(orgParam));
+      if (match) settings = match;
     }
 
     const orgId = settings.organization_id;
