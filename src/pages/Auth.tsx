@@ -72,23 +72,28 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     e.preventDefault();
     if (!resetEmail.trim()) return;
     setSendingReset(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim(), {
-      redirectTo: window.location.origin + "/auth",
-    });
-    setSendingReset(false);
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message,
+    try {
+      const { data, error } = await supabase.functions.invoke("send-reset-email", {
+        body: {
+          email: resetEmail.trim(),
+          redirect_to: window.location.origin + "/auth",
+        },
       });
-    } else {
+      if (error) throw error;
       toast({
         title: "Link enviado",
         description: "Verifique sua caixa de entrada para redefinir sua senha.",
       });
       setShowForgotPassword(false);
       setResetEmail("");
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: err.message || "Não foi possível enviar o email.",
+      });
+    } finally {
+      setSendingReset(false);
     }
   };
 
