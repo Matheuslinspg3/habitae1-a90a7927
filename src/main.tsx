@@ -24,7 +24,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 /** Poll for new version every 15s by checking /version.json */
 function setupVersionPolling() {
-  const CURRENT_VERSION = "3.2.0.2";
+  const CURRENT_VERSION = "3.2.0.3";
 
   async function checkForUpdate() {
     try {
