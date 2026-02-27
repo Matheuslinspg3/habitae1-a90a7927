@@ -36,6 +36,80 @@ async function sha256(data: ArrayBuffer): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Property type name normalization map (Imobzi name → canonical name matching property_types table)
+const PROPERTY_TYPE_ALIASES: Record<string, string> = {
+  'apartamento': 'Apartamento',
+  'casa': 'Casa',
+  'casa de condomínio': 'Casa em Condominio',
+  'casa de condominio': 'Casa em Condominio',
+  'casa em condomínio': 'Casa em Condominio',
+  'casa em condominio': 'Casa em Condominio',
+  'casa geminada': 'Casa',
+  'casa isolada': 'Casa',
+  'kitnet': 'Kitnet',
+  'kitnet / conjugado': 'Kitnet',
+  'cobertura': 'Cobertura',
+  'studio': 'Studio',
+  'flat': 'Flat',
+  'terreno': 'Terreno',
+  'loja': 'Loja',
+  'sala comercial': 'Sala Comercial',
+  'galpão': 'Galpão',
+  'galpao': 'Galpão',
+  'chácara': 'Chácara',
+  'chacara': 'Chácara',
+  'fazenda': 'Fazenda',
+  'sobrado': 'Casa',
+};
+
+// In-memory cache for property type lookups within a single invocation
+const propertyTypeCache = new Map<string, string>();
+
+async function resolvePropertyTypeId(
+  typeName: string | undefined | null,
+  organizationId: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<string | null> {
+  if (!typeName || !typeName.trim()) return null;
+
+  const normalized = typeName.trim().toLowerCase();
+  const canonicalName = PROPERTY_TYPE_ALIASES[normalized] || typeName.trim();
+
+  // Check cache first
+  if (propertyTypeCache.has(canonicalName)) {
+    return propertyTypeCache.get(canonicalName)!;
+  }
+
+  // Look up by name (case-insensitive) - check defaults + org-specific
+  const { data: existing } = await supabase
+    .from('property_types')
+    .select('id, name')
+    .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
+    .ilike('name', canonicalName)
+    .limit(1);
+
+  if (existing && existing.length > 0) {
+    propertyTypeCache.set(canonicalName, existing[0].id);
+    return existing[0].id;
+  }
+
+  // Create new type for the organization
+  const { data: created, error } = await supabase
+    .from('property_types')
+    .insert({ name: canonicalName, is_default: false, organization_id: organizationId })
+    .select('id')
+    .single();
+
+  if (error || !created) {
+    console.warn(`[PROCESS] Could not create property type "${canonicalName}": ${error?.message}`);
+    return null;
+  }
+
+  console.log(`[PROCESS] 🏷 Created new property type: "${canonicalName}" (${created.id})`);
+  propertyTypeCache.set(canonicalName, created.id);
+  return created.id;
+}
+
 function normalizeStringArray(input: unknown): string[] {
   if (input == null) return [];
   if (Array.isArray(input)) return input.map((v) => String(v)).map((s) => s.trim()).filter(Boolean);
