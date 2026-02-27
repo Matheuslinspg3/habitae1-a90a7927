@@ -397,6 +397,7 @@ async function processProperty(
 
     const propertyData = {
       title,
+      property_type_id: propertyTypeId,
       organization_id: organizationId,
       created_by: userId,
       source_provider: 'imobzi',
