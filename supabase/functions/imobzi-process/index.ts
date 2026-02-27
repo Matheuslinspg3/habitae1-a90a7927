@@ -392,6 +392,9 @@ async function processProperty(
     if (photos.length === 0) importWarnings.fotos_ausentes = true;
     if (!details.owners || details.owners.length === 0) importWarnings.sem_proprietario = true;
 
+    // Resolve property type
+    const propertyTypeId = await resolvePropertyTypeId(details.property_type, organizationId, supabase);
+
     const propertyData = {
       title,
       organization_id: organizationId,
