@@ -3900,6 +3900,16 @@ export type Database = {
         Args: { p_invite_id: string }
         Returns: string
       }
+      get_platform_invite: {
+        Args: { p_invite_id: string }
+        Returns: {
+          expires_at: string
+          id: string
+          invite_email: string
+          name: string
+          status: string
+        }[]
+      }
       get_property_cities: {
         Args: { p_organization_id: string }
         Returns: {
