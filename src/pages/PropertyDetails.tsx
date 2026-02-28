@@ -213,29 +213,51 @@ export default function PropertyDetails() {
     if (!property || isDuplicating) return;
     setIsDuplicating(true);
     try {
-      const {
-        id: _id,
-        created_at: _ca,
-        updated_at: _ua,
-        organization_id: _oid,
-        created_by: _cb,
-        property_code: _pc,
-        source_provider: _sp,
-        source_property_id: _spid,
-        source_code: _sc,
-        slug: _slug,
-        ...rest
-      } = property as any;
-
+      // Extract only valid table columns, excluding system/identity fields
+      const p = property as any;
       const duplicateData: PropertyFormData = {
-        ...rest,
-        title: `${property.title || "Imóvel"} (cópia)`,
-        status: "disponivel",
+        title: `${p.title || "Imóvel"} (cópia)`,
+        status: "disponivel" as const,
+        description: p.description,
+        transaction_type: p.transaction_type,
+        property_type_id: p.property_type_id,
+        sale_price: p.sale_price,
+        rent_price: p.rent_price,
+        condominium_fee: p.condominium_fee,
+        iptu: p.iptu,
+        iptu_monthly: p.iptu_monthly,
+        bedrooms: p.bedrooms,
+        suites: p.suites,
+        bathrooms: p.bathrooms,
+        parking_spots: p.parking_spots,
+        area_total: p.area_total,
+        area_built: p.area_built,
+        area_useful: p.area_useful,
+        floor: p.floor,
+        address_street: p.address_street,
+        address_number: p.address_number,
+        address_complement: p.address_complement,
+        address_neighborhood: p.address_neighborhood,
+        address_city: p.address_city,
+        address_state: p.address_state,
+        address_zipcode: p.address_zipcode,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        amenities: p.amenities,
+        featured: p.featured,
+        commission_value: p.commission_value,
+        commission_type: p.commission_type,
+        inspection_fee: p.inspection_fee,
+        launch_stage: p.launch_stage,
+        development_name: p.development_name,
+        property_condition: p.property_condition,
+        beach_distance_meters: p.beach_distance_meters,
+        captador_id: p.captador_id,
+        payment_options: p.payment_options,
+        sale_price_financed: p.sale_price_financed,
+        youtube_url: p.youtube_url,
+        description_generated: false,
       };
-
-      // Remove relationship fields
-      delete (duplicateData as any).property_type;
-      delete (duplicateData as any).images;
 
       const images = (property.images || []).map((img, i) => ({
         url: img.url,
