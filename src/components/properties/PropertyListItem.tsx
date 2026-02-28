@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store } from "lucide-react";
+import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
@@ -24,6 +24,7 @@ interface PropertyListItemProps {
   onSelect: (id: string, selected: boolean) => void;
   onEdit: (property: PropertyWithDetails) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   isPublished?: boolean;
 }
 
@@ -34,6 +35,7 @@ export function PropertyListItem({
   onSelect,
   onEdit,
   onDelete,
+  onDuplicate,
   isPublished,
 }: PropertyListItemProps) {
   const navigate = useNavigate();
@@ -205,6 +207,11 @@ export function PropertyListItem({
             <DropdownMenuItem onClick={() => onEdit(property)}>
               <Edit className="h-4 w-4 mr-2" /> Editar
             </DropdownMenuItem>
+            {onDuplicate && (
+              <DropdownMenuItem onClick={() => onDuplicate(property.id)}>
+                <CopyPlus className="h-4 w-4 mr-2" /> Duplicar Imóvel
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onDelete(property.id)} className="text-destructive focus:text-destructive">
               <Trash2 className="h-4 w-4 mr-2" /> Excluir
             </DropdownMenuItem>

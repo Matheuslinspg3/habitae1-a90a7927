@@ -117,6 +117,15 @@ export default function PropertyDetails() {
     }
   }, [searchParams, property]);
 
+  // Auto-trigger duplicate from ?duplicate=true
+  const [autoDuplicate, setAutoDuplicate] = useState(() => false);
+  useEffect(() => {
+    if (searchParams.get('duplicate') === 'true' && property) {
+      setSearchParams({}, { replace: true });
+      setAutoDuplicate(true);
+    }
+  }, [searchParams, property]);
+
   // Fetch property owners
   const { data: owners = [] } = useQuery({
     queryKey: ["property-owners-detail", id],
@@ -283,6 +292,14 @@ export default function PropertyDetails() {
       setIsDuplicating(false);
     }
   };
+
+  // Execute auto-duplicate after handleDuplicate is defined
+  useEffect(() => {
+    if (autoDuplicate) {
+      setAutoDuplicate(false);
+      handleDuplicate();
+    }
+  }, [autoDuplicate]);
 
   if (isLoading) {
     return (
