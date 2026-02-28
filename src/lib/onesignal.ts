@@ -90,6 +90,15 @@ export async function initOneSignal(): Promise<boolean> {
     // SDK not yet loaded, use deferred queue
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(doInit);
+
+    // Add timeout so we don't hang forever if SDK never loads (e.g. preview iframe)
+    setTimeout(() => {
+      if (!sdkReady) {
+        console.warn("[OneSignal] SDK deferred queue timeout – SDK may not be available in this environment");
+        sdkReadyResolve?.(false);
+        sdkReadyPromise = null;
+      }
+    }, 10000);
   }
 
   return sdkReadyPromise;
