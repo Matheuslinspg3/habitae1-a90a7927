@@ -85,7 +85,6 @@ export function PushTestCard() {
         const details = getPushErrorDetails(e);
         toast.error(getPushErrorMessage(e));
         if (details.hint) addDebug(`Dica: ${details.hint}`);
-        toast.error(getPushErrorMessage(e));
       }
       addDebug(`Erro: ${msg}`);
     } finally {

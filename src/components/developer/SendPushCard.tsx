@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getPushErrorDetails, getPushErrorMessage } from "@/lib/pushErrors";
+import { getPushErrorDetails, getPushErrorMessage, type PushErrorDetails } from "@/lib/pushErrors";
 
 export function SendPushCard() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [title, setTitle] = useState("🔔 Teste OneSignal");
   const [message, setMessage] = useState("Esta é uma notificação de teste.");
   const [isSending, setIsSending] = useState(false);
-  const [lastErrorDetails, setLastErrorDetails] = useState<unknown | null>(null);
+  const [lastErrorDetails, setLastErrorDetails] = useState<PushErrorDetails | null>(null);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["all-profiles-dev"],
@@ -122,9 +122,18 @@ export function SendPushCard() {
         </Button>
 
         {lastErrorDetails && (
-          <details className="text-xs rounded bg-muted p-2">
+          <details className="text-xs rounded bg-muted p-3">
             <summary className="cursor-pointer">Ver detalhes técnicos</summary>
-            <pre className="mt-2 whitespace-pre-wrap">{JSON.stringify(lastErrorDetails, null, 2)}</pre>
+            <div className="mt-2 space-y-1">
+              <p><strong>Tipo:</strong> {lastErrorDetails.errorType || "unknown"}</p>
+              <p><strong>Resumo:</strong> {lastErrorDetails.message}</p>
+              {lastErrorDetails.hint && <p><strong>Dica:</strong> {lastErrorDetails.hint}</p>}
+              {lastErrorDetails.technicalMessage && (
+                <p className="font-mono text-[11px] break-all">
+                  <strong>Detalhe técnico:</strong> {lastErrorDetails.technicalMessage}
+                </p>
+              )}
+            </div>
           </details>
         )}
       </CardContent>

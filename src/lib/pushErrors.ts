@@ -1,8 +1,9 @@
-interface PushErrorDetails {
+export interface PushErrorDetails {
   message: string;
   friendlyMessage: string;
   hint?: string;
   errorType?: string;
+  technicalMessage?: string;
 }
 
 function getRawErrorMessage(error: unknown): string {
@@ -19,25 +20,28 @@ export function getPushErrorDetails(error: unknown): PushErrorDetails {
 
   if (raw.includes("Failed to send a request to the Edge Function")) {
     return {
-      message: raw,
+      message: "Falha de conexão com a Edge Function.",
       friendlyMessage: "Não foi possível conectar ao serviço de notificações. Verifique sua conexão e se as Edge Functions foram implantadas.",
       hint: "Confirme o deploy das funções notifications-test e notifications-register-device no Supabase e valide VITE_SUPABASE_URL.",
       errorType: "edge_function_unreachable",
+      technicalMessage: raw,
     };
   }
 
   if (raw.includes("FunctionsFetchError")) {
     return {
-      message: raw,
+      message: "Erro de comunicação com o backend de notificações.",
       friendlyMessage: "Falha de comunicação com o backend de notificações.",
       hint: "Verifique conectividade de rede e disponibilidade das Edge Functions.",
       errorType: "functions_fetch_error",
+      technicalMessage: raw,
     };
   }
 
   return {
-    message: raw,
+    message: "Erro inesperado ao enviar push.",
     friendlyMessage: `Erro ao enviar push: ${raw}`,
     errorType: "unknown",
+    technicalMessage: raw,
   };
 }
