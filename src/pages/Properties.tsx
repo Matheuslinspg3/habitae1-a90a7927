@@ -673,6 +673,7 @@ export default function Properties() {
                     onSelect={handleSelectProperty}
                     onEdit={handleEditClick}
                     onDelete={handleDeleteClick}
+                    onDuplicate={(id) => navigate(`/imoveis/${id}?duplicate=true`)}
                     isPublished={publishedIds.has(property.id)}
                   />
                 ))}
