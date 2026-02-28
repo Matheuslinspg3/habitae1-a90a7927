@@ -58,8 +58,7 @@ export async function initOneSignal(): Promise<boolean> {
     return false;
   }
 
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async (OneSignal: any) => {
+  const doInit = async (OneSignal: any) => {
     try {
       await OneSignal.init({
         appId,
@@ -70,11 +69,28 @@ export async function initOneSignal(): Promise<boolean> {
       });
       sdkReady = true;
       sdkReadyResolve?.(true);
-    } catch {
-      sdkReadyResolve?.(false);
-      sdkReadyPromise = null;
+    } catch (e) {
+      console.error("[OneSignal] init error:", e);
+      // If already initialized, treat as ready
+      if (window.OneSignal?.Notifications) {
+        sdkReady = true;
+        sdkReadyResolve?.(true);
+      } else {
+        sdkReadyResolve?.(false);
+        sdkReadyPromise = null;
+      }
     }
-  });
+  };
+
+  // If SDK is already loaded (script processed before this runs), call directly
+  if (window.OneSignal && typeof window.OneSignal.init === "function") {
+    console.log("[OneSignal] SDK already loaded, initializing directly");
+    await doInit(window.OneSignal);
+  } else {
+    // SDK not yet loaded, use deferred queue
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(doInit);
+  }
 
   return sdkReadyPromise;
 }
