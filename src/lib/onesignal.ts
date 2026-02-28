@@ -146,15 +146,54 @@ export function getPermissionState(): NotificationPermission {
 
 export async function requestPushPermission(): Promise<boolean> {
   const ready = await waitForReady();
-  if (!ready || !window.OneSignal) return false;
+  if (!ready || !window.OneSignal) {
+    console.warn("[OneSignal] SDK not ready for permission request");
+    return false;
+  }
 
   try {
-    await window.OneSignal.Notifications.requestPermission();
+    // If permission is already granted (user granted manually), just opt-in
     if (Notification.permission === "granted") {
+      console.log("[OneSignal] Permission already granted, opting in...");
+      try {
+        if (window.OneSignal.User?.PushSubscription?.optedIn === false) {
+          await window.OneSignal.User.PushSubscription.optIn();
+        }
+      } catch (e) {
+        console.warn("[OneSignal] optIn error (non-fatal):", e);
+      }
+      // Wait a bit for subscription to propagate
+      await new Promise(r => setTimeout(r, 1500));
+      await registerCurrentDevice();
+      return true;
+    }
+
+    // Otherwise request permission via OneSignal
+    await window.OneSignal.Notifications.requestPermission();
+    
+    // Check result
+    const granted = (Notification.permission as string) === "granted";
+    if (granted) {
+      // Ensure opt-in after permission grant
+      try {
+        if (window.OneSignal.User?.PushSubscription?.optedIn === false) {
+          await window.OneSignal.User.PushSubscription.optIn();
+        }
+      } catch (e) {
+        console.warn("[OneSignal] optIn after grant error:", e);
+      }
+      await new Promise(r => setTimeout(r, 1500));
       await registerCurrentDevice();
     }
-    return Notification.permission === "granted";
-  } catch {
+    return granted;
+  } catch (e) {
+    console.error("[OneSignal] requestPermission error:", e);
+    // Fallback: check if permission was actually granted despite error
+    const perm = Notification.permission as string;
+    if (perm === "granted") {
+      await registerCurrentDevice();
+      return true;
+    }
     return false;
   }
 }
