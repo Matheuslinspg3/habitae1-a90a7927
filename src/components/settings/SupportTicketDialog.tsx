@@ -54,13 +54,30 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
     }
 
     setSending(true);
-    const { error } = await supabase.from("support_tickets" as any).insert({
+    const { data, error } = await supabase.from("support_tickets" as any).insert({
       user_id: user.id,
       organization_id: profile.organization_id,
       subject: subject.trim(),
       description: description.trim(),
       category,
-    } as any);
+    } as any).select().single();
+
+    if (!error && data) {
+      // Enviar para webhook n8n/WhatsApp
+      supabase.functions.invoke("send-ticket-webhook", {
+        body: {
+          webhook_url: "https://n8n.costazul.shop/webhook/lovableportadocorrerora",
+          payload: {
+            ticket_id: (data as any).id,
+            subject: subject.trim(),
+            description: description.trim(),
+            category,
+            status: "open",
+            source: "porta_do_corretor",
+          },
+        },
+      }).catch(() => {}); // fire-and-forget
+    }
 
     setSending(false);
     if (error) {
