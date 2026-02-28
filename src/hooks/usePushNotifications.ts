@@ -104,7 +104,13 @@ export function usePushNotifications() {
       const ready = await initOneSignal();
       if (!ready) {
         addDebug("❌ SDK não ficou pronto");
-        toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+        // Check if we're in an iframe (preview environment)
+        const isPreview = window.self !== window.top;
+        toast.error(
+          isPreview
+            ? "Notificações push não funcionam no preview. Teste no site publicado."
+            : "Serviço de notificações indisponível. Tente recarregar a página."
+        );
         return false;
       }
 
