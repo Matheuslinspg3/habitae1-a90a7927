@@ -9,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getPushErrorDetails, getPushErrorMessage, type PushErrorDetails } from "@/lib/pushErrors";
 
 export function SendPushCard() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [title, setTitle] = useState("🔔 Teste OneSignal");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("Esta é uma notificação de teste.");
   const [isSending, setIsSending] = useState(false);
+  const [lastErrorDetails, setLastErrorDetails] = useState<PushErrorDetails | null>(null);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["all-profiles-dev"],
@@ -31,7 +33,7 @@ export function SendPushCard() {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users`,
-        { headers: { Authorization: `Bearer ${session?.access_token}` } }
+        { headers: { Authorization: `Bearer ${session?.access_token}` } },
       );
       if (!res.ok) throw new Error("Failed to fetch users");
       return res.json() as Promise<{ id: string; email: string }[]>;
@@ -41,40 +43,36 @@ export function SendPushCard() {
   const getEmail = (userId: string) => authUsers.find((u) => u.id === userId)?.email || "";
 
   const handleSend = async () => {
-    if (!selectedUserId || !title.trim()) {
-      toast.error("Selecione um usuário e preencha o título");
+    if (!title.trim() || !message.trim()) {
+      toast.error("Preencha título e mensagem");
       return;
     }
 
     setIsSending(true);
+    setLastErrorDetails(null);
+
     try {
-      const { data, error } = await supabase.functions.invoke("send-push", {
+      const { data, error } = await supabase.functions.invoke("notifications-test", {
         body: {
-          user_id: selectedUserId,
           title: title.trim(),
           message: message.trim(),
-          notification_type: "dev_test",
+          userId: selectedUserId || undefined,
         },
       });
 
       if (error) throw error;
 
-      if (data?.sent > 0) {
-        toast.success(`Push enviado via OneSignal! (${data.sent} dispositivo${data.sent > 1 ? "s" : ""})`);
-        setMessage("");
-      } else if (data?.warning) {
+      if (data?.ok && (data?.recipientsCount || 0) > 0) {
+        toast.success(`Enviado via OneSignal (ID: ${data.notificationId || "n/a"})`);
+      } else if (data?.ok) {
         toast.warning("Usuário sem dispositivos inscritos no OneSignal.");
       } else {
-        toast.warning("Nenhum dispositivo encontrado para este usuário.");
+        setLastErrorDetails(data?.errorDetails || data);
+        toast.error(data?.errorMessage || "Falha ao enviar notificação");
       }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "erro desconhecido";
-      console.error("Send push error:", e);
-      if (msg.includes("ONESIGNAL")) {
-        toast.error("Credenciais OneSignal não configuradas nos Secrets");
-      } else {
-        toast.error("Erro ao enviar push: " + msg);
-      }
+      setLastErrorDetails(getPushErrorDetails(e));
+      toast.error(getPushErrorMessage(e));
     } finally {
       setIsSending(false);
     }
@@ -85,15 +83,15 @@ export function SendPushCard() {
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Send className="h-4 w-4" />
-          Enviar Push (OneSignal)
+          Enviar Notificação Teste (OneSignal)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="push-user">Destinatário</Label>
+          <Label htmlFor="push-user">Destinatário (opcional)</Label>
           <Select value={selectedUserId} onValueChange={setSelectedUserId}>
             <SelectTrigger id="push-user">
-              <SelectValue placeholder="Selecione um usuário" />
+              <SelectValue placeholder="Admin logado (padrão)" />
             </SelectTrigger>
             <SelectContent>
               {profiles.map((p) => {
@@ -110,35 +108,34 @@ export function SendPushCard() {
 
         <div className="space-y-2">
           <Label htmlFor="push-title">Título</Label>
-          <Input
-            id="push-title"
-            placeholder="Ex: 🔔 Novo lead!"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={100}
-          />
+          <Input id="push-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="push-message">Mensagem (opcional)</Label>
-          <Textarea
-            id="push-message"
-            placeholder="Corpo da notificação..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            maxLength={500}
-            rows={3}
-          />
+          <Label htmlFor="push-message">Mensagem</Label>
+          <Textarea id="push-message" value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} rows={3} />
         </div>
 
-        <Button
-          onClick={handleSend}
-          disabled={isSending || !selectedUserId || !title.trim()}
-          className="w-full gap-2"
-        >
+        <Button onClick={handleSend} disabled={isSending || !title.trim() || !message.trim()} className="w-full gap-2">
           {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          Enviar Notificação
+          Enviar Notificação de Teste
         </Button>
+
+        {lastErrorDetails && (
+          <details className="text-xs rounded bg-muted p-3">
+            <summary className="cursor-pointer">Ver detalhes técnicos</summary>
+            <div className="mt-2 space-y-1">
+              <p><strong>Tipo:</strong> {lastErrorDetails.errorType || "unknown"}</p>
+              <p><strong>Resumo:</strong> {lastErrorDetails.message}</p>
+              {lastErrorDetails.hint && <p><strong>Dica:</strong> {lastErrorDetails.hint}</p>}
+              {lastErrorDetails.technicalMessage && (
+                <p className="font-mono text-[11px] break-all">
+                  <strong>Detalhe técnico:</strong> {lastErrorDetails.technicalMessage}
+                </p>
+              )}
+            </div>
+          </details>
+        )}
       </CardContent>
     </Card>
   );
