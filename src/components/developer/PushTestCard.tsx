@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getDiagnostics } from "@/lib/onesignal";
 import { toast } from "sonner";
-import { getPushErrorMessage } from "@/lib/pushErrors";
+import { getPushErrorDetails, getPushErrorMessage } from "@/lib/pushErrors";
 
 export function PushTestCard() {
   const { user } = useAuth();
@@ -82,6 +82,9 @@ export function PushTestCard() {
         toast.error("Credenciais OneSignal não configuradas nos Secrets");
         addDebug("Falta secret OneSignal");
       } else {
+        const details = getPushErrorDetails(e);
+        toast.error(getPushErrorMessage(e));
+        if (details.hint) addDebug(`Dica: ${details.hint}`);
         toast.error(getPushErrorMessage(e));
       }
       addDebug(`Erro: ${msg}`);
