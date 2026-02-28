@@ -49,6 +49,8 @@ import {
   ClipboardList,
   Sparkles,
   QrCode,
+  CopyPlus,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { LandingPageEditor } from "@/components/properties/LandingPageEditor";
@@ -82,13 +84,14 @@ export default function PropertyDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { properties, isLoading, updateProperty, publishToMarketplace, isUpdating } = useProperties();
+  const { properties, isLoading, updateProperty, publishToMarketplace, isUpdating, createProperty, isCreating } = useProperties();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
 
   const property = properties.find((p) => p.id === id);
@@ -204,6 +207,59 @@ export default function PropertyDetails() {
 
   const handleOpenLandingPage = () => {
     window.open(generateLandingPageUrl(), "_blank");
+  };
+
+  const handleDuplicate = async () => {
+    if (!property || isDuplicating) return;
+    setIsDuplicating(true);
+    try {
+      const {
+        id: _id,
+        created_at: _ca,
+        updated_at: _ua,
+        organization_id: _oid,
+        created_by: _cb,
+        property_code: _pc,
+        source_provider: _sp,
+        source_property_id: _spid,
+        source_code: _sc,
+        slug: _slug,
+        ...rest
+      } = property as any;
+
+      const duplicateData: PropertyFormData = {
+        ...rest,
+        title: `${property.title || "Imóvel"} (cópia)`,
+        status: "disponivel",
+      };
+
+      // Remove relationship fields
+      delete (duplicateData as any).property_type;
+      delete (duplicateData as any).images;
+
+      const images = (property.images || []).map((img, i) => ({
+        url: img.url,
+        is_cover: img.is_cover || i === 0,
+        display_order: img.display_order ?? i,
+      }));
+
+      const newProperty = await createProperty(duplicateData, images);
+      if (newProperty?.id) {
+        toast({
+          title: "Imóvel duplicado!",
+          description: "Redirecionando para edição...",
+        });
+        navigate(`/imoveis/${newProperty.id}?edit=true`);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Erro ao duplicar",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   if (isLoading) {
@@ -595,6 +651,19 @@ export default function PropertyDetails() {
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Editar Imóvel
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleDuplicate}
+                  disabled={isDuplicating}
+                >
+                  {isDuplicating ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CopyPlus className="h-4 w-4 mr-2" />
+                  )}
+                  Duplicar Imóvel
                 </Button>
               </CardContent>
             </Card>
