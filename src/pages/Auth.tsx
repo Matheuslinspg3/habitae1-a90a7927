@@ -97,13 +97,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-      </div>
-    );
-  }
+  // Don't block the login form with a loading spinner — show the form always.
+  // If user is already logged in, the useEffect above will redirect.
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-background">

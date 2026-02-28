@@ -59,36 +59,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    try {
+      // Add timeout to prevent infinite loading when DB is unreachable
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    if (!error && data) {
-      setProfile(data as Profile);
-      // Fetch organization type
-      if (data.organization_id) {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('type, trial_started_at, trial_ends_at, is_active')
-          .eq('id', data.organization_id)
-          .single();
-        if (orgData) {
-          setOrganizationType(orgData.type as 'imobiliaria' | 'corretor_individual');
-          const trialEnds = orgData.trial_ends_at ? new Date(orgData.trial_ends_at) : null;
-          const isTrialExpired = trialEnds !== null && trialEnds < new Date();
-          setTrialInfo({
-            trial_started_at: orgData.trial_started_at,
-            trial_ends_at: orgData.trial_ends_at,
-            is_active: orgData.is_active,
-            is_trial_expired: isTrialExpired && orgData.is_active,
-          });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .abortSignal(controller.signal)
+        .single();
+
+      clearTimeout(timeout);
+
+      if (!error && data) {
+        setProfile(data as Profile);
+        // Fetch organization type
+        if (data.organization_id) {
+          const orgController = new AbortController();
+          const orgTimeout = setTimeout(() => orgController.abort(), 8_000);
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('type, trial_started_at, trial_ends_at, is_active')
+            .eq('id', data.organization_id)
+            .abortSignal(orgController.signal)
+            .single();
+          clearTimeout(orgTimeout);
+          if (orgData) {
+            setOrganizationType(orgData.type as 'imobiliaria' | 'corretor_individual');
+            const trialEnds = orgData.trial_ends_at ? new Date(orgData.trial_ends_at) : null;
+            const isTrialExpired = trialEnds !== null && trialEnds < new Date();
+            setTrialInfo({
+              trial_started_at: orgData.trial_started_at,
+              trial_ends_at: orgData.trial_ends_at,
+              is_active: orgData.is_active,
+              is_trial_expired: isTrialExpired && orgData.is_active,
+            });
+          }
         }
+        return data as Profile;
       }
-      return data as Profile;
+      return null;
+    } catch (err) {
+      console.error('[Auth] fetchProfile failed (timeout or network):', err);
+      return null;
     }
-    return null;
   };
 
   // Função para corrigir usuários legados sem organização
@@ -120,20 +136,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           // Usar setTimeout para evitar deadlock com Supabase
           setTimeout(async () => {
-            // Trigger já criou tudo - apenas buscar perfil
-            const existingProfile = await fetchProfile(session.user.id);
-            
-            // Fallback para usuários legados sem organização
-            if (!existingProfile?.organization_id) {
-              const metadata = session.user.user_metadata;
-              const fullName = metadata?.full_name || 'Usuário';
-              await fixLegacyUser(session.user.id, session.user.email!, fullName);
+            try {
+              // Trigger já criou tudo - apenas buscar perfil
+              const existingProfile = await fetchProfile(session.user.id);
+              
+              // Fallback para usuários legados sem organização
+              if (!existingProfile?.organization_id) {
+                const metadata = session.user.user_metadata;
+                const fullName = metadata?.full_name || 'Usuário';
+                await fixLegacyUser(session.user.id, session.user.email!, fullName);
+              }
+              
+              // Vincular usuário ao OneSignal
+              loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
+            } catch (err) {
+              console.error('[Auth] Error during session setup:', err);
+            } finally {
+              setLoading(false);
             }
-            
-            // Vincular usuário ao OneSignal (await para capturar erros)
-            loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
-            
-            setLoading(false);
           }, 0);
         } else {
           setProfile(null);
@@ -147,21 +167,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        const existingProfile = await fetchProfile(session.user.id);
-        
-        if (!existingProfile?.organization_id) {
-          const metadata = session.user.user_metadata;
-          const fullName = metadata?.full_name || 'Usuário';
-          await fixLegacyUser(session.user.id, session.user.email!, fullName);
+        try {
+          const existingProfile = await fetchProfile(session.user.id);
+          
+          if (!existingProfile?.organization_id) {
+            const metadata = session.user.user_metadata;
+            const fullName = metadata?.full_name || 'Usuário';
+            await fixLegacyUser(session.user.id, session.user.email!, fullName);
+          }
+          
+          loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
+        } catch (err) {
+          console.error('[Auth] Error during initial session setup:', err);
+        } finally {
+          setLoading(false);
         }
-        
-        // Vincular usuário ao OneSignal (await para capturar erros)
-        loginOneSignal(session.user.id).catch(e => console.error("[Auth] OneSignal login error:", e));
-        
-        setLoading(false);
       } else {
         setLoading(false);
       }
+    }).catch(() => {
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
