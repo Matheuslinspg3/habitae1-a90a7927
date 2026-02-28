@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getPushErrorMessage } from "@/lib/pushErrors";
 
 export function SendPushCard() {
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -61,16 +62,18 @@ export function SendPushCard() {
 
       if (error) throw error;
 
-      if (data?.ok) {
+      if (data?.ok && (data?.recipientsCount || 0) > 0) {
         toast.success(`Enviado via OneSignal (ID: ${data.notificationId || "n/a"})`);
+      } else if (data?.ok) {
+        toast.warning("Usuário sem dispositivos inscritos no OneSignal.");
       } else {
         setLastErrorDetails(data?.errorDetails || data);
         toast.error(data?.errorMessage || "Falha ao enviar notificação");
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
-      setLastErrorDetails({ message: msg });
-      toast.error("Erro ao enviar push: " + msg);
+      setLastErrorDetails({ message: msg, error: e });
+      toast.error(getPushErrorMessage(e));
     } finally {
       setIsSending(false);
     }

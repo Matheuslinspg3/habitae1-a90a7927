@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getDiagnostics } from "@/lib/onesignal";
 import { toast } from "sonner";
+import { getPushErrorMessage } from "@/lib/pushErrors";
 
 export function PushTestCard() {
   const { user } = useAuth();
@@ -71,7 +72,7 @@ export function PushTestCard() {
       if (data?.ok && data?.recipientsCount > 0) {
         toast.success(`Push enviado para ${data.recipientsCount} dispositivo(s)!`);
       } else {
-        toast.warning("Nenhum dispositivo encontrado. Verifique o diagnóstico.");
+        toast.warning("Usuário sem dispositivos inscritos no OneSignal.");
         addDebug("⚠️ sent=0 — Verifique se o token existe no diagnóstico");
       }
     } catch (e: unknown) {
@@ -81,7 +82,7 @@ export function PushTestCard() {
         toast.error("Credenciais OneSignal não configuradas nos Secrets");
         addDebug("Falta secret OneSignal");
       } else {
-        toast.error("Erro ao enviar push: " + msg);
+        toast.error(getPushErrorMessage(e));
       }
       addDebug(`Erro: ${msg}`);
     } finally {
