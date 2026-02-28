@@ -42,9 +42,7 @@ export default function PlatformSignup() {
     if (!id) return;
     const checkInvite = async () => {
       const { data, error } = await supabase
-        .from("platform_invites")
-        .select("id, status, expires_at, name, invite_email")
-        .eq("id", id)
+        .rpc("get_platform_invite", { p_invite_id: id })
         .maybeSingle();
 
       if (error || !data) {
