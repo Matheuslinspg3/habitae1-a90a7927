@@ -268,10 +268,14 @@ export default function PropertyDetails() {
         description_generated: false,
       };
 
-      const images = (property.images || []).map((img, i) => ({
+      const images = (property.images || []).map((img: any, i: number) => ({
         url: img.url,
         is_cover: img.is_cover || i === 0,
         display_order: img.display_order ?? i,
+        ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
+        ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
+        ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
+        ...(img.phash ? { phash: img.phash } : {}),
       }));
 
       const newProperty = await createProperty(duplicateData, images);
