@@ -100,8 +100,23 @@ export function usePushNotifications() {
 
     setIsLoading(true);
     try {
-      addDebug("Solicitando permissão...");
-      await initOneSignal();
+      addDebug("Inicializando OneSignal...");
+      const ready = await initOneSignal();
+      if (!ready) {
+        addDebug("❌ SDK não ficou pronto");
+        toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+        return false;
+      }
+
+      // Check if permission is already granted
+      const currentPermission = Notification.permission;
+      addDebug(`Permissão atual: ${currentPermission}`);
+
+      if (currentPermission === "granted") {
+        addDebug("Permissão já concedida, registrando dispositivo...");
+      } else {
+        addDebug("Solicitando permissão...");
+      }
 
       const granted = await requestPushPermission();
       setPermission(getPermissionState());
@@ -120,13 +135,25 @@ export function usePushNotifications() {
           addDebug("✅ Push ativado com token!");
           toast.success("Notificações push ativadas!");
         } else {
-          addDebug("⚠️ Permissão OK mas sem token");
-          toast.warning("Permissão concedida, mas registro pendente. Recarregue a página.");
+          // Even without token yet, if permission is granted we're good
+          if (Notification.permission === "granted") {
+            setIsSubscribed(true);
+            addDebug("✅ Permissão OK, token pode levar alguns segundos");
+            toast.success("Notificações push ativadas!");
+          } else {
+            addDebug("⚠️ Permissão OK mas sem token");
+            toast.warning("Permissão concedida, mas registro pendente. Recarregue a página.");
+          }
         }
-        return hasToken;
+        return true;
       } else {
-        addDebug("❌ Permissão negada");
-        toast.error("Permissão de notificação negada");
+        const finalPerm = Notification.permission;
+        addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
+        if (finalPerm === "denied") {
+          toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
+        } else {
+          toast.error("Não foi possível ativar notificações. Tente novamente.");
+        }
         return false;
       }
     } catch (e: unknown) {
