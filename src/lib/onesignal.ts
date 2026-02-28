@@ -62,7 +62,7 @@ export async function initOneSignal(): Promise<boolean> {
     try {
       await OneSignal.init({
         appId,
-        serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js",
+        serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js",
         serviceWorkerParam: { scope: "/push/onesignal/" },
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: false },
