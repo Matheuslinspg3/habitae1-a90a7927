@@ -41,10 +41,11 @@ export default function MetaSettingsContent() {
         missing_params: "Parâmetros ausentes no callback.",
         invalid_state: "Estado inválido. Tente novamente.",
         server_config: "Configuração do servidor incompleta.",
-        token_exchange: "Erro ao trocar código por token.",
-        no_ad_account: "Nenhuma conta de anúncios encontrada no Meta.",
+        token_exchange: "Erro ao trocar código por token. O app Meta pode não estar em modo Live ou as permissões não foram aprovadas.",
+        no_ad_account: "Nenhuma conta de anúncios encontrada. Verifique se o usuário tem acesso a uma conta de anúncios no Meta Business Suite.",
         db_save: "Erro ao salvar dados. Tente novamente.",
         unexpected: "Erro inesperado. Tente novamente.",
+        access_denied: "O usuário negou as permissões solicitadas. Tente novamente e aceite todas as permissões.",
       };
       toast({
         title: "Erro na conexão",
