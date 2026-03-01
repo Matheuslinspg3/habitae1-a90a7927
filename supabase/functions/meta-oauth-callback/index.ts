@@ -14,11 +14,15 @@ Deno.serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state"); // contains user_id + org_id
+    const state = url.searchParams.get("state");
     const error = url.searchParams.get("error");
+    const errorReason = url.searchParams.get("error_reason");
+    const errorDescription = url.searchParams.get("error_description");
+
+    console.log("OAuth callback received:", { hasCode: !!code, hasState: !!state, error, errorReason, errorDescription });
 
     if (error) {
-      console.error("Meta OAuth error:", error, url.searchParams.get("error_description"));
+      console.error("Meta OAuth error:", { error, errorReason, errorDescription });
       return redirectToApp("?meta_error=" + encodeURIComponent(error));
     }
 
@@ -54,11 +58,17 @@ Deno.serve(async (req) => {
     const tokenData = await tokenRes.json();
 
     if (tokenData.error) {
-      console.error("Token exchange error:", tokenData.error);
+      console.error("Token exchange error:", JSON.stringify(tokenData.error));
+      return redirectToApp("?meta_error=token_exchange", stateData.origin);
+    }
+
+    if (!tokenData.access_token) {
+      console.error("No access_token in response:", JSON.stringify(tokenData));
       return redirectToApp("?meta_error=token_exchange", stateData.origin);
     }
 
     const accessToken = tokenData.access_token;
+    console.log("Token exchange OK, exchanging for long-lived token...");
 
     // Exchange for long-lived token
     const longLivedUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
@@ -73,17 +83,27 @@ Deno.serve(async (req) => {
     const finalToken = longLivedData.access_token || accessToken;
 
     // Fetch ad accounts
+    console.log("Fetching ad accounts...");
     const adAccountsRes = await fetch(
       `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${finalToken}`
     );
     const adAccountsData = await adAccountsRes.json();
 
+    if (adAccountsData.error) {
+      console.error("Ad accounts fetch error:", JSON.stringify(adAccountsData.error));
+      return redirectToApp("?meta_error=no_ad_account", stateData.origin);
+    }
+
     const adAccounts = adAccountsData.data || [];
+    console.log(`Found ${adAccounts.length} ad accounts:`, adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })));
+    
     const firstAccount = adAccounts.find((a: any) => a.account_status === 1) || adAccounts[0];
 
     if (!firstAccount) {
+      console.error("No ad account found for user. Total accounts:", adAccounts.length);
       return redirectToApp("?meta_error=no_ad_account", stateData.origin);
     }
+    console.log("Selected ad account:", firstAccount.id, firstAccount.name);
 
     // Save to database using service role
     const supabase = createClient(
