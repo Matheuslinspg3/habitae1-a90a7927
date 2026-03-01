@@ -11,6 +11,9 @@ let appIdCache: string | null = null;
 let sdkReady = false;
 let sdkReadyPromise: Promise<boolean> | null = null;
 let sdkReadyResolve: ((v: boolean) => void) | null = null;
+let initFailureReason: string | null = null;
+let initFailureDetail: string | null = null;
+let legacyWorkerCleanupDone = false;
 
 function getBasePath(): string {
   const raw = (import.meta.env.BASE_URL || "/").trim();
@@ -57,6 +60,59 @@ export function getOneSignalRuntimeBlockReason(): string | null {
   return null;
 }
 
+export function getOneSignalInitFailure() {
+  return {
+    reason: initFailureReason,
+    detail: initFailureDetail,
+  };
+}
+
+async function cleanupLegacyRootOneSignalWorker(): Promise<void> {
+  if (legacyWorkerCleanupDone || !("serviceWorker" in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+
+    for (const registration of registrations) {
+      const scopePath = new URL(registration.scope).pathname;
+      const scripts = [registration.active?.scriptURL, registration.waiting?.scriptURL, registration.installing?.scriptURL]
+        .filter(Boolean)
+        .join(" ");
+
+      const hasOneSignalWorker = scripts.includes("OneSignalSDKWorker") || scripts.includes("OneSignalSDKUpdaterWorker") || scripts.includes("OneSignalSDK.sw.js");
+      const isRootScope = scopePath === "/";
+
+      if (hasOneSignalWorker && isRootScope) {
+        await registration.unregister();
+        console.info("[OneSignal] Legacy root worker unregistered", { scope: registration.scope });
+      }
+    }
+  } catch (e) {
+    console.warn("[OneSignal] Failed to cleanup legacy worker:", e);
+  } finally {
+    legacyWorkerCleanupDone = true;
+  }
+}
+
+function setInitFailureFromError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("Can only be used on:")) {
+    initFailureReason = "domain-mismatch";
+    initFailureDetail = message;
+    return;
+  }
+
+  if (message.includes("InvalidStateError") || message.includes("ServiceWorker")) {
+    initFailureReason = "service-worker-invalid-state";
+    initFailureDetail = message;
+    return;
+  }
+
+  initFailureReason = "init-error";
+  initFailureDetail = message;
+}
+
 async function fetchAppId(): Promise<string | null> {
   if (appIdCache) return appIdCache;
   try {
@@ -96,11 +152,17 @@ export async function initOneSignal(): Promise<boolean> {
   if (sdkReady) return true;
   if (sdkReadyPromise) return sdkReadyPromise;
 
+  initFailureReason = null;
+  initFailureDetail = null;
+
   const blockReason = getOneSignalRuntimeBlockReason();
   if (blockReason) {
     console.warn(`[OneSignal] runtime blocked: ${blockReason}`);
+    initFailureReason = blockReason;
     return false;
   }
+
+  await cleanupLegacyRootOneSignalWorker();
 
   sdkReadyPromise = new Promise<boolean>((resolve) => {
     sdkReadyResolve = resolve;
@@ -108,6 +170,7 @@ export async function initOneSignal(): Promise<boolean> {
 
   const appId = await fetchAppId();
   if (!appId) {
+    initFailureReason = "missing-app-id";
     sdkReadyResolve?.(false);
     sdkReadyPromise = null;
     return false;
@@ -128,13 +191,10 @@ export async function initOneSignal(): Promise<boolean> {
       sdkReadyResolve?.(true);
     } catch (e) {
       console.error("[OneSignal] init error:", e);
-      if (window.OneSignal?.Notifications) {
-        sdkReady = true;
-        sdkReadyResolve?.(true);
-      } else {
-        sdkReadyResolve?.(false);
-        sdkReadyPromise = null;
-      }
+      sdkReady = false;
+      setInitFailureFromError(e);
+      sdkReadyResolve?.(false);
+      sdkReadyPromise = null;
     }
   };
 
@@ -148,6 +208,7 @@ export async function initOneSignal(): Promise<boolean> {
     setTimeout(() => {
       if (!sdkReady) {
         console.warn("[OneSignal] SDK deferred queue timeout – SDK may not be available in this environment");
+        initFailureReason = initFailureReason || "sdk-timeout";
         sdkReadyResolve?.(false);
         sdkReadyPromise = null;
       }
@@ -168,28 +229,33 @@ export async function loginOneSignal(userId: string): Promise<void> {
   const ready = await waitForReady();
   if (!ready || !window.OneSignal) return;
 
-  await window.OneSignal.login(userId);
+  try {
+    await window.OneSignal.login(userId);
 
-  if (window.OneSignal.Notifications?.permission === true && window.OneSignal.User?.PushSubscription?.optedIn === false) {
-    await window.OneSignal.User.PushSubscription.optIn();
-  }
+    if (window.OneSignal.Notifications?.permission === true && window.OneSignal.User?.PushSubscription?.optedIn === false) {
+      await window.OneSignal.User.PushSubscription.optIn();
+    }
 
-  let attempts = 0;
-  const maxAttempts = 30;
+    let attempts = 0;
+    const maxAttempts = 30;
 
-  await new Promise<void>((resolve) => {
-    const check = setInterval(async () => {
-      attempts++;
-      const subId = window.OneSignal?.User?.PushSubscription?.id;
-      if (subId || attempts >= maxAttempts) {
-        clearInterval(check);
-        if (subId) {
-          await syncOneSignalDeviceRegistration();
+    await new Promise<void>((resolve) => {
+      const check = setInterval(async () => {
+        attempts++;
+        const subId = window.OneSignal?.User?.PushSubscription?.id;
+        if (subId || attempts >= maxAttempts) {
+          clearInterval(check);
+          if (subId) {
+            await syncOneSignalDeviceRegistration();
+          }
+          resolve();
         }
-        resolve();
-      }
-    }, 500);
-  });
+      }, 500);
+    });
+  } catch (e) {
+    setInitFailureFromError(e);
+    console.warn("[OneSignal] login skipped due to runtime error:", e);
+  }
 }
 
 export async function logoutOneSignal(): Promise<void> {
@@ -286,6 +352,8 @@ export function getDiagnostics(): Record<string, unknown> {
     workerPath: worker.serviceWorkerPath,
     workerScope: worker.serviceWorkerScope,
     blockReason: getOneSignalRuntimeBlockReason(),
+    initFailureReason,
+    initFailureDetail,
   };
 
   if (window.OneSignal) {

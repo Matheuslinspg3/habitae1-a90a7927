@@ -10,6 +10,7 @@ import {
   getDiagnostics,
   syncOneSignalDeviceRegistration,
   getOneSignalRuntimeBlockReason,
+  getOneSignalInitFailure,
 } from "@/lib/onesignal";
 import { toast } from "sonner";
 
@@ -50,7 +51,8 @@ export function usePushNotifications() {
 
       const ready = await initOneSignal();
       if (cancelled || !ready) {
-        addDebug(ready ? "Cancelado" : "❌ SDK não ficou pronto");
+        const failure = getOneSignalInitFailure();
+        addDebug(`❌ SDK não ficou pronto${failure.reason ? ` (${failure.reason})` : ""}`);
         return;
       }
 
@@ -130,8 +132,16 @@ export function usePushNotifications() {
 
       const ready = await initOneSignal();
       if (!ready) {
-        addDebug("❌ SDK não ficou pronto");
-        toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+        const failure = getOneSignalInitFailure();
+        addDebug(`❌ SDK não ficou pronto${failure.reason ? ` (${failure.reason})` : ""}`);
+
+        if (failure.reason === "domain-mismatch") {
+          toast.error("Push bloqueado: o OneSignal deste app está configurado para outro domínio. Atualize o Site URL/Allowed Origins no OneSignal para portadocorretor.com.br.");
+        } else if (failure.reason === "service-worker-invalid-state") {
+          toast.error("Conflito de Service Worker detectado. Recarregue a página e tente ativar novamente.");
+        } else {
+          toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+        }
         return false;
       }
 
