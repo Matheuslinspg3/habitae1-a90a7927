@@ -12,6 +12,38 @@ let sdkReady = false;
 let sdkReadyPromise: Promise<boolean> | null = null;
 let sdkReadyResolve: ((v: boolean) => void) | null = null;
 
+function getBasePath(): string {
+  const raw = (import.meta.env.BASE_URL || "/").trim();
+  if (!raw || raw === "/") return "/";
+  const normalized = raw.startsWith("/") ? raw : `/${raw}`;
+  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+}
+
+function joinWithBase(relativePath: string): string {
+  const base = getBasePath();
+  const path = relativePath.replace(/^\//, "");
+  return `${base}${path}`;
+}
+
+export function getOneSignalWorkerConfig() {
+  return {
+    serviceWorkerPath: joinWithBase("push/onesignal/OneSignalSDKWorker.js"),
+    serviceWorkerScope: joinWithBase("push/onesignal/"),
+  };
+}
+
+export function getOneSignalRuntimeBlockReason(): string | null {
+  if (!window.isSecureContext) {
+    return "insecure-context";
+  }
+
+  if (window.self !== window.top) {
+    return "iframe";
+  }
+
+  return null;
+}
+
 async function fetchAppId(): Promise<string | null> {
   if (appIdCache) return appIdCache;
   try {
@@ -24,11 +56,11 @@ async function fetchAppId(): Promise<string | null> {
   }
 }
 
-async function registerCurrentDevice() {
+export async function syncOneSignalDeviceRegistration(): Promise<boolean> {
   const pushSub = window.OneSignal?.User?.PushSubscription;
   const onesignalId = pushSub?.id;
 
-  if (!onesignalId) return;
+  if (!onesignalId) return false;
 
   await supabase.functions.invoke("notifications-register-device", {
     body: {
@@ -38,14 +70,24 @@ async function registerCurrentDevice() {
         tokenAvailable: !!pushSub?.token,
         optedIn: !!pushSub?.optedIn,
         userAgent: navigator.userAgent,
+        host: window.location.host,
+        path: window.location.pathname,
       },
     },
   });
+
+  return true;
 }
 
 export async function initOneSignal(): Promise<boolean> {
   if (sdkReady) return true;
   if (sdkReadyPromise) return sdkReadyPromise;
+
+  const blockReason = getOneSignalRuntimeBlockReason();
+  if (blockReason) {
+    console.warn(`[OneSignal] runtime blocked: ${blockReason}`);
+    return false;
+  }
 
   sdkReadyPromise = new Promise<boolean>((resolve) => {
     sdkReadyResolve = resolve;
@@ -58,12 +100,14 @@ export async function initOneSignal(): Promise<boolean> {
     return false;
   }
 
+  const worker = getOneSignalWorkerConfig();
+
   const doInit = async (OneSignal: any) => {
     try {
       await OneSignal.init({
         appId,
-        serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js",
-        serviceWorkerParam: { scope: "/push/onesignal/" },
+        serviceWorkerPath: worker.serviceWorkerPath,
+        serviceWorkerParam: { scope: worker.serviceWorkerScope },
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: false },
       });
@@ -71,7 +115,6 @@ export async function initOneSignal(): Promise<boolean> {
       sdkReadyResolve?.(true);
     } catch (e) {
       console.error("[OneSignal] init error:", e);
-      // If already initialized, treat as ready
       if (window.OneSignal?.Notifications) {
         sdkReady = true;
         sdkReadyResolve?.(true);
@@ -82,16 +125,13 @@ export async function initOneSignal(): Promise<boolean> {
     }
   };
 
-  // If SDK is already loaded (script processed before this runs), call directly
   if (window.OneSignal && typeof window.OneSignal.init === "function") {
     console.log("[OneSignal] SDK already loaded, initializing directly");
     await doInit(window.OneSignal);
   } else {
-    // SDK not yet loaded, use deferred queue
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(doInit);
 
-    // Add timeout so we don't hang forever if SDK never loads (e.g. preview iframe)
     setTimeout(() => {
       if (!sdkReady) {
         console.warn("[OneSignal] SDK deferred queue timeout – SDK may not be available in this environment");
@@ -122,7 +162,7 @@ export async function loginOneSignal(userId: string): Promise<void> {
   }
 
   let attempts = 0;
-  const maxAttempts = 10;
+  const maxAttempts = 30;
 
   await new Promise<void>((resolve) => {
     const check = setInterval(async () => {
@@ -131,7 +171,7 @@ export async function loginOneSignal(userId: string): Promise<void> {
       if (subId || attempts >= maxAttempts) {
         clearInterval(check);
         if (subId) {
-          await registerCurrentDevice();
+          await syncOneSignalDeviceRegistration();
         }
         resolve();
       }
@@ -177,7 +217,6 @@ export async function requestPushPermission(): Promise<boolean> {
   }
 
   try {
-    // If permission is already granted (user granted manually), just opt-in
     if (Notification.permission === "granted") {
       console.log("[OneSignal] Permission already granted, opting in...");
       try {
@@ -187,19 +226,15 @@ export async function requestPushPermission(): Promise<boolean> {
       } catch (e) {
         console.warn("[OneSignal] optIn error (non-fatal):", e);
       }
-      // Wait a bit for subscription to propagate
-      await new Promise(r => setTimeout(r, 1500));
-      await registerCurrentDevice();
+      await new Promise((r) => setTimeout(r, 1500));
+      await syncOneSignalDeviceRegistration();
       return true;
     }
 
-    // Otherwise request permission via OneSignal
     await window.OneSignal.Notifications.requestPermission();
-    
-    // Check result
+
     const granted = (Notification.permission as string) === "granted";
     if (granted) {
-      // Ensure opt-in after permission grant
       try {
         if (window.OneSignal.User?.PushSubscription?.optedIn === false) {
           await window.OneSignal.User.PushSubscription.optIn();
@@ -207,16 +242,15 @@ export async function requestPushPermission(): Promise<boolean> {
       } catch (e) {
         console.warn("[OneSignal] optIn after grant error:", e);
       }
-      await new Promise(r => setTimeout(r, 1500));
-      await registerCurrentDevice();
+      await new Promise((r) => setTimeout(r, 1500));
+      await syncOneSignalDeviceRegistration();
     }
     return granted;
   } catch (e) {
     console.error("[OneSignal] requestPermission error:", e);
-    // Fallback: check if permission was actually granted despite error
     const perm = Notification.permission as string;
     if (perm === "granted") {
-      await registerCurrentDevice();
+      await syncOneSignalDeviceRegistration();
       return true;
     }
     return false;
@@ -224,6 +258,8 @@ export async function requestPushPermission(): Promise<boolean> {
 }
 
 export function getDiagnostics(): Record<string, unknown> {
+  const worker = getOneSignalWorkerConfig();
+
   const info: Record<string, unknown> = {
     appIdCached: !!appIdCache,
     sdkLoaded: !!window.OneSignal,
@@ -233,6 +269,10 @@ export function getDiagnostics(): Record<string, unknown> {
     pushManagerSupported: "PushManager" in window,
     isSecureContext: window.isSecureContext,
     hostname: window.location.hostname,
+    basePath: getBasePath(),
+    workerPath: worker.serviceWorkerPath,
+    workerScope: worker.serviceWorkerScope,
+    blockReason: getOneSignalRuntimeBlockReason(),
   };
 
   if (window.OneSignal) {

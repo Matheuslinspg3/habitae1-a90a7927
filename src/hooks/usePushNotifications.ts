@@ -8,6 +8,8 @@ import {
   getPermissionState,
   requestPushPermission,
   getDiagnostics,
+  syncOneSignalDeviceRegistration,
+  getOneSignalRuntimeBlockReason,
 } from "@/lib/onesignal";
 import { toast } from "sonner";
 
@@ -18,13 +20,13 @@ export function usePushNotifications() {
   const [isLoading, setIsLoading] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
+  const [canFetchToken, setCanFetchToken] = useState(true);
 
   const addDebug = useCallback((msg: string) => {
     console.log("[Push]", msg);
     setDebugInfo((prev) => [...prev.slice(-29), `${new Date().toLocaleTimeString()}: ${msg}`]);
   }, []);
 
-  // Check support
   useEffect(() => {
     const supported = isPushSupported();
     setIsSupported(supported);
@@ -33,7 +35,6 @@ export function usePushNotifications() {
     }
   }, []);
 
-  // Initialize and login when user is available
   useEffect(() => {
     if (!user) return;
 
@@ -41,6 +42,12 @@ export function usePushNotifications() {
 
     const setup = async () => {
       addDebug("Inicializando OneSignal via Deferred...");
+      const blockReason = getOneSignalRuntimeBlockReason();
+      if (blockReason) {
+        addDebug(`⚠️ Ambiente bloqueado para push: ${blockReason}`);
+        return;
+      }
+
       const ready = await initOneSignal();
       if (cancelled || !ready) {
         addDebug(ready ? "Cancelado" : "❌ SDK não ficou pronto");
@@ -51,23 +58,28 @@ export function usePushNotifications() {
       await loginOneSignal(user.id);
       if (cancelled) return;
 
-      // Check subscription state after login
       if (window.OneSignal) {
         const pushSub = window.OneSignal.User?.PushSubscription;
         const perm = window.OneSignal.Notifications?.permission;
         const hasToken = !!pushSub?.token;
-        
+
+        if (perm === true && pushSub?.id) {
+          await syncOneSignalDeviceRegistration();
+        }
+
+        setCanFetchToken(hasToken);
         setIsSubscribed(perm === true && hasToken);
         setPermission(getPermissionState());
         addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
 
-        // Listen for subscription changes
         try {
           window.OneSignal.User?.PushSubscription?.addEventListener("change", (event: any) => {
             if (!cancelled) {
               const current = event.current;
-              addDebug(`Subscription mudou: optedIn=${current?.optedIn}, token=${current?.token ? "sim" : "não"}`);
-              setIsSubscribed(current?.optedIn === true && !!current?.token);
+              const hasTokenNow = !!current?.token;
+              addDebug(`Subscription mudou: optedIn=${current?.optedIn}, token=${hasTokenNow ? "sim" : "não"}`);
+              setCanFetchToken(hasTokenNow);
+              setIsSubscribed(current?.optedIn === true && hasTokenNow);
             }
           });
 
@@ -84,13 +96,15 @@ export function usePushNotifications() {
     };
 
     setup();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, addDebug]);
 
-  // Logout when user signs out
   useEffect(() => {
     if (!user) {
       logoutOneSignal();
+      setCanFetchToken(false);
       setIsSubscribed(false);
     }
   }, [user]);
@@ -101,67 +115,63 @@ export function usePushNotifications() {
     setIsLoading(true);
     try {
       addDebug("Inicializando OneSignal...");
-      const ready = await initOneSignal();
-      if (!ready) {
-        addDebug("❌ SDK não ficou pronto");
-        // Check if we're in an iframe (preview environment)
-        const isPreview = window.self !== window.top;
+      const blockReason = getOneSignalRuntimeBlockReason();
+      if (blockReason) {
+        addDebug(`❌ Ambiente bloqueado: ${blockReason}`);
         toast.error(
-          isPreview
-            ? "Notificações push não funcionam no preview. Teste no site publicado."
-            : "Serviço de notificações indisponível. Tente recarregar a página."
+          blockReason === "iframe"
+            ? "Notificações push não funcionam no preview do Lovable (iframe). Teste na URL publicada (GitHub/Vercel)."
+            : "Push exige HTTPS e contexto seguro. Abra o site publicado em https.",
         );
         return false;
       }
 
-      // Check if permission is already granted
+      const ready = await initOneSignal();
+      if (!ready) {
+        addDebug("❌ SDK não ficou pronto");
+        toast.error("Serviço de notificações indisponível. Tente recarregar a página.");
+        return false;
+      }
+
       const currentPermission = Notification.permission;
       addDebug(`Permissão atual: ${currentPermission}`);
-
-      if (currentPermission === "granted") {
-        addDebug("Permissão já concedida, registrando dispositivo...");
-      } else {
-        addDebug("Solicitando permissão...");
-      }
+      addDebug(currentPermission === "granted" ? "Permissão já concedida, registrando dispositivo..." : "Solicitando permissão...");
 
       const granted = await requestPushPermission();
       setPermission(getPermissionState());
 
       if (granted) {
         await loginOneSignal(user.id);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 2000));
 
         const diag = getDiagnostics();
         addDebug(`Diagnóstico: ${JSON.stringify(diag)}`);
 
         const hasToken = !!diag.pushToken;
+        setCanFetchToken(hasToken);
         setIsSubscribed(hasToken);
 
         if (hasToken) {
           addDebug("✅ Push ativado com token!");
           toast.success("Notificações push ativadas!");
+        } else if (Notification.permission === "granted") {
+          addDebug("⚠️ Permissão concedida mas ainda sem token");
+          toast.warning("Permissão concedida, mas sem token ativo ainda. Aguarde e clique em Reativar push.");
         } else {
-          // Even without token yet, if permission is granted we're good
-          if (Notification.permission === "granted") {
-            setIsSubscribed(true);
-            addDebug("✅ Permissão OK, token pode levar alguns segundos");
-            toast.success("Notificações push ativadas!");
-          } else {
-            addDebug("⚠️ Permissão OK mas sem token");
-            toast.warning("Permissão concedida, mas registro pendente. Recarregue a página.");
-          }
+          addDebug("⚠️ Permissão não concedida");
+          toast.warning("Permissão não concedida. Verifique as configurações do navegador.");
         }
-        return true;
-      } else {
-        const finalPerm = Notification.permission;
-        addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
-        if (finalPerm === "denied") {
-          toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
-        } else {
-          toast.error("Não foi possível ativar notificações. Tente novamente.");
-        }
-        return false;
+        return hasToken;
       }
+
+      const finalPerm = Notification.permission;
+      addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
+      if (finalPerm === "denied") {
+        toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
+      } else {
+        toast.error("Não foi possível ativar notificações. Tente novamente.");
+      }
+      return false;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
       addDebug(`❌ Erro: ${msg}`);
@@ -178,6 +188,7 @@ export function usePushNotifications() {
     setIsLoading(true);
     try {
       await logoutOneSignal();
+      setCanFetchToken(false);
       setIsSubscribed(false);
       toast.success("Notificações push desativadas");
     } catch (e) {
@@ -193,7 +204,7 @@ export function usePushNotifications() {
     isSubscribed,
     isLoading,
     permission,
-    canFetchToken: true,
+    canFetchToken,
     subscribe,
     unsubscribe,
     debugInfo,
