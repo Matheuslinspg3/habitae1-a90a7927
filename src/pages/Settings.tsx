@@ -795,6 +795,7 @@ export default function Settings() {
 
 function PushNotificationCard() {
   const { isSupported, isSubscribed, isLoading, permission, canFetchToken, subscribe, unsubscribe } = usePushNotifications();
+  const isIframe = window.self !== window.top;
 
   if (!isSupported) {
     return (
@@ -824,6 +825,16 @@ function PushNotificationCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isIframe && (
+          <div className="rounded-md border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-950/30">
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              ⚠️ Notificações push não funcionam no modo preview (iframe). Teste na{" "}
+              <a href="https://habitae1.lovable.app/configuracoes" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                URL publicada
+              </a>.
+            </p>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <p className="text-sm font-medium">
@@ -845,7 +856,7 @@ function PushNotificationCard() {
           </div>
           <Switch
             checked={isSubscribed}
-            disabled={isLoading || permission === "denied"}
+            disabled={isLoading || permission === "denied" || isIframe}
             onCheckedChange={(checked) => {
               if (checked) subscribe();
               else unsubscribe();
