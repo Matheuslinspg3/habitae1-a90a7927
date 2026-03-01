@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.rd-station-webhook]
 verify_jwt = false
+
+[functions.meta-save-account]
+verify_jwt = false
