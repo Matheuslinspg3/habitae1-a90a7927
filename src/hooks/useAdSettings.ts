@@ -34,7 +34,7 @@ export function useAdAccount() {
       if (!profile?.organization_id) return null;
       const { data } = await supabase
         .from('ad_accounts')
-        .select('*')
+        .select('id, organization_id, provider, external_account_id, name, is_active, status, created_at, updated_at')
         .eq('organization_id', profile.organization_id)
         .eq('provider', 'meta' as any)
         .maybeSingle();
@@ -46,19 +46,11 @@ export function useAdAccount() {
   const saveAccount = useMutation({
     mutationFn: async ({ accessToken, adAccountId }: { accessToken: string; adAccountId: string }) => {
       if (!profile?.organization_id) throw new Error('Organização não encontrada');
-      const { error } = await supabase
-        .from('ad_accounts')
-        .upsert({
-          organization_id: profile.organization_id,
-          provider: 'meta' as any,
-          external_account_id: adAccountId,
-          name: `Meta Ads - ${adAccountId}`,
-          is_active: true,
-          auth_payload: { access_token: accessToken },
-          status: 'connected',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id,provider' } as any);
+      const { data, error } = await supabase.functions.invoke('meta-save-account', {
+        body: { accessToken, adAccountId },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ad-account'] });
