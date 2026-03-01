@@ -120,8 +120,10 @@ export function usePushNotifications() {
         addDebug(`❌ Ambiente bloqueado: ${blockReason}`);
         toast.error(
           blockReason === "iframe"
-            ? "Notificações push não funcionam no preview do Lovable (iframe). Teste na URL publicada (GitHub/Vercel)."
-            : "Push exige HTTPS e contexto seguro. Abra o site publicado em https.",
+            ? "Notificações push não funcionam no preview do Lovable (iframe). Teste na URL publicada."
+            : blockReason === "ios-standalone-required"
+              ? "No iPhone/iPad, push só funciona com o app instalado na Tela de Início (modo PWA)."
+              : "Push exige HTTPS e contexto seguro. Abra o site publicado em https.",
         );
         return false;
       }
@@ -142,12 +144,21 @@ export function usePushNotifications() {
 
       if (granted) {
         await loginOneSignal(user.id);
-        await new Promise((r) => setTimeout(r, 2000));
 
-        const diag = getDiagnostics();
-        addDebug(`Diagnóstico: ${JSON.stringify(diag)}`);
+        let diag = getDiagnostics();
+        let hasToken = !!diag.pushToken;
+        let attempts = 0;
 
-        const hasToken = !!diag.pushToken;
+        while (!hasToken && attempts < 10) {
+          attempts += 1;
+          await new Promise((r) => setTimeout(r, 1000));
+          diag = getDiagnostics();
+          hasToken = !!diag.pushToken;
+          addDebug(`Aguardando token (${attempts}/10): ${hasToken ? "ok" : "pendente"}`);
+        }
+
+        addDebug(`Diagnóstico final: ${JSON.stringify(diag)}`);
+
         setCanFetchToken(hasToken);
         setIsSubscribed(hasToken);
 
@@ -156,7 +167,7 @@ export function usePushNotifications() {
           toast.success("Notificações push ativadas!");
         } else if (Notification.permission === "granted") {
           addDebug("⚠️ Permissão concedida mas ainda sem token");
-          toast.warning("Permissão concedida, mas sem token ativo ainda. Aguarde e clique em Reativar push.");
+          toast.warning("Permissão concedida, mas o token push não foi gerado. Tente novamente em alguns segundos.");
         } else {
           addDebug("⚠️ Permissão não concedida");
           toast.warning("Permissão não concedida. Verifique as configurações do navegador.");

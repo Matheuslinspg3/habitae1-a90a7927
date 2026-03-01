@@ -826,8 +826,8 @@ function PushNotificationCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {isIframe && (
-          <div className="rounded-md border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-950/30">
-            <p className="text-xs text-amber-900 dark:text-amber-200">
+          <div className="rounded-md border border-border/60 bg-muted p-3">
+            <p className="text-xs text-muted-foreground">
               ⚠️ Notificações push não funcionam no modo preview (iframe). Teste na{" "}
               <a href="https://habitae1.lovable.app/configuracoes" target="_blank" rel="noopener noreferrer" className="underline font-medium">
                 URL publicada
@@ -864,8 +864,8 @@ function PushNotificationCard() {
           />
         </div>
         {!isSubscribed && !canFetchToken && permission !== "denied" && (
-          <div className="rounded-md border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-950/30">
-            <p className="text-xs text-amber-900 dark:text-amber-200">
+          <div className="rounded-md border border-border/60 bg-muted p-3">
+            <p className="text-xs text-muted-foreground">
               Este dispositivo está sem token de push ativo. Clique em <strong>Reativar push</strong> para tentar novamente.
             </p>
             <Button
