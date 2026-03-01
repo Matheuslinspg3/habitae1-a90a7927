@@ -94,6 +94,11 @@ async function cleanupLegacyRootOneSignalWorker(): Promise<void> {
   }
 }
 
+function isAlreadyInitializedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /already initialized/i.test(message);
+}
+
 function setInitFailureFromError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
 
@@ -190,6 +195,15 @@ export async function initOneSignal(): Promise<boolean> {
       sdkReady = true;
       sdkReadyResolve?.(true);
     } catch (e) {
+      if (isAlreadyInitializedError(e)) {
+        console.info("[OneSignal] SDK já estava inicializado; reutilizando instância.");
+        sdkReady = true;
+        initFailureReason = null;
+        initFailureDetail = null;
+        sdkReadyResolve?.(true);
+        return;
+      }
+
       console.error("[OneSignal] init error:", e);
       sdkReady = false;
       setInitFailureFromError(e);
