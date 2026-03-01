@@ -62,13 +62,13 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
       category,
     } as any).select().single();
 
-    if (!error && data) {
-      // Enviar para webhook n8n/WhatsApp
+    // Enviar para webhook n8n/WhatsApp independente do retorno do data
+    if (!error) {
       supabase.functions.invoke("send-ticket-webhook", {
         body: {
           webhook_url: "https://n8n.costazul.shop/webhook/lovableportadocorrerora",
           payload: {
-            ticket_id: (data as any).id,
+            ticket_id: (data as any)?.id ?? "unknown",
             subject: subject.trim(),
             description: description.trim(),
             category,
@@ -76,7 +76,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
             source: "porta_do_corretor",
           },
         },
-      }).catch(() => {}); // fire-and-forget
+      }).catch((err) => console.error("Webhook error:", err));
     }
 
     setSending(false);
