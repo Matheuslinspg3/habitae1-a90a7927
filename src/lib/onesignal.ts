@@ -157,6 +157,8 @@ export async function initOneSignal(): Promise<boolean> {
   if (sdkReady) return true;
   if (sdkReadyPromise) return sdkReadyPromise;
 
+  const previousFailureReason = initFailureReason;
+  const previousFailureDetail = initFailureDetail;
   initFailureReason = null;
   initFailureDetail = null;
 
@@ -196,6 +198,18 @@ export async function initOneSignal(): Promise<boolean> {
       sdkReadyResolve?.(true);
     } catch (e) {
       if (isAlreadyInitializedError(e)) {
+        const hadPreviousFatalFailure = previousFailureReason === "domain-mismatch" || previousFailureReason === "service-worker-invalid-state";
+
+        if (hadPreviousFatalFailure) {
+          console.warn("[OneSignal] SDK já estava inicializado após falha crítica anterior; mantendo init como inválido.");
+          sdkReady = false;
+          initFailureReason = previousFailureReason;
+          initFailureDetail = previousFailureDetail;
+          sdkReadyResolve?.(false);
+          sdkReadyPromise = null;
+          return;
+        }
+
         console.info("[OneSignal] SDK já estava inicializado; reutilizando instância.");
         sdkReady = true;
         initFailureReason = null;
