@@ -32,6 +32,15 @@ export function getOneSignalWorkerConfig() {
   };
 }
 
+function isIOSDevice(): boolean {
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
+}
+
+function isStandalonePWA(): boolean {
+  return window.matchMedia("(display-mode: standalone)").matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 export function getOneSignalRuntimeBlockReason(): string | null {
   if (!window.isSecureContext) {
     return "insecure-context";
@@ -39,6 +48,10 @@ export function getOneSignalRuntimeBlockReason(): string | null {
 
   if (window.self !== window.top) {
     return "iframe";
+  }
+
+  if (isIOSDevice() && !isStandalonePWA()) {
+    return "ios-standalone-required";
   }
 
   return null;
