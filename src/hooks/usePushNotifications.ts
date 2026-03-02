@@ -190,11 +190,19 @@ export function usePushNotifications() {
       }
 
       const finalPerm = Notification.permission;
+      const diag = getDiagnostics();
       addDebug(`❌ Resultado: granted=${granted}, permission=${finalPerm}`);
       if (finalPerm === "denied") {
         toast.error("Permissão de notificação bloqueada. Verifique as configurações do navegador.");
       } else {
-        toast.error("Não foi possível ativar notificações. Tente novamente.");
+        const reason = String(diag.initFailureReason || "");
+        toast.error(
+          reason === "push-permission-denied"
+            ? "Inscrição push negada pelo navegador (comum em aba anônima/incógnito). Use aba normal e tente novamente."
+            : reason === "service-worker-path-invalid"
+              ? "Falha no caminho do Service Worker de push. Recarregue a página e tente novamente."
+              : "Não foi possível ativar notificações. Tente novamente.",
+        );
       }
       return false;
     } catch (e: unknown) {

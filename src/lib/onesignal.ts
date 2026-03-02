@@ -17,21 +17,31 @@ let legacyWorkerCleanupDone = false;
 
 function getBasePath(): string {
   const raw = (import.meta.env.BASE_URL || "/").trim();
-  if (!raw || raw === "/") return "/";
-  const normalized = raw.startsWith("/") ? raw : `/${raw}`;
-  return normalized.endsWith("/") ? normalized : `${normalized}/`;
+  if (!raw || raw === "/" || raw === "//") return "/";
+
+  const withoutOrigin = raw.replace(/^https?:\/\/[^/]+/i, "/");
+  const trimmed = withoutOrigin.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!trimmed) return "/";
+
+  return `/${trimmed}/`;
 }
 
 function joinWithBase(relativePath: string): string {
   const base = getBasePath();
-  const path = relativePath.replace(/^\//, "");
-  return `${base}${path}`;
+  const cleanedPath = relativePath.replace(/^\/+/, "");
+  if (base === "/") return `/${cleanedPath}`;
+  return `${base}${cleanedPath}`;
+}
+
+function toOneSignalScriptPath(relativePath: string): string {
+  // OneSignal concatena paths internamente em alguns fluxos; sem barra inicial evita gerar "//push" => "https://push".
+  return joinWithBase(relativePath).replace(/^\/+/, "");
 }
 
 export function getOneSignalWorkerConfig() {
   return {
-    serviceWorkerPath: joinWithBase("push/onesignal/OneSignalSDKWorker.js"),
-    serviceWorkerUpdaterPath: joinWithBase("push/onesignal/OneSignalSDKUpdaterWorker.js"),
+    serviceWorkerPath: toOneSignalScriptPath("push/onesignal/OneSignalSDKWorker.js"),
+    serviceWorkerUpdaterPath: toOneSignalScriptPath("push/onesignal/OneSignalSDKUpdaterWorker.js"),
     serviceWorkerScope: joinWithBase("push/onesignal/"),
   };
 }
@@ -105,6 +115,18 @@ function setInitFailureFromError(error: unknown) {
 
   if (message.includes("Can only be used on:")) {
     initFailureReason = "domain-mismatch";
+    initFailureDetail = message;
+    return;
+  }
+
+  if (message.includes("https://push") || message.includes("origin of the provided scriptURL")) {
+    initFailureReason = "service-worker-path-invalid";
+    initFailureDetail = message;
+    return;
+  }
+
+  if (message.includes("AbortError") || message.toLowerCase().includes("permission denied")) {
+    initFailureReason = "push-permission-denied";
     initFailureDetail = message;
     return;
   }
