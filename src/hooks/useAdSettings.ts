@@ -10,7 +10,6 @@ export interface AdAccount {
   external_account_id: string | null;
   name: string | null;
   is_active: boolean;
-  auth_payload: any;
   status: string;
   created_at: string;
   updated_at: string;
