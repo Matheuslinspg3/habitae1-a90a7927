@@ -28,19 +28,11 @@ function joinWithBase(relativePath: string): string {
   return `${base}${path}`;
 }
 
-function toAbsoluteSameOriginUrl(path: string): string {
-  return new URL(path, window.location.origin).toString();
-}
-
 export function getOneSignalWorkerConfig() {
-  const serviceWorkerPath = joinWithBase("push/onesignal/OneSignalSDKWorker.js");
-  const serviceWorkerUpdaterPath = joinWithBase("push/onesignal/OneSignalSDKUpdaterWorker.js");
-  const serviceWorkerScope = joinWithBase("push/onesignal/");
-
   return {
-    serviceWorkerPath: toAbsoluteSameOriginUrl(serviceWorkerPath),
-    serviceWorkerUpdaterPath: toAbsoluteSameOriginUrl(serviceWorkerUpdaterPath),
-    serviceWorkerScope,
+    serviceWorkerPath: joinWithBase("push/onesignal/OneSignalSDKWorker.js"),
+    serviceWorkerUpdaterPath: joinWithBase("push/onesignal/OneSignalSDKUpdaterWorker.js"),
+    serviceWorkerScope: joinWithBase("push/onesignal/"),
   };
 }
 
