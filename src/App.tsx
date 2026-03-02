@@ -15,6 +15,8 @@ import { DeveloperRoute } from "@/components/developer/DeveloperRoute";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { FloatingImportProgress } from "@/components/integrations/FloatingImportProgress";
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { ClarityProvider } from "@/components/ClarityProvider";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages
@@ -84,6 +86,8 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <FloatingImportProgress />
+                  <ClarityProvider />
+                  <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/auth" element={<Auth />} />

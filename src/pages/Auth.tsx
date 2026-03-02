@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { trackLoginSuccess } from "@/components/ClarityProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +66,8 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
           ? "Email ou senha incorretos"
           : error.message,
       });
+    } else {
+      trackLoginSuccess();
     }
   };
 
@@ -101,7 +104,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   // If user is already logged in, the useEffect above will redirect.
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-background">
+    <div className="min-h-screen flex flex-col relative overflow-hidden bg-background" data-clarity-mask="true">
       {/* Warm mesh background */}
       <div className="absolute inset-0 pointer-events-none bg-gradient-mesh-vibrant" />
 

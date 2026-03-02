@@ -232,7 +232,7 @@ export default function Administration() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen" data-clarity-mask="true">
       <PageHeader title="Administração" description="Coordene sua equipe e distribua tarefas" />
       <div className="flex-1 p-4 sm:p-6">
         <Tabs defaultValue="team" className="space-y-6">
