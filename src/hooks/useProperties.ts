@@ -290,7 +290,7 @@ export function useProperties() {
   });
 
   const updateProperty = useMutation({
-    mutationFn: async ({ id, data, images }: { id: string; data: TablesUpdate<'properties'>; images?: ImageData[] }) => {
+    mutationFn: async ({ id, data, images, ownerData }: { id: string; data: TablesUpdate<'properties'>; images?: ImageData[]; ownerData?: OwnerData }) => {
       const { data: updated, error } = await supabase
         .from('properties')
         .update(data)
@@ -324,6 +324,95 @@ export function useProperties() {
           await supabase
             .from('property_images')
             .insert(imagesToInsert);
+        }
+      }
+
+      // Atualizar proprietário se fornecido
+      if (ownerData?.name) {
+        try {
+          // Check if property already has an owner record
+          const { data: existingPO } = await supabase
+            .from('property_owners')
+            .select('id')
+            .eq('property_id', id)
+            .eq('is_primary', true)
+            .maybeSingle();
+
+          const ownerRecord = {
+            name: ownerData.name,
+            phone: ownerData.phone || null,
+            email: ownerData.email || null,
+            document: ownerData.document || null,
+            notes: ownerData.notes || null,
+          };
+
+          if (existingPO) {
+            await supabase
+              .from('property_owners')
+              .update(ownerRecord)
+              .eq('id', existingPO.id);
+          } else if (profile?.organization_id) {
+            await supabase
+              .from('property_owners')
+              .insert({
+                ...ownerRecord,
+                property_id: id,
+                organization_id: profile.organization_id,
+                is_primary: true,
+              });
+          }
+
+          // Also update/create centralized owner if phone exists
+          if (ownerData.phone && profile?.organization_id) {
+            const normPhone = ownerData.phone.replace(/[^0-9]/g, '');
+            const { data: existingOwner } = await supabase
+              .from('owners')
+              .select('id')
+              .eq('organization_id', profile.organization_id)
+              .eq('phone', normPhone)
+              .maybeSingle();
+
+            if (existingOwner) {
+              // Update alias
+              const { data: existingAlias } = await supabase
+                .from('owner_aliases')
+                .select('id, occurrence_count')
+                .eq('owner_id', existingOwner.id)
+                .eq('name', ownerData.name)
+                .maybeSingle();
+
+              if (existingAlias) {
+                await supabase.from('owner_aliases')
+                  .update({ occurrence_count: (existingAlias.occurrence_count || 0) + 1 })
+                  .eq('id', existingAlias.id);
+              } else {
+                await supabase.from('owner_aliases').insert({
+                  owner_id: existingOwner.id,
+                  name: ownerData.name,
+                  occurrence_count: 1,
+                });
+              }
+
+              // Update primary_name
+              const { data: topAlias } = await supabase
+                .from('owner_aliases')
+                .select('name')
+                .eq('owner_id', existingOwner.id)
+                .order('occurrence_count', { ascending: false })
+                .limit(1);
+
+              if (topAlias?.[0]) {
+                await supabase.from('owners').update({ primary_name: topAlias[0].name }).eq('id', existingOwner.id);
+              }
+
+              // Link to property_owners
+              if (existingPO) {
+                await supabase.from('property_owners').update({ owner_id: existingOwner.id }).eq('id', existingPO.id);
+              }
+            }
+          }
+        } catch (ownerError) {
+          console.error('Erro ao atualizar proprietário:', ownerError);
         }
       }
 
@@ -792,8 +881,8 @@ export function useProperties() {
     refetch,
     createProperty: (propertyData: PropertyFormData, images: ImageData[] = [], ownerData?: OwnerData) => 
       createProperty.mutateAsync({ propertyData, images, ownerData }),
-    updateProperty: (id: string, data: TablesUpdate<'properties'>, images?: ImageData[]) =>
-      updateProperty.mutateAsync({ id, data, images }),
+    updateProperty: (id: string, data: TablesUpdate<'properties'>, images?: ImageData[], ownerData?: OwnerData) =>
+      updateProperty.mutateAsync({ id, data, images, ownerData }),
     deleteProperty: deleteProperty.mutateAsync,
     bulkDeleteProperties: bulkDeleteProperties.mutateAsync,
     bulkInactivateProperties: bulkInactivateProperties.mutateAsync,
