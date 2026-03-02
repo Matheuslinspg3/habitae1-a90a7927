@@ -18,10 +18,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { MessageSquare, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { TicketChat } from "./TicketChat";
 
 interface Ticket {
   id: string;
@@ -165,48 +167,59 @@ export function TicketsTab() {
 
       {/* Detail dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
           {selectedTicket && (
             <>
               <DialogHeader>
                 <DialogTitle className="text-base">{selectedTicket.subject}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline">{categoryLabels[selectedTicket.category] || selectedTicket.category}</Badge>
-                  <Badge variant={statusConfig[selectedTicket.status]?.variant || "outline"}>
-                    {statusConfig[selectedTicket.status]?.label || selectedTicket.status}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {format(new Date(selectedTicket.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                  </span>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
-                  <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
-                </div>
-                <Separator />
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">Alterar status:</p>
-                  <Select
-                    value={selectedTicket.status}
-                    onValueChange={(val) => {
-                      updateStatus.mutate({ id: selectedTicket.id, status: val });
-                      setSelectedTicket({ ...selectedTicket, status: val });
-                    }}
-                  >
-                    <SelectTrigger className="w-[160px] h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="open">Aberto</SelectItem>
-                      <SelectItem value="in_progress">Em andamento</SelectItem>
-                      <SelectItem value="resolved">Resolvido</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
+                <TabsList className="w-full">
+                  <TabsTrigger value="chat" className="flex-1">Chat</TabsTrigger>
+                  <TabsTrigger value="details" className="flex-1">Detalhes</TabsTrigger>
+                </TabsList>
+                <TabsContent value="chat" className="flex-1 min-h-0">
+                  <TicketChat ticketId={selectedTicket.id} ticketSubject={selectedTicket.subject} />
+                </TabsContent>
+                <TabsContent value="details">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline">{categoryLabels[selectedTicket.category] || selectedTicket.category}</Badge>
+                      <Badge variant={statusConfig[selectedTicket.status]?.variant || "outline"}>
+                        {statusConfig[selectedTicket.status]?.label || selectedTicket.status}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {format(new Date(selectedTicket.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                    <Separator />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
+                      <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-medium text-muted-foreground">Alterar status:</p>
+                      <Select
+                        value={selectedTicket.status}
+                        onValueChange={(val) => {
+                          updateStatus.mutate({ id: selectedTicket.id, status: val });
+                          setSelectedTicket({ ...selectedTicket, status: val });
+                        }}
+                      >
+                        <SelectTrigger className="w-[160px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Aberto</SelectItem>
+                          <SelectItem value="in_progress">Em andamento</SelectItem>
+                          <SelectItem value="resolved">Resolvido</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </>
           )}
         </DialogContent>
