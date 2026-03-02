@@ -64,8 +64,12 @@ export function SendPushCard() {
 
       if (data?.ok && (data?.recipientsCount || 0) > 0) {
         toast.success(`Enviado via OneSignal (ID: ${data.notificationId || "n/a"})`);
-      } else if (data?.ok) {
+      } else if (data?.ok && data?.reason === "no_registered_devices") {
         toast.warning("Usuário sem dispositivos inscritos no OneSignal.");
+      } else if (data?.ok && data?.reason === "invalid_subscriptions") {
+        toast.warning("Dispositivo desatualizado no OneSignal. Reative o push neste navegador.");
+      } else if (data?.ok) {
+        toast.warning("Sem entrega push: inscrição não entregável no OneSignal.");
       } else {
         setLastErrorDetails(data?.errorDetails || data);
         toast.error(data?.errorMessage || "Falha ao enviar notificação");
