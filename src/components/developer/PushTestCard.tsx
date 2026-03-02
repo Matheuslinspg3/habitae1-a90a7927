@@ -71,9 +71,15 @@ export function PushTestCard() {
 
       if (data?.ok && data?.recipientsCount > 0) {
         toast.success(`Push enviado para ${data.recipientsCount} dispositivo(s)!`);
-      } else {
+      } else if (data?.ok && data?.reason === "no_registered_devices") {
         toast.warning("Usuário sem dispositivos inscritos no OneSignal.");
-        addDebug("⚠️ sent=0 — Verifique se o token existe no diagnóstico");
+        addDebug("⚠️ sent=0 — Nenhum device registrado para este usuário");
+      } else if (data?.ok && data?.reason === "invalid_subscriptions") {
+        toast.warning("Dispositivo desatualizado no OneSignal. Reative o push neste navegador.");
+        addDebug(`⚠️ sent=0 — IDs inválidos removidos: ${data?.invalidIdsRemoved ?? 0}`);
+      } else {
+        toast.warning("Sem entrega push: inscrição não entregável no OneSignal (ver detalhes técnicos).");
+        addDebug(`⚠️ sent=0 — reason=${data?.reason || "desconhecido"}, attempted=${data?.attemptedIds ?? "n/a"}`);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "erro desconhecido";
