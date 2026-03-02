@@ -16,8 +16,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug } from "lucide-react";
+import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare } from "lucide-react";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
+import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { cn } from "@/lib/utils";
 import { PillBadge } from "@/components/ui/pill-badge";
 import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
@@ -348,6 +349,7 @@ export default function Settings() {
               {isDeveloperOrLeader && (
                 <TabsTrigger value="clients" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><Megaphone className="h-4 w-4 shrink-0" /><span>Clientes</span></TabsTrigger>
               )}
+              <TabsTrigger value="support" className="gap-2 min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"><MessageSquare className="h-4 w-4 shrink-0" /><span>Suporte</span></TabsTrigger>
             </TabsList>
           </div>
 
@@ -787,6 +789,19 @@ export default function Settings() {
               </div>
             </TabsContent>
           )}
+
+          <TabsContent value="support">
+            <div className="grid gap-6 max-w-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Meus Tickets</h3>
+                  <p className="text-sm text-muted-foreground">Acompanhe seus tickets e converse com o suporte</p>
+                </div>
+                <SupportTicketDialog />
+              </div>
+              <UserTicketsSection />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
