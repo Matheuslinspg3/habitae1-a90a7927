@@ -88,6 +88,22 @@ export class NotificationService {
   async registerDevice(params: RegisterDeviceParams) {
     const { userId, onesignalId, platform, metadata = {} } = params;
 
+    // If the same browser/device (same OneSignal subscription id) changed account,
+    // remove stale links from previous users before upserting the current user.
+    const { error: detachError } = await this.supabase
+      .from("user_devices")
+      .delete()
+      .eq("onesignal_id", onesignalId)
+      .neq("user_id", userId);
+
+    if (detachError) {
+      this.log.warn("Failed to detach OneSignal ID from previous users", {
+        user_id: userId,
+        onesignal_id: onesignalId,
+        code: detachError.code,
+      });
+    }
+
     const { error } = await this.supabase
       .from("user_devices")
       .upsert(
