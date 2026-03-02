@@ -138,13 +138,31 @@ export function useProperties() {
           ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
         }));
 
-        const { error: imagesError } = await supabase
-          .from('property_images')
-          .insert(imagesToInsert);
+        console.log(`[createProperty] Salvando ${imagesToInsert.length} imagens para property ${data.id}`);
 
-        if (imagesError) {
-          console.error('Erro ao salvar imagens:', imagesError);
+        // Insert in chunks of 20 to avoid payload size issues
+        const CHUNK = 20;
+        let totalSaved = 0;
+        for (let i = 0; i < imagesToInsert.length; i += CHUNK) {
+          const chunk = imagesToInsert.slice(i, i + CHUNK);
+          const { error: imagesError, data: insertedData } = await supabase
+            .from('property_images')
+            .insert(chunk)
+            .select('id');
+
+          if (imagesError) {
+            console.error(`[createProperty] Erro ao salvar imagens (chunk ${i / CHUNK + 1}):`, imagesError);
+            toast({
+              title: 'Erro parcial ao salvar fotos',
+              description: `${totalSaved} de ${imagesToInsert.length} fotos salvas. Erro: ${imagesError.message}`,
+              variant: 'destructive',
+            });
+            break;
+          }
+          totalSaved += insertedData?.length || chunk.length;
         }
+
+        console.log(`[createProperty] ${totalSaved}/${imagesToInsert.length} imagens salvas com sucesso`);
       }
 
       // Salvar proprietário se fornecido (com deduplicação)
