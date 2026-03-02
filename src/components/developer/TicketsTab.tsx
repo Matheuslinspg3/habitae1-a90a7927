@@ -35,6 +35,8 @@ interface Ticket {
   status: string;
   created_at: string;
   updated_at: string;
+  user_name?: string;
+  org_name?: string;
 }
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }> = {
@@ -63,7 +65,26 @@ export function TicketsTab() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as unknown as Ticket[];
+      const tickets = (data || []) as unknown as Ticket[];
+
+      // Fetch user names and org names
+      if (tickets.length === 0) return tickets;
+      const userIds = [...new Set(tickets.map((t) => t.user_id))];
+      const orgIds = [...new Set(tickets.map((t) => t.organization_id))];
+
+      const [profilesRes, orgsRes] = await Promise.all([
+        supabase.from("profiles").select("user_id, full_name").in("user_id", userIds),
+        supabase.from("organizations").select("id, name").in("id", orgIds),
+      ]);
+
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p.full_name]));
+      const orgMap = new Map((orgsRes.data || []).map((o: any) => [o.id, o.name]));
+
+      return tickets.map((t) => ({
+        ...t,
+        user_name: profileMap.get(t.user_id) || "Desconhecido",
+        org_name: orgMap.get(t.organization_id) || "Desconhecida",
+      }));
     },
   });
 
@@ -149,7 +170,10 @@ export function TicketsTab() {
                         <Badge variant="outline" className="text-[10px]">
                           {categoryLabels[ticket.category] || ticket.category}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {ticket.user_name} • {ticket.org_name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
                           {format(new Date(ticket.created_at), "dd MMM yyyy HH:mm", { locale: ptBR })}
                         </span>
                       </div>
