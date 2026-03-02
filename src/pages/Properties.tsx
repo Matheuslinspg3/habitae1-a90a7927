@@ -478,7 +478,7 @@ export default function Properties() {
   const executePropertySubmit = useCallback(async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     let propertyId: string | undefined;
     if (editingProperty) {
-      await updateProperty(editingProperty.id, data, images);
+      await updateProperty(editingProperty.id, data, images, ownerData);
       propertyId = editingProperty.id;
     } else {
       const result = await createProperty(data, images, ownerData);

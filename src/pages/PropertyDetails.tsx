@@ -142,9 +142,9 @@ export default function PropertyDetails() {
     enabled: !!id,
   });
 
-  const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], _ownerData?: any, publishMarketplace?: boolean) => {
+  const handleFormSubmit = async (data: PropertyFormData, images: PropertyImage[], ownerData?: any, publishMarketplace?: boolean) => {
     if (!id) return;
-    await updateProperty(id, data, images);
+    await updateProperty(id, data, images, ownerData);
     if (publishMarketplace) {
       // Fire-and-forget: run in background
       publishToMarketplace(id).catch(() => {});
