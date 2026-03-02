@@ -134,7 +134,7 @@ export function PropertyImageUpload({ images, onChange, maxImages = 200, organiz
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           multiple
           className="hidden"
           onChange={handleFileSelect}
