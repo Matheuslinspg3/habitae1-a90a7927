@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ ok: false, provider: "onesignal", errorMessage: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ ok: false, provider: "onesignal", errorMessage: "Unauthorized – no auth header" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabase = createClient(
@@ -24,13 +24,12 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ ok: false, provider: "onesignal", errorMessage: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ ok: false, provider: "onesignal", errorMessage: "Unauthorized – invalid token" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { title, message, userId } = await req.json();
     if (!title || !message) {
       return new Response(JSON.stringify({ ok: false, provider: "onesignal", errorMessage: "title and message are required" }), {
-        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -51,7 +50,7 @@ Deno.serve(async (req) => {
     const msg = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ ok: false, provider: "onesignal", errorMessage: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
