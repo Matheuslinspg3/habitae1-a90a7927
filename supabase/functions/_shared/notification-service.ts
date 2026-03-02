@@ -164,6 +164,22 @@ export class NotificationService {
     }
 
     const result = await this.sendToDeviceIds(ids, title, message, data);
+
+    if (result.ok && result.recipientsCount === 0 && result.reason === "no_deliverable_subscriptions") {
+      this.log.warn("No deliverable subscriptions by stored IDs, retrying with external_id alias", {
+        user_id: userId,
+        resolved_device_count: ids.length,
+      });
+
+      const aliasResult = await this.sendToExternalUserAlias(userId, title, message, data);
+      return {
+        ...aliasResult,
+        resolvedDeviceCount: ids.length,
+        fallbackStrategy: "external_id_alias",
+        fallbackFromReason: result.reason,
+      };
+    }
+
     return {
       ...result,
       resolvedDeviceCount: ids.length,
@@ -248,6 +264,53 @@ export class NotificationService {
       reason,
       attemptedIds: uniqueIds.length,
       invalidIdsRemoved: invalidIds.length,
+      raw: body,
+    };
+  }
+
+  async sendToExternalUserAlias(userId: string, title: string, message: string, data: Record<string, unknown> = {}) {
+    const response = await fetch("https://api.onesignal.com/notifications", {
+      method: "POST",
+      headers: {
+        "Authorization": `Key ${this.restApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        app_id: this.appId,
+        include_aliases: { external_id: [userId] },
+        target_channel: "push",
+        headings: { en: title },
+        contents: { en: message || title },
+        data,
+      }),
+    });
+
+    const body = await response.json() as OneSignalResponse;
+    if (!response.ok) {
+      this.log.error("OneSignal alias request failed", { status: response.status, response: body, user_id: userId });
+      return {
+        ok: false,
+        provider: "onesignal",
+        errorMessage: "Falha no envio via alias do OneSignal",
+        errorDetails: body,
+      };
+    }
+
+    const recipientsCount = Number(body.recipients ?? 0);
+    const providerHasErrors = hasOneSignalErrors(body.errors);
+
+    let reason: string | null = null;
+    if (recipientsCount === 0) {
+      reason = providerHasErrors ? "provider_errors" : "no_deliverable_alias_subscriptions";
+    }
+
+    return {
+      ok: true,
+      provider: "onesignal",
+      notificationId: body.id ?? null,
+      recipientsCount,
+      reason,
+      attemptedAliases: 1,
       raw: body,
     };
   }
