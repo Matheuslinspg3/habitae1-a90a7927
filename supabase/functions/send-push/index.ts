@@ -44,11 +44,13 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     let isAuthorized = false;
+    const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpZmxma2tqaXR2c3lzendkZmdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDEzNzksImV4cCI6MjA4NjkxNzM3OX0._GxDwg_psa_ReqNFPFT7S5mKbTz1ZKWS6xEIsbuP6LA";
+    const isInternalApiKey = !!apiKeyHeader && (apiKeyHeader === anonKey || apiKeyHeader === legacyAnonKey);
 
     if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      if (token === serviceRoleKey) {
-        // Called with service-role key
+      const token = authHeader.replace("Bearer ", "").trim();
+      if (token === serviceRoleKey || token === anonKey || token === legacyAnonKey) {
+        // Called with service-role key or internal API keys used by DB trigger/gateway.
         isAuthorized = true;
       } else {
         // Validate as user JWT
@@ -62,9 +64,10 @@ Deno.serve(async (req) => {
           isAuthorized = true;
         }
       }
-    } else if (apiKeyHeader && apiKeyHeader === anonKey) {
-      // Internal call from DB trigger via net.http_post (no Authorization header, only apikey)
-      // This is trusted because net.http_post is only callable from within the database
+    }
+
+    if (!isAuthorized && isInternalApiKey) {
+      // Internal call from DB trigger via net.http_post
       isAuthorized = true;
     }
 
@@ -97,6 +100,20 @@ Deno.serve(async (req) => {
       notification_type: notification_type || "",
       web_url: webUrl,
     });
+
+    if (result.ok && result.recipientsCount === 0) {
+      console.log(
+        JSON.stringify({
+          event: "send-push-no-recipients",
+          user_id,
+          reason: result.reason ?? null,
+          resolvedDeviceCount: result.resolvedDeviceCount ?? null,
+          attemptedIds: result.attemptedIds ?? null,
+          invalidIdsRemoved: result.invalidIdsRemoved ?? null,
+          providerErrors: result.raw?.errors ?? null,
+        }),
+      );
+    }
 
     if (!result.ok) {
       return new Response(JSON.stringify(result), {
