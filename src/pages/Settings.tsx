@@ -841,7 +841,7 @@ function PushNotificationCard() {
               {isSubscribed
                 ? "Push ativado"
                 : !canFetchToken
-                  ? "Não inscrito neste dispositivo"
+                  ? "Notificações inativas"
                   : "Push desativado"}
             </p>
             <p className="text-xs text-muted-foreground">
@@ -850,7 +850,7 @@ function PushNotificationCard() {
                 : isSubscribed
                   ? "Você receberá alertas de novos leads, imóveis e compromissos"
                   : !canFetchToken
-                    ? "Não conseguimos obter o token deste dispositivo. Reative o push."
+                    ? "As notificações ainda não foram ativadas neste aparelho."
                     : "Ative para ser notificado instantaneamente"}
             </p>
           </div>
@@ -866,7 +866,7 @@ function PushNotificationCard() {
         {!isSubscribed && !canFetchToken && permission !== "denied" && (
           <div className="rounded-md border border-border/60 bg-muted p-3">
             <p className="text-xs text-muted-foreground">
-              Este dispositivo está sem token de push ativo. Clique em <strong>Reativar push</strong> para tentar novamente.
+              Clique no botão abaixo para receber alertas de leads e atualizações diretamente no seu celular ou computador.
             </p>
             <Button
               type="button"
@@ -876,7 +876,7 @@ function PushNotificationCard() {
               onClick={() => subscribe()}
               disabled={isLoading}
             >
-              Reativar push
+              Ativar notificações
             </Button>
           </div>
         )}
