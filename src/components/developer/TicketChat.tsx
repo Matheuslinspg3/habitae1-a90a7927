@@ -14,6 +14,7 @@ import { ptBR } from "date-fns/locale";
 interface TicketChatProps {
   ticketId: string;
   ticketSubject: string;
+  showSupportButton?: boolean;
 }
 
 interface ChatMessage {
@@ -31,7 +32,7 @@ const senderConfig: Record<string, { label: string; icon: typeof Bot; color: str
   support: { label: "Suporte", icon: Headset, color: "bg-accent/10 text-accent-foreground" },
 };
 
-export function TicketChat({ ticketId, ticketSubject }: TicketChatProps) {
+export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }: TicketChatProps) {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -195,16 +196,18 @@ export function TicketChat({ ticketId, ticketSubject }: TicketChatProps) {
           disabled={isSending}
         />
         <div className="flex gap-2 justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleSend(true)}
-            disabled={!input.trim() || isSending}
-            className="text-xs"
-          >
-            <Headset className="h-3.5 w-3.5 mr-1" />
-            Responder como Suporte
-          </Button>
+          {showSupportButton && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSend(true)}
+              disabled={!input.trim() || isSending}
+              className="text-xs"
+            >
+              <Headset className="h-3.5 w-3.5 mr-1" />
+              Responder como Suporte
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => handleSend(false)}
@@ -212,7 +215,7 @@ export function TicketChat({ ticketId, ticketSubject }: TicketChatProps) {
             className="text-xs"
           >
             <Send className="h-3.5 w-3.5 mr-1" />
-            Enviar (IA responde)
+            {showSupportButton ? "Enviar (IA responde)" : "Enviar"}
           </Button>
         </div>
       </div>
