@@ -9,6 +9,7 @@ import {
   requestPushPermission,
   getDiagnostics,
   syncOneSignalDeviceRegistration,
+  ensurePushSubscriptionReady,
   getOneSignalRuntimeBlockReason,
   getOneSignalInitFailure,
 } from "@/lib/onesignal";
@@ -63,25 +64,29 @@ export function usePushNotifications() {
       if (window.OneSignal) {
         const pushSub = window.OneSignal.User?.PushSubscription;
         const perm = window.OneSignal.Notifications?.permission;
+        const hasId = !!pushSub?.id;
         const hasToken = !!pushSub?.token;
+        const hasSubscription = hasId || hasToken;
 
-        if (perm === true && pushSub?.id) {
+        if (perm === true && hasId) {
           await syncOneSignalDeviceRegistration();
         }
 
         setCanFetchToken(hasToken);
-        setIsSubscribed(perm === true && hasToken);
+        setIsSubscribed(perm === true && hasSubscription);
         setPermission(getPermissionState());
-        addDebug(`Estado: perm=${perm}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
+        addDebug(`Estado: perm=${perm}, id=${hasId ? "sim" : "não"}, token=${hasToken ? "sim" : "não"}, optedIn=${pushSub?.optedIn}`);
 
         try {
           window.OneSignal.User?.PushSubscription?.addEventListener("change", (event: any) => {
             if (!cancelled) {
               const current = event.current;
+              const hasIdNow = !!current?.id;
               const hasTokenNow = !!current?.token;
-              addDebug(`Subscription mudou: optedIn=${current?.optedIn}, token=${hasTokenNow ? "sim" : "não"}`);
+              const hasSubscriptionNow = hasIdNow || hasTokenNow;
+              addDebug(`Subscription mudou: optedIn=${current?.optedIn}, id=${hasIdNow ? "sim" : "não"}, token=${hasTokenNow ? "sim" : "não"}`);
               setCanFetchToken(hasTokenNow);
-              setIsSubscribed(current?.optedIn === true && hasTokenNow);
+              setIsSubscribed(current?.optedIn === true && hasSubscriptionNow);
             }
           });
 
@@ -155,34 +160,33 @@ export function usePushNotifications() {
       if (granted) {
         await loginOneSignal(user.id);
 
-        let diag = getDiagnostics();
-        let hasToken = !!diag.pushToken;
-        let attempts = 0;
+        const snapshot = await ensurePushSubscriptionReady(15000);
+        const hasId = !!snapshot.id;
+        const hasToken = !!snapshot.token;
+        const hasSubscription = hasId || hasToken;
 
-        while (!hasToken && attempts < 10) {
-          attempts += 1;
-          await new Promise((r) => setTimeout(r, 1000));
-          diag = getDiagnostics();
-          hasToken = !!diag.pushToken;
-          addDebug(`Aguardando token (${attempts}/10): ${hasToken ? "ok" : "pendente"}`);
-        }
-
+        const diag = getDiagnostics();
+        addDebug(`Aguardado subscription: id=${hasId ? "ok" : "pendente"}, token=${hasToken ? "ok" : "pendente"}`);
         addDebug(`Diagnóstico final: ${JSON.stringify(diag)}`);
 
-        setCanFetchToken(hasToken);
-        setIsSubscribed(hasToken);
+        if (hasId) {
+          await syncOneSignalDeviceRegistration();
+        }
 
-        if (hasToken) {
-          addDebug("✅ Push ativado com token!");
+        setCanFetchToken(hasToken);
+        setIsSubscribed(hasSubscription);
+
+        if (hasSubscription) {
+          addDebug(hasToken ? "✅ Push ativado com token!" : "✅ Push ativado com subscription_id (token não exposto)");
           toast.success("Notificações push ativadas!");
         } else if (Notification.permission === "granted") {
-          addDebug("⚠️ Permissão concedida mas ainda sem token");
-          toast.warning("Permissão concedida, mas o token push não foi gerado. Tente novamente em alguns segundos.");
+          addDebug("⚠️ Permissão concedida mas ainda sem subscription id/token");
+          toast.warning("Permissão concedida, mas a inscrição push ainda não foi concluída. Recarregue a página e tente novamente.");
         } else {
           addDebug("⚠️ Permissão não concedida");
           toast.warning("Permissão não concedida. Verifique as configurações do navegador.");
         }
-        return hasToken;
+        return hasSubscription;
       }
 
       const finalPerm = Notification.permission;

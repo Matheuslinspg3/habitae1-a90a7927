@@ -154,6 +154,62 @@ export async function syncOneSignalDeviceRegistration(): Promise<boolean> {
   return true;
 }
 
+type PushSubscriptionSnapshot = {
+  permissionGranted: boolean;
+  optedIn: boolean;
+  id: string | null;
+  token: string | null;
+  ready: boolean;
+};
+
+function readPushSubscriptionSnapshot(): PushSubscriptionSnapshot {
+  const pushSub = window.OneSignal?.User?.PushSubscription;
+  const permissionGranted =
+    window.OneSignal?.Notifications?.permission === true ||
+    ("Notification" in window && Notification.permission === "granted");
+
+  const id = pushSub?.id ?? null;
+  const token = pushSub?.token ?? null;
+
+  return {
+    permissionGranted,
+    optedIn: pushSub?.optedIn === true,
+    id,
+    token,
+    ready: !!id || !!token,
+  };
+}
+
+export async function ensurePushSubscriptionReady(timeoutMs = 15000): Promise<PushSubscriptionSnapshot> {
+  const ready = await waitForReady(timeoutMs);
+  if (!ready || !window.OneSignal) return readPushSubscriptionSnapshot();
+
+  const startedAt = Date.now();
+  let attemptedOptIn = false;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const snapshot = readPushSubscriptionSnapshot();
+    if (snapshot.ready) {
+      return snapshot;
+    }
+
+    if (snapshot.permissionGranted && !attemptedOptIn) {
+      attemptedOptIn = true;
+      try {
+        if (window.OneSignal.User?.PushSubscription?.optIn) {
+          await window.OneSignal.User.PushSubscription.optIn();
+        }
+      } catch (e) {
+        console.warn("[OneSignal] optIn retry failed:", e);
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  return readPushSubscriptionSnapshot();
+}
+
 export async function initOneSignal(): Promise<boolean> {
   if (sdkReady) return true;
   if (sdkReadyPromise) return sdkReadyPromise;
@@ -335,9 +391,12 @@ export async function requestPushPermission(): Promise<boolean> {
       } catch (e) {
         console.warn("[OneSignal] optIn error (non-fatal):", e);
       }
-      await new Promise((r) => setTimeout(r, 1500));
-      await syncOneSignalDeviceRegistration();
-      return true;
+
+      const snapshot = await ensurePushSubscriptionReady();
+      if (snapshot.id) {
+        await syncOneSignalDeviceRegistration();
+      }
+      return snapshot.ready;
     }
 
     await window.OneSignal.Notifications.requestPermission();
@@ -351,16 +410,24 @@ export async function requestPushPermission(): Promise<boolean> {
       } catch (e) {
         console.warn("[OneSignal] optIn after grant error:", e);
       }
-      await new Promise((r) => setTimeout(r, 1500));
-      await syncOneSignalDeviceRegistration();
+
+      const snapshot = await ensurePushSubscriptionReady();
+      if (snapshot.id) {
+        await syncOneSignalDeviceRegistration();
+      }
+      return snapshot.ready;
     }
-    return granted;
+
+    return false;
   } catch (e) {
     console.error("[OneSignal] requestPermission error:", e);
     const perm = Notification.permission as string;
     if (perm === "granted") {
-      await syncOneSignalDeviceRegistration();
-      return true;
+      const snapshot = await ensurePushSubscriptionReady();
+      if (snapshot.id) {
+        await syncOneSignalDeviceRegistration();
+      }
+      return snapshot.ready;
     }
     return false;
   }
@@ -392,6 +459,7 @@ export function getDiagnostics(): Record<string, unknown> {
     info.pushSubscriptionId = pushSub?.id || null;
     info.pushToken = pushSub?.token ? `${pushSub.token.substring(0, 20)}...` : null;
     info.pushOptedIn = pushSub?.optedIn;
+    info.pushSubscriptionReady = !!pushSub?.id || !!pushSub?.token;
   }
 
   return info;
