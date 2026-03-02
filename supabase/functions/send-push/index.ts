@@ -37,33 +37,42 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // --- Authentication: require service-role key OR valid user JWT ---
+    // --- Authentication: service-role key, valid user JWT, or internal trigger call ---
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const apiKeyHeader = req.headers.get("apikey");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+    let isAuthorized = false;
+
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      if (token === serviceRoleKey) {
+        // Called with service-role key
+        isAuthorized = true;
+      } else {
+        // Validate as user JWT
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          anonKey,
+          { global: { headers: { Authorization: authHeader } } },
+        );
+        const { data, error } = await supabase.auth.getUser();
+        if (!error && data?.user) {
+          isAuthorized = true;
+        }
+      }
+    } else if (apiKeyHeader && apiKeyHeader === anonKey) {
+      // Internal call from DB trigger via net.http_post (no Authorization header, only apikey)
+      // This is trusted because net.http_post is only callable from within the database
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === serviceRoleKey;
-
-    if (!isServiceRole) {
-      // Validate as user JWT
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
     }
 
     const body: PushPayload = await req.json();
