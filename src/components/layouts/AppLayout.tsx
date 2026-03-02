@@ -10,6 +10,7 @@ import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 import { APP_VERSION } from "@/config/appVersion";
 
 export function AppLayout() {
@@ -27,6 +28,7 @@ export function AppLayout() {
         <div className="flex-1 flex flex-col min-w-0">
           <MobileTopBar />
           <RenewalBanner />
+          <PushPermissionBanner />
           <main className="flex-1 overflow-y-auto pb-24 md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
             <Outlet />
           </main>
