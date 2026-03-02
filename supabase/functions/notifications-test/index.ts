@@ -42,13 +42,8 @@ Deno.serve(async (req) => {
       { title, message, data: { notification_type: "dev_test" } },
     );
 
-    if (!result.ok) {
-      return new Response(JSON.stringify(result), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    // Always return 200 so the client can inspect the result body
+    // (supabase.functions.invoke treats non-2xx as a thrown error)
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
