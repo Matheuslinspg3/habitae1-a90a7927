@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.ticket-chat]
 verify_jwt = false
+
+[functions.rd-station-sync-leads]
+verify_jwt = false

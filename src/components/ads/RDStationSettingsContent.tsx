@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -132,6 +132,30 @@ export default function RDStationSettingsContent() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ created: number; duplicates: number; errors: number } | null>(null);
+
+  const handleSyncLeads = async () => {
+    if (!apiPrivateKey && !settings?.api_private_key) {
+      toast.error("Configure a chave privada de API antes de sincronizar.");
+      return;
+    }
+    setIsSyncing(true);
+    setSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("rd-station-sync-leads");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSyncResult({ created: data.created, duplicates: data.duplicates, errors: data.errors });
+      toast.success(`Sincronização concluída: ${data.created} leads criados, ${data.duplicates} duplicados.`);
+      queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao sincronizar leads.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const webhookUrl = settings
     ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
     : "";
@@ -241,7 +265,7 @@ export default function RDStationSettingsContent() {
       </Card>
 
       {/* API Keys — shown first when mode=api */}
-      {integrationMode === "api" && (
+      {integrationMode === "api" && (<>
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -276,7 +300,47 @@ export default function RDStationSettingsContent() {
             </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Sync Leads */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Sincronizar Leads
+            </CardTitle>
+            <CardDescription>
+              Puxe todos os contatos do RD Station para o CRM via API.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Busca contatos na API do RD Station, verifica duplicatas por email e cria os leads novos no CRM.
+            </p>
+            <Button onClick={handleSyncLeads} disabled={isSyncing}>
+              {isSyncing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Sincronizar Leads Agora
+                </>
+              )}
+            </Button>
+            {syncResult && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Badge variant="default">{syncResult.created} criados</Badge>
+                <Badge variant="secondary">{syncResult.duplicates} duplicados</Badge>
+                {syncResult.errors > 0 && (
+                  <Badge variant="destructive">{syncResult.errors} erros</Badge>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </>)}
 
       {/* Webhook URL — shown first when mode=webhook */}
       <Card>
@@ -321,7 +385,7 @@ export default function RDStationSettingsContent() {
       </Card>
 
       {/* API Keys — shown after webhook when mode=webhook (optional) */}
-      {integrationMode === "webhook" && (
+      {integrationMode === "webhook" && (<>
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -329,7 +393,7 @@ export default function RDStationSettingsContent() {
               Chaves de API <Badge variant="outline" className="ml-1 text-xs">opcional</Badge>
             </CardTitle>
             <CardDescription>
-              Opcionalmente, adicione chaves de API para funcionalidades avançadas.
+              Opcionalmente, adicione chaves de API para sincronizar leads via API.
               Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
             </CardDescription>
           </CardHeader>
@@ -354,9 +418,33 @@ export default function RDStationSettingsContent() {
                 A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
               </p>
             </div>
+            {(apiPrivateKey || settings?.api_private_key) && (
+              <Button variant="outline" onClick={handleSyncLeads} disabled={isSyncing} className="mt-2">
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Sincronizar Leads via API
+                  </>
+                )}
+              </Button>
+            )}
+            {syncResult && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Badge variant="default">{syncResult.created} criados</Badge>
+                <Badge variant="secondary">{syncResult.duplicates} duplicados</Badge>
+                {syncResult.errors > 0 && (
+                  <Badge variant="destructive">{syncResult.errors} erros</Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      </>)}
 
       {/* CRM Settings */}
       <Card>
