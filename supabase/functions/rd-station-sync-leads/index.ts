@@ -307,7 +307,7 @@ async function fetchContactsPage(
   page: number,
   pageSize: number,
   headers: Record<string, string>,
-  privateToken?: string | null
+  _privateToken?: string | null
 ): Promise<{
   status: number;
   response?: Response;
@@ -315,117 +315,37 @@ async function fetchContactsPage(
   error_summary?: string;
   effective_page_size?: number;
 }> {
-  const pageSizes = Array.from(new Set([pageSize, 50, 25].filter((n) => n > 0)));
+  // Single attempt with a short timeout to avoid edge function timeout
+  const url = `https://api.rd.services/platform/contacts?page=${page}&limit=${pageSize}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
-  const candidates: Array<{ label: string; url: string; headers: Record<string, string> }> = [];
-  for (const size of pageSizes) {
-    candidates.push(
-      {
-        label: `platform_contacts_ordered_limit_${size}`,
-        url: `https://api.rd.services/platform/contacts?page=${page}&order=created_at:desc&limit=${size}`,
-        headers,
-      },
-      {
-        label: `platform_contacts_limit_${size}`,
-        url: `https://api.rd.services/platform/contacts?page=${page}&limit=${size}`,
-        headers,
-      }
-    );
+  try {
+    const res = await fetch(url, { headers, signal: controller.signal });
+    clearTimeout(timeout);
 
-    if (privateToken) {
-      candidates.push({
-        label: `crm_v1_contacts_token_limit_${size}`,
-        url: `https://crm.rdstation.com/api/v1/contacts?page=${page}&limit=${size}&token=${encodeURIComponent(privateToken)}`,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "User-Agent": "Habitae-RD-Sync/1.0",
-        },
-      });
+    if (res.ok) {
+      return { status: res.status, response: res, error_source: url, effective_page_size: pageSize };
     }
-  }
 
-  let lastStatus = 502;
-  let lastSource = candidates[0]?.label || "contacts_unknown";
-  let lastSummary = "Sem resposta da API de contatos";
-  let sawAuthError = false;
-  let sawServerError = false;
-
-  for (const candidate of candidates) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const res = await fetch(candidate.url, { headers: candidate.headers });
-
-        if (res.ok) {
-          const match = candidate.label.match(/limit_(\d+)$/);
-          const effectivePageSize = match ? Number(match[1]) : pageSize;
-          return {
-            status: res.status,
-            response: res,
-            error_source: candidate.label,
-            effective_page_size: effectivePageSize,
-          };
-        }
-
-        if (res.status === 429) {
-          return { status: 429, response: res, error_source: candidate.label };
-        }
-
-        const errorText = await res.text();
-        lastStatus = res.status;
-        lastSource = candidate.label;
-        lastSummary = summarizeRdError(errorText);
-
-        if (res.status === 401) {
-          sawAuthError = true;
-          break;
-        }
-
-        if (res.status >= 500) {
-          sawServerError = true;
-          console.error("RD contacts endpoint failed:", res.status, candidate.label, lastSummary);
-          if (attempt < 2) {
-            await sleep(700 * attempt);
-            continue;
-          }
-        }
-
-        break;
-      } catch (err: any) {
-        lastStatus = 502;
-        lastSource = candidate.label;
-        lastSummary = err?.message || "Falha de rede ao consultar contatos";
-        sawServerError = true;
-        console.error("RD contacts request exception:", candidate.label, err);
-        if (attempt < 2) {
-          await sleep(700 * attempt);
-          continue;
-        }
-      }
+    if (res.status === 401 || res.status === 429) {
+      return { status: res.status, response: res, error_source: url };
     }
-  }
 
-  if (sawServerError) {
+    const errorText = await res.text();
+    console.error("RD contacts failed:", res.status, summarizeRdError(errorText));
+
     return {
-      status: lastStatus,
-      error_source: lastSource,
-      error_summary: lastSummary,
+      status: res.status,
+      error_source: url,
+      error_summary: summarizeRdError(errorText),
     };
+  } catch (err: any) {
+    clearTimeout(timeout);
+    const msg = err?.name === "AbortError" ? "Timeout ao consultar API do RD Station" : (err?.message || "Falha de rede");
+    console.error("RD contacts exception:", msg);
+    return { status: 504, error_source: url, error_summary: msg };
   }
-
-  if (sawAuthError) {
-    return {
-      status: 401,
-      error_source: lastSource,
-      error_summary: lastSummary,
-    };
-  }
-
-  return {
-    status: lastStatus,
-    error_source: lastSource,
-    error_summary: lastSummary,
-  };
 }
 
 function summarizeRdError(body: string): string {
