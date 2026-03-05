@@ -143,21 +143,14 @@ Deno.serve(async (req) => {
     let duplicates = 0;
     let errors = 0;
     let page = 1;
-    const pageSize = 125;
+    const pageSize = 100;
     const maxPages = 10;
     let hasMore = true;
 
     while (hasMore && page <= maxPages) {
-      const contactsRes = await fetch(
-        `${baseUrl}/platform/contacts?page=${page}&order=created_at:desc&limit=${pageSize}`,
-        { headers }
-      );
+      let pageFetch = await fetchContactsPage(page, pageSize, headers);
 
-      if (contactsRes.status === 401) {
-        // Token may have been invalidated; try refresh once
-        const errBody = await contactsRes.text();
-        console.error("RD Station 401, attempting token refresh:", errBody);
-
+      if (pageFetch.status === 401) {
         const refreshResult = await refreshToken(supabase, settings, orgId);
         if (refreshResult.error) {
           return new Response(
@@ -165,62 +158,67 @@ Deno.serve(async (req) => {
               error: "Token OAuth inválido ou expirado. Reconecte sua conta RD Station.",
               needs_oauth: true,
             }),
-            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
-        // Retry with new token
         accessToken = refreshResult.access_token;
         headers.Authorization = `Bearer ${accessToken}`;
-        const retryRes = await fetch(
-          `${baseUrl}/platform/contacts?page=${page}&order=created_at:desc&limit=${pageSize}`,
-          { headers }
-        );
-        if (!retryRes.ok) {
-          const retryBody = await retryRes.text();
-          console.error("RD Station retry failed:", retryRes.status, retryBody);
-          return new Response(
-            JSON.stringify({
-              error: `Erro na API do RD Station (${retryRes.status}).`,
-              needs_oauth: true,
-            }),
-            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        const retryData = await retryRes.json();
-        const retryContacts = retryData.contacts || [];
-        if (retryContacts.length === 0) { hasMore = false; break; }
-        // Process retryContacts below (same logic)
-        await processContacts(supabase, retryContacts, orgId, settings, profile.user_id, { created, duplicates, errors }).then(r => {
-          created = r.created; duplicates = r.duplicates; errors = r.errors;
-        });
-        if (retryContacts.length < pageSize) { hasMore = false; } else { page++; }
-        continue;
+        pageFetch = await fetchContactsPage(page, pageSize, headers);
       }
 
-      if (!contactsRes.ok) {
-        const errBody = await contactsRes.text();
-        console.error("RD Station API error:", contactsRes.status, errBody);
+      if (pageFetch.status === 401) {
         return new Response(
           JSON.stringify({
-            error: `Erro na API do RD Station (${contactsRes.status}). A API pode estar temporariamente indisponível. Tente novamente em alguns minutos.`,
+            error: "Token OAuth inválido ou expirado. Reconecte sua conta RD Station.",
+            needs_oauth: true,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const data = await contactsRes.json();
-      const contacts = data.contacts || [];
+      if (pageFetch.status === 429) {
+        return new Response(
+          JSON.stringify({
+            error: "Limite de requisições da API do RD Station atingido. Aguarde alguns minutos e tente novamente.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (pageFetch.status !== 200 || !pageFetch.response) {
+        return new Response(
+          JSON.stringify({
+            error: `Erro na API do RD Station (${pageFetch.status}) ao listar contatos.`,
+            endpoint: pageFetch.error_source,
+            summary: pageFetch.error_summary,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const data = await pageFetch.response.json();
+      const contacts = Array.isArray(data?.contacts) ? data.contacts : [];
 
       if (contacts.length === 0) {
         hasMore = false;
         break;
       }
 
-      const result = await processContacts(supabase, contacts, orgId, settings, profile.user_id, { created, duplicates, errors });
+      const result = await processContacts(supabase, contacts, orgId, settings, profile.user_id, {
+        created,
+        duplicates,
+        errors,
+      });
       created = result.created;
       duplicates = result.duplicates;
       errors = result.errors;
+
+      if (typeof data?.has_more === "boolean") {
+        hasMore = data.has_more;
+        if (hasMore) page++;
+        continue;
+      }
 
       if (contacts.length < pageSize) {
         hasMore = false;
@@ -290,6 +288,62 @@ async function refreshToken(
     console.error("Token refresh error:", err);
     return { error: "Refresh error" };
   }
+}
+
+async function fetchContactsPage(
+  page: number,
+  pageSize: number,
+  headers: Record<string, string>
+): Promise<{ status: number; response?: Response; error_source?: string; error_summary?: string }> {
+  const endpoints = [
+    `https://api.rd.services/platform/contacts?page=${page}&order=created_at:desc&limit=${pageSize}`,
+    `https://api.rd.services/platform/contacts?page=${page}&limit=${pageSize}`,
+    `https://crm.rdstation.com/api/v1/contacts?page=${page}&limit=${pageSize}`,
+  ];
+
+  let lastStatus = 502;
+  let lastSource = endpoints[0];
+  let lastSummary = "Sem resposta da API de contatos";
+
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, { headers });
+
+      if (res.ok || res.status === 401 || res.status === 429) {
+        return { status: res.status, response: res, error_source: endpoint };
+      }
+
+      const errorText = await res.text();
+      lastStatus = res.status;
+      lastSource = endpoint;
+      lastSummary = summarizeRdError(errorText);
+
+      console.error("RD contacts endpoint failed:", res.status, endpoint, lastSummary);
+
+      if (res.status >= 500) {
+        await sleep(600);
+      }
+    } catch (err: any) {
+      lastStatus = 502;
+      lastSource = endpoint;
+      lastSummary = err?.message || "Falha de rede ao consultar contatos";
+      console.error("RD contacts request exception:", endpoint, err);
+    }
+  }
+
+  return {
+    status: lastStatus,
+    error_source: lastSource,
+    error_summary: lastSummary,
+  };
+}
+
+function summarizeRdError(body: string): string {
+  return body.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function processContacts(
