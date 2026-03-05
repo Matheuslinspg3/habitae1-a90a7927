@@ -427,8 +427,9 @@ async function processContacts(
         "Lead RD Station";
       const phone = contact.personal_phone || contact.mobile_phone || null;
 
+      // Check duplicate by email
       if (email) {
-        const { data: existing } = await supabase
+        const { data: existingByEmail } = await supabase
           .from("leads")
           .select("id")
           .eq("organization_id", orgId)
@@ -436,15 +437,49 @@ async function processContacts(
           .limit(1)
           .maybeSingle();
 
-        if (existing) {
+        if (existingByEmail) {
           duplicates++;
           await supabase.from("rd_station_webhook_logs").insert({
             organization_id: orgId,
             event_type: "api_sync",
             payload: { name, email, phone, rd_uuid: contact.uuid },
             status: "duplicate",
+            error_message: "Duplicado por email",
           });
           continue;
+        }
+      }
+
+      // Check duplicate by phone (normalized, digits only, min 8 chars)
+      if (phone) {
+        const normalizedPhone = phone.replace(/\D/g, "");
+        if (normalizedPhone.length >= 8) {
+          const { data: existingLeads } = await supabase
+            .from("leads")
+            .select("id, phone")
+            .eq("organization_id", orgId)
+            .not("phone", "is", null);
+
+          const phoneMatch = (existingLeads || []).find((l: any) => {
+            const lPhone = (l.phone || "").replace(/\D/g, "");
+            return lPhone.length >= 8 && (
+              lPhone === normalizedPhone ||
+              lPhone.endsWith(normalizedPhone) ||
+              normalizedPhone.endsWith(lPhone)
+            );
+          });
+
+          if (phoneMatch) {
+            duplicates++;
+            await supabase.from("rd_station_webhook_logs").insert({
+              organization_id: orgId,
+              event_type: "api_sync",
+              payload: { name, email, phone, rd_uuid: contact.uuid },
+              status: "duplicate",
+              error_message: "Duplicado por telefone",
+            });
+            continue;
+          }
         }
       }
 
