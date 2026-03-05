@@ -104,10 +104,40 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = "https://api.rd.services";
-    const headers = {
+    const headers: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     };
+
+    // Verify token works with a lightweight endpoint first
+    const verifyRes = await fetch(`${baseUrl}/marketing/account_info`, { headers });
+    if (!verifyRes.ok) {
+      const verifyBody = await verifyRes.text();
+      console.error("Token verification failed:", verifyRes.status, verifyBody);
+      
+      if (verifyRes.status === 401) {
+        // Try refresh
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({
+              error: "Token OAuth inválido. Reconecte sua conta RD Station.",
+              needs_oauth: true,
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token;
+        headers.Authorization = `Bearer ${accessToken}`;
+      } else {
+        return new Response(
+          JSON.stringify({
+            error: `Erro ao verificar conexão com RD Station (${verifyRes.status}). Tente novamente ou reconecte sua conta.`,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     let created = 0;
     let duplicates = 0;
