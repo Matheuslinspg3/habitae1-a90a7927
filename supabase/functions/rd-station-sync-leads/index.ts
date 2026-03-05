@@ -71,68 +71,158 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get API private key (required for CRM API v1 contacts listing)
-    const privateKey = settings.api_private_key;
+    // Get OAuth access token (required for Platform/Marketing API)
+    let accessToken = settings.oauth_access_token;
 
-    if (!privateKey) {
+    if (!accessToken) {
       return new Response(
         JSON.stringify({
-          error: "Chave privada da API não configurada. Adicione sua Private Token do RD Station nas configurações.",
+          error: "Conexão OAuth não configurada. Conecte sua conta RD Station via OAuth.",
+          needs_oauth: true,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Check if token is expired and try to refresh
+    if (settings.oauth_token_expires_at) {
+      const expiresAt = new Date(settings.oauth_token_expires_at);
+      if (expiresAt < new Date()) {
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth expirado. Reconecte sua conta RD Station.", needs_oauth: true }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token!;
+      }
+    }
+
     const apiHeaders: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
       "User-Agent": "Habitae-RD-Sync/1.0",
     };
 
+    // Step 1: Find the "all contacts" segmentation
+    const segRes = await fetchWithTimeout(
+      "https://api.rd.services/platform/segmentations",
+      apiHeaders,
+      15000
+    );
+
+    if (!segRes.ok) {
+      if (segRes.status === 401) {
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth inválido. Reconecte sua conta RD Station.", needs_oauth: true }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token!;
+        apiHeaders.Authorization = `Bearer ${accessToken}`;
+      } else {
+        return new Response(
+          JSON.stringify({ error: `Erro ao listar segmentações do RD Station (${segRes.status}).` }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const segData = segRes.ok ? await segRes.json() : null;
+    let segmentations = segData?.segmentations || [];
+
+    // If segmentations fetch failed after refresh, retry
+    if (!segRes.ok) {
+      const retryRes = await fetchWithTimeout(
+        "https://api.rd.services/platform/segmentations",
+        apiHeaders,
+        15000
+      );
+      if (!retryRes.ok) {
+        return new Response(
+          JSON.stringify({ error: `Erro ao listar segmentações do RD Station (${retryRes.status}).` }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const retryData = await retryRes.json();
+      segmentations = retryData?.segmentations || [];
+    }
+
+    // Find "Leads" segmentation (prefer custom segmentation_id from settings, fallback to defaults)
+    const targetSegId = settings.rd_segmentation_id || null;
+    let segmentation = targetSegId
+      ? segmentations.find((s: any) => String(s.id) === String(targetSegId))
+      : null;
+
+    if (!segmentation) {
+      // Fallback: use "Leads" or "Todos os contatos" segmentation
+      segmentation =
+        segmentations.find((s: any) => s.name === "Leads (estágio no funil)") ||
+        segmentations.find((s: any) => s.name?.includes("Todos os contatos")) ||
+        segmentations[0];
+    }
+
+    if (!segmentation) {
+      return new Response(
+        JSON.stringify({ error: "Nenhuma segmentação encontrada no RD Station." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Using segmentation: "${segmentation.name}" (ID: ${segmentation.id})`);
+
+    // Step 2: Paginate contacts from the segmentation
     let created = 0;
     let duplicates = 0;
     let errors = 0;
     let page = 1;
-    const pageSize = 200;
+    const pageSize = 125;
     const maxPages = 10;
     let hasMore = true;
 
     while (hasMore && page <= maxPages) {
-      let pageFetch = await fetchContactsPage(page, pageSize, apiHeaders, privateKey);
+      const contactsUrl = `https://api.rd.services/platform/segmentations/${segmentation.id}/contacts?page=${page}&page_size=${pageSize}`;
+      const contactsRes = await fetchWithTimeout(contactsUrl, apiHeaders, 15000);
 
-      if (pageFetch.status === 401 || pageFetch.status === 403) {
+      if (contactsRes.status === 401) {
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth expirado durante sincronização. Reconecte.", needs_oauth: true }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token!;
+        apiHeaders.Authorization = `Bearer ${accessToken}`;
+        continue; // retry same page
+      }
+
+      if (contactsRes.status === 429) {
         return new Response(
           JSON.stringify({
-            error: "Private Token inválida ou expirada. Gere um novo token no RD Station CRM → Configurações → Token.",
+            error: "Limite de requisições do RD Station atingido. Aguarde e tente novamente.",
+            partial: { created, duplicates, errors, pages_processed: page },
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-
-      if (pageFetch.status === 429) {
+      if (!contactsRes.ok) {
+        const errText = await contactsRes.text();
         return new Response(
           JSON.stringify({
-            error: "Limite de requisições da API do RD Station atingido. Aguarde alguns minutos e tente novamente.",
+            error: `Erro na API do RD Station (${contactsRes.status}) ao listar contatos.`,
+            summary: summarizeRdError(errText),
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      if (pageFetch.status !== 200 || !pageFetch.response) {
-        return new Response(
-          JSON.stringify({
-            error: `Erro na API do RD Station (${pageFetch.status}) ao listar contatos.`,
-            endpoint: pageFetch.error_source,
-            summary: pageFetch.error_summary,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const data = await pageFetch.response.json();
-      // Marketing API returns { contacts: [...] } or directly an array
+      const data = await contactsRes.json();
       const contacts = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
-      const currentPageSize = pageFetch.effective_page_size ?? pageSize;
 
       if (contacts.length === 0) {
         hasMore = false;
@@ -151,10 +241,7 @@ Deno.serve(async (req) => {
       if (typeof data?.has_more === "boolean") {
         hasMore = data.has_more;
         if (hasMore) page++;
-        continue;
-      }
-
-      if (contacts.length < currentPageSize) {
+      } else if (contacts.length < pageSize) {
         hasMore = false;
       } else {
         page++;
@@ -162,7 +249,14 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, created, duplicates, errors, pages_processed: page }),
+      JSON.stringify({
+        success: true,
+        created,
+        duplicates,
+        errors,
+        pages_processed: page,
+        segmentation_name: segmentation.name,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
@@ -174,98 +268,23 @@ Deno.serve(async (req) => {
   }
 });
 
-async function refreshToken(
-  supabase: any,
-  settings: any,
-  orgId: string
-): Promise<{ access_token?: string; error?: string }> {
-  const clientId = Deno.env.get("RD_STATION_CLIENT_ID");
-  const clientSecret = Deno.env.get("RD_STATION_CLIENT_SECRET");
-
-  if (!clientId || !clientSecret || !settings.oauth_refresh_token) {
-    return { error: "Missing credentials for token refresh" };
-  }
-
-  try {
-    const res = await fetch("https://api.rd.services/auth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: settings.oauth_refresh_token,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.access_token) {
-      console.error("Token refresh failed:", JSON.stringify(data));
-      return { error: "Refresh failed" };
-    }
-
-    const expiresAt = new Date(Date.now() + (data.expires_in || 86400) * 1000).toISOString();
-
-    await supabase
-      .from("rd_station_settings")
-      .update({
-        oauth_access_token: data.access_token,
-        oauth_refresh_token: data.refresh_token || settings.oauth_refresh_token,
-        oauth_token_expires_at: expiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("organization_id", orgId);
-
-    console.log("OAuth token refreshed successfully");
-    return { access_token: data.access_token };
-  } catch (err) {
-    console.error("Token refresh error:", err);
-    return { error: "Refresh error" };
-  }
-}
-
-async function fetchContactsPage(
-  page: number,
-  pageSize: number,
+async function fetchWithTimeout(
+  url: string,
   headers: Record<string, string>,
-  privateToken: string
-): Promise<{
-  status: number;
-  response?: Response;
-  error_source?: string;
-  error_summary?: string;
-  effective_page_size?: number;
-}> {
-  // CRM API v1 - official endpoint for listing contacts
-  const url = `https://crm.rdstation.com/api/v1/contacts?token=${encodeURIComponent(privateToken)}&page=${page}&limit=${pageSize}`;
+  timeoutMs: number
+): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { headers, signal: controller.signal });
     clearTimeout(timeout);
-
-    if (res.ok) {
-      return { status: res.status, response: res, error_source: "crm_v1_contacts", effective_page_size: pageSize };
-    }
-
-    if (res.status === 401 || res.status === 403 || res.status === 429) {
-      return { status: res.status, response: res, error_source: "crm_v1_contacts" };
-    }
-
-    const errorText = await res.text();
-    console.error("RD contacts failed:", res.status, summarizeRdError(errorText));
-
-    return {
-      status: res.status,
-      error_source: "crm_v1_contacts",
-      error_summary: summarizeRdError(errorText),
-    };
+    return res;
   } catch (err: any) {
     clearTimeout(timeout);
-    const msg = err?.name === "AbortError" ? "Timeout ao consultar API do RD Station" : (err?.message || "Falha de rede");
-    console.error("RD contacts exception:", msg);
-    return { status: 504, error_source: "crm_v1_contacts", error_summary: msg };
+    if (err?.name === "AbortError") {
+      return new Response("Timeout", { status: 504 });
+    }
+    throw err;
   }
 }
 
