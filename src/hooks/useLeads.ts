@@ -336,7 +336,8 @@ export function useLeads() {
 
   const deleteLead = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('leads').delete().eq('id', id);
+      // Soft-delete to prevent sync re-creation (RD Station / Meta)
+      const { error } = await supabase.from('leads').update({ is_active: false }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -379,7 +380,8 @@ export function useLeads() {
   // ── Bulk operations ──
   const bulkDeleteLeads = useMutation({
     mutationFn: async (ids: string[]) => {
-      const { error } = await supabase.from('leads').delete().in('id', ids);
+      // Soft-delete to prevent sync re-creation (RD Station / Meta)
+      const { error } = await supabase.from('leads').update({ is_active: false }).in('id', ids);
       if (error) throw error;
     },
     onMutate: async (ids) => {
