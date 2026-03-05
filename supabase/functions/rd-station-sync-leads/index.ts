@@ -298,7 +298,6 @@ async function fetchContactsPage(
   const endpoints = [
     `https://api.rd.services/platform/contacts?page=${page}&order=created_at:desc&limit=${pageSize}`,
     `https://api.rd.services/platform/contacts?page=${page}&limit=${pageSize}`,
-    `https://crm.rdstation.com/api/v1/contacts?page=${page}&limit=${pageSize}`,
   ];
 
   let lastStatus = 502;
