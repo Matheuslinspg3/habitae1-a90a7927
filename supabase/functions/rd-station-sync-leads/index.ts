@@ -173,10 +173,9 @@ Deno.serve(async (req) => {
         console.error("RD Station API error:", contactsRes.status, errBody);
         return new Response(
           JSON.stringify({
-            error: `Erro na API do RD Station (${contactsRes.status}). Verifique sua conexão OAuth.`,
-            details: errBody,
+            error: `Erro na API do RD Station (${contactsRes.status}). A API pode estar temporariamente indisponível. Tente novamente em alguns minutos.`,
           }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
