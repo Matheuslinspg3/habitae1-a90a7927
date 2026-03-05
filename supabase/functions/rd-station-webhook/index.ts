@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
           leadData.phone ||
           leadData.telefone ||
           null;
-        const source = leadData.traffic_source || leadData.conversion_identifier || settings.default_source;
+        const source = "RD Station (Webhook)";
 
         // Check for duplicate by email
         if (email) {

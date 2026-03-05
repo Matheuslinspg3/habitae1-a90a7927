@@ -20,9 +20,12 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { /* empty body is ok */ }
 
     const isAutoSync = body?.auto_sync === true;
+    const isSelective = body?.selective === true;
 
     if (isAutoSync) {
       return await handleAutoSync(supabase);
+    } else if (isSelective) {
+      return await handleSelectiveSync(req, supabase, body);
     } else {
       return await handleManualSync(req, supabase);
     }
@@ -179,6 +182,208 @@ async function handleManualSync(req: Request, supabase: any): Promise<Response> 
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// ─── SELECTIVE SYNC: import specific contacts chosen by user ───
+
+async function handleSelectiveSync(req: Request, supabase: any, body: Record<string, any>): Promise<Response> {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser(
+    authHeader.replace("Bearer ", "")
+  );
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, user_id")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!profile?.organization_id) {
+    return new Response(JSON.stringify({ error: "No organization" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const orgId = profile.organization_id;
+  const contactUuids: string[] = body.contact_uuids || [];
+  const mergeExisting = body.merge_existing === true;
+
+  if (contactUuids.length === 0) {
+    return new Response(JSON.stringify({ error: "Nenhum contato selecionado." }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const { data: settings } = await supabase
+    .from("rd_station_settings")
+    .select("*")
+    .eq("organization_id", orgId)
+    .single();
+
+  if (!settings?.oauth_access_token) {
+    return new Response(
+      JSON.stringify({ error: "OAuth não configurado.", needs_oauth: true }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  let accessToken = settings.oauth_access_token;
+  if (settings.oauth_token_expires_at && new Date(settings.oauth_token_expires_at) < new Date()) {
+    const refreshResult = await refreshToken(supabase, settings, orgId);
+    if (refreshResult.error) {
+      return new Response(JSON.stringify({ error: "Token expirado.", needs_oauth: true }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    accessToken = refreshResult.access_token!;
+  }
+
+  const apiHeaders: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  };
+
+  // Fetch segmentations to get contacts
+  const segRes = await fetchWithTimeout("https://api.rd.services/platform/segmentations", apiHeaders, 15000);
+  if (!segRes.ok) {
+    return new Response(JSON.stringify({ error: `Erro segmentações (${segRes.status})` }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const segData = await segRes.json();
+  const segmentations = segData?.segmentations || [];
+  const targetSegId = settings.rd_segmentation_id || null;
+  let segmentation = targetSegId
+    ? segmentations.find((s: any) => String(s.id) === String(targetSegId))
+    : null;
+  if (!segmentation) {
+    segmentation =
+      segmentations.find((s: any) => s.name === "Leads (estágio no funil)") ||
+      segmentations.find((s: any) => s.name?.includes("Todos os contatos")) ||
+      segmentations[0];
+  }
+  if (!segmentation) {
+    return new Response(JSON.stringify({ error: "Nenhuma segmentação encontrada." }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Fetch all contacts to find selected ones
+  const uuidSet = new Set(contactUuids);
+  const selectedContacts: any[] = [];
+  let page = 1;
+  const pageSize = 125;
+  let hasMore = true;
+
+  while (hasMore && page <= 10) {
+    const url = `https://api.rd.services/platform/segmentations/${segmentation.id}/contacts?page=${page}&page_size=${pageSize}`;
+    const res = await fetchWithTimeout(url, apiHeaders, 15000);
+    if (!res.ok) break;
+    const data = await res.json();
+    const contacts = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
+    if (contacts.length === 0) break;
+
+    for (const c of contacts) {
+      if (c.uuid && uuidSet.has(c.uuid)) {
+        selectedContacts.push(c);
+        uuidSet.delete(c.uuid);
+      }
+    }
+
+    if (uuidSet.size === 0) break;
+    hasMore = typeof data?.has_more === "boolean" ? data.has_more : contacts.length >= pageSize;
+    page++;
+  }
+
+  // Process selected contacts
+  let created = 0;
+  let updated = 0;
+  let duplicates = 0;
+  let errors = 0;
+
+  for (const contact of selectedContacts) {
+    try {
+      const email = contact.email || null;
+      const name = contact.name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Lead RD Station";
+      const phone = contact.personal_phone || contact.mobile_phone || null;
+      const notes = buildNotes(contact);
+
+      let existingLead: any = null;
+
+      if (contact.uuid) {
+        const { data: byExtId } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("external_id", contact.uuid).maybeSingle();
+        if (byExtId) existingLead = byExtId;
+      }
+
+      if (!existingLead && email) {
+        const { data: byEmail } = await supabase
+          .from("leads").select("id").eq("organization_id", orgId)
+          .eq("email", email).maybeSingle();
+        if (byEmail) existingLead = byEmail;
+      }
+
+      if (!existingLead && phone) {
+        const normalizedPhone = phone.replace(/\D/g, "");
+        if (normalizedPhone.length >= 8) {
+          const { data: allLeads } = await supabase
+            .from("leads").select("id, phone").eq("organization_id", orgId)
+            .not("phone", "is", null);
+          const match = (allLeads || []).find((l: any) => {
+            const lPhone = (l.phone || "").replace(/\D/g, "");
+            return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+          });
+          if (match) existingLead = match;
+        }
+      }
+
+      if (existingLead && mergeExisting) {
+        const updateData: Record<string, any> = {};
+        if (email) updateData.email = email;
+        if (phone) updateData.phone = phone;
+        if (notes) updateData.notes = notes;
+        updateData.external_id = contact.uuid || undefined;
+        updateData.external_source = "rdstation";
+        await supabase.from("leads").update(updateData).eq("id", existingLead.id);
+        updated++;
+      } else if (existingLead) {
+        duplicates++;
+      } else {
+        const source = settings.default_source || "RD Station";
+        const { error: insertError } = await supabase.from("leads").insert({
+          organization_id: orgId, name, email, phone, source,
+          lead_stage_id: settings.default_stage_id,
+          created_by: profile.user_id,
+          external_id: contact.uuid || null,
+          external_source: "rdstation",
+          notes,
+        });
+        if (insertError) errors++;
+        else created++;
+      }
+    } catch { errors++; }
+  }
+
+  await supabase.from("rd_station_settings")
+    .update({ last_sync_at: new Date().toISOString() })
+    .eq("organization_id", orgId);
+
+  return new Response(
+    JSON.stringify({ success: true, created, updated, duplicates, errors }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
 }
 
 // ─── CORE SYNC LOGIC (shared between manual and auto) ───

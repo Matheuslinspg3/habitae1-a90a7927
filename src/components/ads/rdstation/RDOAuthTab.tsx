@@ -3,19 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Globe, Download, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Globe, Download, CheckCircle2, AlertTriangle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
+import RDSyncDialog from "./RDSyncDialog";
 
 export default function RDOAuthTab() {
   const { settings, orgId, queryClient, hasOAuth, oauthExpired } = useRDStationSettings();
   const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ created: number; duplicates: number; errors: number } | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   // Check for OAuth callback params
   useEffect(() => {
@@ -80,32 +80,6 @@ export default function RDOAuthTab() {
     },
     onError: (e: any) => toast.error(e.message),
   });
-
-  const handleSyncLeads = async () => {
-    setIsSyncing(true);
-    setSyncResult(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("rd-station-sync-leads");
-      if (error) throw error;
-      if (data?.error) {
-        if (data?.needs_oauth) {
-          toast.error("Conecte sua conta RD Station via OAuth para sincronizar leads.");
-          return;
-        }
-        const extra = [data?.endpoint ? `Endpoint: ${data.endpoint}` : null, data?.summary ? `Detalhe: ${data.summary}` : null]
-          .filter(Boolean)
-          .join(" | ");
-        throw new Error(extra ? `${data.error} (${extra})` : data.error);
-      }
-      setSyncResult({ created: data.created, duplicates: data.duplicates, errors: data.errors });
-      toast.success(`Sincronização concluída: ${data.created} leads criados, ${data.duplicates} duplicados.`);
-      queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao sincronizar leads.");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   if (!settings) return null;
 
@@ -185,46 +159,30 @@ export default function RDOAuthTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Download className="h-4 w-4" />
+            <Users className="h-4 w-4" />
             Sincronizar Leads
           </CardTitle>
           <CardDescription>
-            Puxe contatos do RD Station para o CRM via OAuth.
+            Escolha quais contatos do RD Station importar para o CRM.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Busca contatos na API do RD Station, verifica duplicatas por email e cria os leads novos no CRM.
+            Veja a lista de contatos disponíveis, selecione quais importar e atualize leads existentes com novas informações.
           </p>
-          <Button onClick={handleSyncLeads} disabled={isSyncing || !hasOAuth}>
-            {isSyncing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sincronizando...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Sincronizar Leads Agora
-              </>
-            )}
+          <Button onClick={() => setSyncDialogOpen(true)} disabled={!hasOAuth}>
+            <Users className="h-4 w-4 mr-2" />
+            Abrir Lista de Contatos
           </Button>
           {!hasOAuth && (
             <p className="text-xs text-muted-foreground">
               Conecte sua conta RD Station via OAuth acima para habilitar a sincronização.
             </p>
           )}
-          {syncResult && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="default">{syncResult.created} criados</Badge>
-              <Badge variant="secondary">{syncResult.duplicates} duplicados</Badge>
-              {syncResult.errors > 0 && (
-                <Badge variant="destructive">{syncResult.errors} erros</Badge>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <RDSyncDialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen} />
     </div>
   );
 }
