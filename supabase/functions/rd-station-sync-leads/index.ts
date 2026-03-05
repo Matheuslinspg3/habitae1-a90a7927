@@ -20,9 +20,12 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { /* empty body is ok */ }
 
     const isAutoSync = body?.auto_sync === true;
+    const isSelective = body?.selective === true;
 
     if (isAutoSync) {
       return await handleAutoSync(supabase);
+    } else if (isSelective) {
+      return await handleSelectiveSync(req, supabase, body);
     } else {
       return await handleManualSync(req, supabase);
     }
