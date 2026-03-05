@@ -107,6 +107,8 @@ Deno.serve(async (req) => {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": "Habitae-RD-Sync/1.0",
     };
 
     // Verify token works with a lightweight endpoint first
@@ -148,7 +150,12 @@ Deno.serve(async (req) => {
     let hasMore = true;
 
     while (hasMore && page <= maxPages) {
-      let pageFetch = await fetchContactsPage(page, pageSize, headers);
+      let pageFetch = await fetchContactsPage(
+        page,
+        pageSize,
+        headers,
+        settings.api_private_key || null
+      );
 
       if (pageFetch.status === 401) {
         const refreshResult = await refreshToken(supabase, settings, orgId);
@@ -164,7 +171,12 @@ Deno.serve(async (req) => {
 
         accessToken = refreshResult.access_token;
         headers.Authorization = `Bearer ${accessToken}`;
-        pageFetch = await fetchContactsPage(page, pageSize, headers);
+        pageFetch = await fetchContactsPage(
+          page,
+          pageSize,
+          headers,
+          settings.api_private_key || null
+        );
       }
 
       if (pageFetch.status === 401) {
@@ -199,6 +211,7 @@ Deno.serve(async (req) => {
 
       const data = await pageFetch.response.json();
       const contacts = Array.isArray(data?.contacts) ? data.contacts : [];
+      const currentPageSize = pageFetch.effective_page_size ?? pageSize;
 
       if (contacts.length === 0) {
         hasMore = false;
@@ -220,7 +233,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (contacts.length < pageSize) {
+      if (contacts.length < currentPageSize) {
         hasMore = false;
       } else {
         page++;
@@ -293,41 +306,119 @@ async function refreshToken(
 async function fetchContactsPage(
   page: number,
   pageSize: number,
-  headers: Record<string, string>
-): Promise<{ status: number; response?: Response; error_source?: string; error_summary?: string }> {
-  const endpoints = [
-    `https://api.rd.services/platform/contacts?page=${page}&order=created_at:desc&limit=${pageSize}`,
-    `https://api.rd.services/platform/contacts?page=${page}&limit=${pageSize}`,
-  ];
+  headers: Record<string, string>,
+  privateToken?: string | null
+): Promise<{
+  status: number;
+  response?: Response;
+  error_source?: string;
+  error_summary?: string;
+  effective_page_size?: number;
+}> {
+  const pageSizes = Array.from(new Set([pageSize, 50, 25].filter((n) => n > 0)));
+
+  const candidates: Array<{ label: string; url: string; headers: Record<string, string> }> = [];
+  for (const size of pageSizes) {
+    candidates.push(
+      {
+        label: `platform_contacts_ordered_limit_${size}`,
+        url: `https://api.rd.services/platform/contacts?page=${page}&order=created_at:desc&limit=${size}`,
+        headers,
+      },
+      {
+        label: `platform_contacts_limit_${size}`,
+        url: `https://api.rd.services/platform/contacts?page=${page}&limit=${size}`,
+        headers,
+      }
+    );
+
+    if (privateToken) {
+      candidates.push({
+        label: `crm_v1_contacts_token_limit_${size}`,
+        url: `https://crm.rdstation.com/api/v1/contacts?page=${page}&limit=${size}&token=${encodeURIComponent(privateToken)}`,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "Habitae-RD-Sync/1.0",
+        },
+      });
+    }
+  }
 
   let lastStatus = 502;
-  let lastSource = endpoints[0];
+  let lastSource = candidates[0]?.label || "contacts_unknown";
   let lastSummary = "Sem resposta da API de contatos";
+  let sawAuthError = false;
+  let sawServerError = false;
 
-  for (const endpoint of endpoints) {
-    try {
-      const res = await fetch(endpoint, { headers });
+  for (const candidate of candidates) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(candidate.url, { headers: candidate.headers });
 
-      if (res.ok || res.status === 401 || res.status === 429) {
-        return { status: res.status, response: res, error_source: endpoint };
+        if (res.ok) {
+          const match = candidate.label.match(/limit_(\d+)$/);
+          const effectivePageSize = match ? Number(match[1]) : pageSize;
+          return {
+            status: res.status,
+            response: res,
+            error_source: candidate.label,
+            effective_page_size: effectivePageSize,
+          };
+        }
+
+        if (res.status === 429) {
+          return { status: 429, response: res, error_source: candidate.label };
+        }
+
+        const errorText = await res.text();
+        lastStatus = res.status;
+        lastSource = candidate.label;
+        lastSummary = summarizeRdError(errorText);
+
+        if (res.status === 401) {
+          sawAuthError = true;
+          break;
+        }
+
+        if (res.status >= 500) {
+          sawServerError = true;
+          console.error("RD contacts endpoint failed:", res.status, candidate.label, lastSummary);
+          if (attempt < 2) {
+            await sleep(700 * attempt);
+            continue;
+          }
+        }
+
+        break;
+      } catch (err: any) {
+        lastStatus = 502;
+        lastSource = candidate.label;
+        lastSummary = err?.message || "Falha de rede ao consultar contatos";
+        sawServerError = true;
+        console.error("RD contacts request exception:", candidate.label, err);
+        if (attempt < 2) {
+          await sleep(700 * attempt);
+          continue;
+        }
       }
-
-      const errorText = await res.text();
-      lastStatus = res.status;
-      lastSource = endpoint;
-      lastSummary = summarizeRdError(errorText);
-
-      console.error("RD contacts endpoint failed:", res.status, endpoint, lastSummary);
-
-      if (res.status >= 500) {
-        await sleep(600);
-      }
-    } catch (err: any) {
-      lastStatus = 502;
-      lastSource = endpoint;
-      lastSummary = err?.message || "Falha de rede ao consultar contatos";
-      console.error("RD contacts request exception:", endpoint, err);
     }
+  }
+
+  if (sawServerError) {
+    return {
+      status: lastStatus,
+      error_source: lastSource,
+      error_summary: lastSummary,
+    };
+  }
+
+  if (sawAuthError) {
+    return {
+      status: 401,
+      error_source: lastSource,
+      error_summary: lastSummary,
+    };
   }
 
   return {
