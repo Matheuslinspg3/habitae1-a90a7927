@@ -92,7 +92,13 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
             )}
             <span className="text-xs text-muted-foreground">• {timeAgo}</span>
             {lead.source && (
-              <span className="text-[11px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+              <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${
+                lead.source === 'RD Station' 
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
+                  : lead.source === 'RD Station (Webhook)'
+                    ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300'
+                    : 'text-muted-foreground bg-muted/60'
+              }`}>
                 {lead.source}
               </span>
             )}
