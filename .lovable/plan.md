@@ -1,53 +1,44 @@
 
 
-## Diagnóstico: RD Station nao puxa leads via API
+## Bug: Duplicated Property Images Not Showing
 
-Após análise completa do código, identifiquei o problema:
+### Root Cause Analysis
 
-**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
+After investigating the database and code, I found **two issues** with the property duplication flow:
 
-1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
-2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
+**Issue 1 — Silent insert failure (primary bug):**
+When duplicating a property, the `createProperty` mutation inserts image records into `property_images`. However, if the insert fails (e.g., due to constraint violations or RLS issues), the error is caught and shown as a toast but execution continues — the property is created without images. The user sees "Imóvel duplicado!" but photos are missing.
 
-Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
+**Issue 2 — Shared storage keys cause cascading deletion:**
+When a property is duplicated, the new `property_images` rows reference the **same R2 storage keys** (`r2_key_full`, `r2_key_thumb`) as the original. If either property is later deleted:
+- The `property_images` rows are deleted (line 471 of `useProperties.ts`)
+- The `cleanup-orphan-media` Edge Function runs every 6 hours and finds those R2 keys are now only referenced by one property (or none)
+- It may delete the actual files from R2/Cloudinary, breaking images on the surviving property
 
----
+### Plan
 
-### Plano: Criar sincronização ativa de leads via API do RD Station
+1. **Add error logging and retry for duplicate image insertion**
+   - In `PropertyDetails.tsx` `handleDuplicate`, add console logging before calling `createProperty` to trace the images array
+   - Ensure `createProperty` surfaces insert errors properly
 
-**1. Nova Edge Function `rd-station-sync-leads`**
-- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
-- Chamar `GET https://api.rd.services/platform/contacts` com paginação
-- Para cada contato retornado, verificar duplicata por email na tabela `leads`
-- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
-- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
-- Retornar resumo (criados, duplicados, erros)
+2. **Copy actual image data, not just references** (main fix)
+   - In the `handleDuplicate` function, instead of reusing the same `r2_key_full`/`r2_key_thumb`, generate new image records that only reference the URL (not the R2 keys)
+   - This prevents cascading deletion issues: each property's images are independent records pointing to the same URL, but without claiming ownership of the R2 storage keys
+   - The `cleanup-orphan-media` function will then correctly identify shared files
 
-**2. Botão "Sincronizar Leads" na interface**
-- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
-- Ao clicar, invocar a nova edge function
-- Mostrar progresso e resultado (quantos leads importados/duplicados)
+3. **Alternative: reference counting for shared images**
+   - Too complex for now — the simpler approach is to just copy the URL and mark storage_provider as null (legacy mode) for duplicated images, so they're treated as external URLs rather than R2-managed files
 
-**3. Validações**
-- Exigir que `api_private_key` esteja configurada
-- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
-- Respeitar deduplicação por email
+### Technical Changes
 
-### Detalhes Técnicos
+**File: `src/pages/PropertyDetails.tsx` (lines 271-279)**
+- When mapping images for duplication, **exclude** `r2_key_full`, `r2_key_thumb`, `storage_provider`, and `phash` fields
+- Only copy `url`, `is_cover`, and `display_order`
+- This ensures duplicated images reference the URL directly without claiming R2 ownership
+- If the image has R2 keys, resolve the full URL using `getImageUrl()` before storing
 
-```text
-Fluxo:
-  Botão "Sincronizar" 
-    → supabase.functions.invoke("rd-station-sync-leads")
-      → GET api.rd.services/platform/contacts?limit=100
-      → Para cada contato:
-         ├─ email existe em leads? → skip (duplicate)
-         └─ não existe → INSERT leads + log em rd_station_webhook_logs
-      → Retorna { created: N, duplicates: N, errors: N }
-```
+**File: `src/lib/imageUrl.ts`**
+- No changes needed — `getImageUrl` already handles fallback to `url` field when R2 keys are absent
 
-Arquivos a criar/modificar:
-- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
-- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
-- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+This is a minimal, safe fix: duplicated properties will display images correctly via URL, and deleting either property won't affect the other's images.
 
