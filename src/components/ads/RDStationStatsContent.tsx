@@ -45,7 +45,7 @@ export default function RDStationStatsContent() {
           <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             {isApiNotConfigured
-              ? "Configure as chaves de API do RD Station na aba de Configurações para ver as estatísticas."
+              ? "Conecte sua conta RD Station via OAuth na aba de Sincronização para ver as estatísticas."
               : errMsg}
           </p>
         </CardContent>
