@@ -3,19 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Globe, Download, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Globe, Download, CheckCircle2, AlertTriangle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation } from "@tanstack/react-query";
 import { useRDStationSettings } from "@/hooks/useRDStationSettings";
+import RDSyncDialog from "./RDSyncDialog";
 
 export default function RDOAuthTab() {
   const { settings, orgId, queryClient, hasOAuth, oauthExpired } = useRDStationSettings();
   const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ created: number; duplicates: number; errors: number } | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   // Check for OAuth callback params
   useEffect(() => {
