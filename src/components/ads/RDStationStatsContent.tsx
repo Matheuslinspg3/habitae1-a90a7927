@@ -133,7 +133,7 @@ export default function RDStationStatsContent() {
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              Funil indisponível — verifique se sua chave de API tem permissão para Analytics.
+              Funil indisponível — esse recurso pode não estar disponível no seu plano do RD Station ({funnel.error}).
             </p>
           </CardContent>
         </Card>
@@ -179,7 +179,7 @@ export default function RDStationStatsContent() {
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
-              Emails indisponíveis — verifique permissões da API.
+              Emails indisponíveis — esse recurso pode não estar disponível no seu plano do RD Station ({emails.error}).
             </p>
           </CardContent>
         </Card>
