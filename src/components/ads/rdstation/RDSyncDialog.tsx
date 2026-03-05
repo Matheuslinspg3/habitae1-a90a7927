@@ -142,7 +142,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -205,7 +205,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
             </div>
 
             {/* Contact list */}
-            <ScrollArea className="flex-1 border rounded-lg max-h-[400px]">
+            <div className="flex-1 border rounded-lg max-h-[400px] overflow-y-auto">
               <div className="divide-y divide-border">
                 {contacts.map((contact) => {
                   const key = contact.uuid || contact.email || contact.name;
@@ -246,7 +246,7 @@ export default function RDSyncDialog({ open, onOpenChange }: RDSyncDialogProps) 
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Import button */}
             <div className="flex items-center justify-between pt-2 border-t">
