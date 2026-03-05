@@ -126,14 +126,18 @@ Deno.serve(async (req) => {
     if (funnelRes.status === "fulfilled" && funnelRes.value.ok) {
       stats.funnel = await funnelRes.value.json();
     } else if (funnelRes.status === "fulfilled") {
-      stats.funnel = { error: `Status ${funnelRes.value.status}` };
+      const body = await funnelRes.value.text();
+      console.log(`[stats] Funnel API returned ${funnelRes.value.status}: ${body.slice(0, 200)}`);
+      stats.funnel = { error: `Status ${funnelRes.value.status}`, detail: body.slice(0, 200) };
     }
 
     // Process emails
     if (emailsRes.status === "fulfilled" && emailsRes.value.ok) {
       stats.emails = await emailsRes.value.json();
     } else if (emailsRes.status === "fulfilled") {
-      stats.emails = { error: `Status ${emailsRes.value.status}` };
+      const body = await emailsRes.value.text();
+      console.log(`[stats] Emails API returned ${emailsRes.value.status}: ${body.slice(0, 200)}`);
+      stats.emails = { error: `Status ${emailsRes.value.status}`, detail: body.slice(0, 200) };
     }
 
     // Process contacts
