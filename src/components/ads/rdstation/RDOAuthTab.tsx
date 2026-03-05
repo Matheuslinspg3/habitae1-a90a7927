@@ -92,7 +92,10 @@ export default function RDOAuthTab() {
           toast.error("Conecte sua conta RD Station via OAuth para sincronizar leads.");
           return;
         }
-        throw new Error(data.error);
+        const extra = [data?.endpoint ? `Endpoint: ${data.endpoint}` : null, data?.summary ? `Detalhe: ${data.summary}` : null]
+          .filter(Boolean)
+          .join(" | ");
+        throw new Error(extra ? `${data.error} (${extra})` : data.error);
       }
       setSyncResult({ created: data.created, duplicates: data.duplicates, errors: data.errors });
       toast.success(`Sincronização concluída: ${data.created} leads criados, ${data.duplicates} duplicados.`);
