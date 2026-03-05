@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, Link2, BarChart3, RefreshCw, Key, Webhook, Download, Globe, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,7 +68,6 @@ export default function RDStationSettingsContent() {
       setDefaultSource(settings.default_source || "RD Station");
       setApiPublicKey(settings.api_public_key || "");
       setApiPrivateKey(settings.api_private_key || "");
-      // Determine mode from saved data
       if (settings.api_public_key || settings.api_private_key) {
         setIntegrationMode("api");
       } else {
@@ -76,6 +75,28 @@ export default function RDStationSettingsContent() {
       }
     }
   }, [settings]);
+
+  // Check for OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("rd_success") === "true") {
+      toast.success("Conta RD Station conectada com sucesso via OAuth!");
+      queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
+      window.history.replaceState({}, "", window.location.pathname + "?tab=config");
+    }
+    if (params.get("rd_error")) {
+      const errMap: Record<string, string> = {
+        missing_params: "Parâmetros ausentes no callback",
+        invalid_state: "Estado inválido no callback",
+        server_config: "Configuração do servidor incompleta",
+        token_exchange: "Erro ao trocar o código por token",
+        db_save: "Erro ao salvar tokens no banco",
+        unexpected: "Erro inesperado",
+      };
+      toast.error(errMap[params.get("rd_error")!] || "Erro ao conectar: " + params.get("rd_error"));
+      window.history.replaceState({}, "", window.location.pathname + "?tab=config");
+    }
+  }, []);
 
   const createSettings = useMutation({
     mutationFn: async () => {
@@ -134,18 +155,21 @@ export default function RDStationSettingsContent() {
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ created: number; duplicates: number; errors: number } | null>(null);
+  const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
 
   const handleSyncLeads = async () => {
-    if (!apiPrivateKey && !settings?.api_private_key) {
-      toast.error("Configure a chave privada de API antes de sincronizar.");
-      return;
-    }
     setIsSyncing(true);
     setSyncResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("rd-station-sync-leads");
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) {
+        if (data?.needs_oauth) {
+          toast.error("Conecte sua conta RD Station via OAuth para sincronizar leads.");
+          return;
+        }
+        throw new Error(data.error);
+      }
       setSyncResult({ created: data.created, duplicates: data.duplicates, errors: data.errors });
       toast.success(`Sincronização concluída: ${data.created} leads criados, ${data.duplicates} duplicados.`);
       queryClient.invalidateQueries({ queryKey: ["rd-station-logs"] });
@@ -155,6 +179,52 @@ export default function RDStationSettingsContent() {
       setIsSyncing(false);
     }
   };
+
+  const handleConnectOAuth = async () => {
+    setIsConnectingOAuth(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rd-station-app-id");
+      if (error || !data?.client_id) {
+        toast.error("Erro ao obter Client ID do RD Station.");
+        return;
+      }
+
+      const clientId = data.client_id;
+      const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rd-station-oauth-callback`;
+      const state = btoa(JSON.stringify({ org_id: orgId, origin: window.location.origin }));
+
+      const authUrl = `https://api.rd.services/auth/dialog?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+      window.location.href = authUrl;
+    } catch (err: any) {
+      toast.error("Erro ao iniciar conexão OAuth.");
+      setIsConnectingOAuth(false);
+    }
+  };
+
+  const handleDisconnectOAuth = useMutation({
+    mutationFn: async () => {
+      if (!settings?.id) return;
+      const { error } = await supabase
+        .from("rd_station_settings")
+        .update({
+          oauth_access_token: null,
+          oauth_refresh_token: null,
+          oauth_token_expires_at: null,
+          oauth_client_id: null,
+        })
+        .eq("id", settings.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["rd-station-settings"] });
+      toast.success("Conexão OAuth desconectada.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const hasOAuth = !!(settings as any)?.oauth_access_token;
+  const oauthExpired = hasOAuth && (settings as any)?.oauth_token_expires_at &&
+    new Date((settings as any).oauth_token_expires_at) < new Date();
 
   const webhookUrl = settings
     ? `https://api.portadocorretor.com.br/rd-station-webhook?org=${orgId?.slice(0, 8)}&token=${settings.webhook_secret}`
@@ -188,7 +258,7 @@ export default function RDStationSettingsContent() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Configure o RD Station para enviar leads por webhook sempre que uma conversão ocorrer. 
+              Configure o RD Station para enviar leads por webhook sempre que uma conversão ocorrer.
               Os leads serão criados automaticamente no CRM.
             </p>
             <Button onClick={() => createSettings.mutate()} disabled={createSettings.isPending}>
@@ -225,7 +295,6 @@ export default function RDStationSettingsContent() {
             )}
           </div>
 
-          {/* Mode selector */}
           <div className="space-y-2">
             <Label>Modo de integração principal</Label>
             <div className="grid grid-cols-2 gap-3">
@@ -239,9 +308,9 @@ export default function RDStationSettingsContent() {
                 }`}
               >
                 <Key className="h-5 w-5" />
-                <span className="font-medium">API</span>
+                <span className="font-medium">API + OAuth</span>
                 <span className="text-xs text-muted-foreground text-center">
-                  Chaves de API do RD Station. Webhook fica opcional.
+                  Conecte via OAuth para sincronizar. Private Token para conversões.
                 </span>
               </button>
               <button
@@ -264,44 +333,79 @@ export default function RDStationSettingsContent() {
         </CardContent>
       </Card>
 
-      {/* API Keys — shown first when mode=api */}
-      {integrationMode === "api" && (<>
+      {/* OAuth Connection */}
+      {integrationMode === "api" && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Chaves de API
+              <Globe className="h-4 w-4" />
+              Conexão OAuth
             </CardTitle>
             <CardDescription>
-              Insira suas chaves do RD Station para sincronização de contatos e leads.
-              Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
+              Conecte sua conta RD Station via OAuth para sincronizar contatos automaticamente.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2 max-w-md">
-              <Label>Chave Pública (Public API Key)</Label>
-              <Input
-                value={apiPublicKey}
-                onChange={(e) => setApiPublicKey(e.target.value)}
-                placeholder="Sua chave pública do RD Station"
-              />
-            </div>
-            <div className="space-y-2 max-w-md">
-              <Label>Chave Privada (Private API Key)</Label>
-              <Input
-                type="password"
-                value={apiPrivateKey}
-                onChange={(e) => setApiPrivateKey(e.target.value)}
-                placeholder="Sua chave privada do RD Station"
-              />
-              <p className="text-xs text-muted-foreground">
-                A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
-              </p>
-            </div>
+            {hasOAuth ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {oauthExpired ? (
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertTriangle className="h-3 w-3" /> Token Expirado
+                    </Badge>
+                  ) : (
+                    <Badge variant="default" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Conectado
+                    </Badge>
+                  )}
+                  {(settings as any)?.oauth_token_expires_at && (
+                    <span className="text-xs text-muted-foreground">
+                      Expira em {format(new Date((settings as any).oauth_token_expires_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {oauthExpired && (
+                    <Button onClick={handleConnectOAuth} disabled={isConnectingOAuth}>
+                      {isConnectingOAuth && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Reconectar
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (confirm("Tem certeza que deseja desconectar? Você não poderá sincronizar leads até reconectar.")) {
+                        handleDisconnectOAuth.mutate();
+                      }
+                    }}
+                    disabled={handleDisconnectOAuth.isPending}
+                  >
+                    Desconectar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  A conexão OAuth é necessária para sincronizar contatos do RD Station.
+                  Clique no botão abaixo para autorizar o acesso à sua conta.
+                </p>
+                <Button onClick={handleConnectOAuth} disabled={isConnectingOAuth}>
+                  {isConnectingOAuth ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Globe className="h-4 w-4 mr-2" />
+                  )}
+                  Conectar com RD Station
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
+      )}
 
-        {/* Sync Leads */}
+      {/* Sync Leads (OAuth) */}
+      {integrationMode === "api" && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -309,14 +413,14 @@ export default function RDStationSettingsContent() {
               Sincronizar Leads
             </CardTitle>
             <CardDescription>
-              Puxe todos os contatos do RD Station para o CRM via API.
+              Puxe todos os contatos do RD Station para o CRM via OAuth.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Busca contatos na API do RD Station, verifica duplicatas por email e cria os leads novos no CRM.
+              Busca contatos na API do RD Station via OAuth, verifica duplicatas por email e cria os leads novos no CRM.
             </p>
-            <Button onClick={handleSyncLeads} disabled={isSyncing}>
+            <Button onClick={handleSyncLeads} disabled={isSyncing || !hasOAuth}>
               {isSyncing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -329,6 +433,11 @@ export default function RDStationSettingsContent() {
                 </>
               )}
             </Button>
+            {!hasOAuth && (
+              <p className="text-xs text-muted-foreground">
+                Conecte sua conta RD Station via OAuth acima para habilitar a sincronização.
+              </p>
+            )}
             {syncResult && (
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge variant="default">{syncResult.created} criados</Badge>
@@ -340,9 +449,48 @@ export default function RDStationSettingsContent() {
             )}
           </CardContent>
         </Card>
-      </>)}
+      )}
 
-      {/* Webhook URL — shown first when mode=webhook */}
+      {/* Private Token (for conversions) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            Chaves de API (Conversões)
+            {integrationMode === "webhook" && <Badge variant="outline" className="ml-1 text-xs">opcional</Badge>}
+          </CardTitle>
+          <CardDescription>
+            {integrationMode === "api"
+              ? "O Private Token permite enviar conversões do CRM para o RD Station (ex: quando um lead avança no funil)."
+              : "Opcionalmente, adicione chaves de API para enviar conversões ao RD Station."}
+            {" "}Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2 max-w-md">
+            <Label>Chave Pública (Public API Key)</Label>
+            <Input
+              value={apiPublicKey}
+              onChange={(e) => setApiPublicKey(e.target.value)}
+              placeholder="Sua chave pública do RD Station"
+            />
+          </div>
+          <div className="space-y-2 max-w-md">
+            <Label>Chave Privada (Private API Key)</Label>
+            <Input
+              type="password"
+              value={apiPrivateKey}
+              onChange={(e) => setApiPrivateKey(e.target.value)}
+              placeholder="Sua chave privada do RD Station"
+            />
+            <p className="text-xs text-muted-foreground">
+              A chave privada é usada para enviar eventos de conversão ao RD Station.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhook URL */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -383,68 +531,6 @@ export default function RDStationSettingsContent() {
           </div>
         </CardContent>
       </Card>
-
-      {/* API Keys — shown after webhook when mode=webhook (optional) */}
-      {integrationMode === "webhook" && (<>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              Chaves de API <Badge variant="outline" className="ml-1 text-xs">opcional</Badge>
-            </CardTitle>
-            <CardDescription>
-              Opcionalmente, adicione chaves de API para sincronizar leads via API.
-              Encontre suas chaves em RD Station → Conta → Integrações → Chaves de API.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2 max-w-md">
-              <Label>Chave Pública (Public API Key)</Label>
-              <Input
-                value={apiPublicKey}
-                onChange={(e) => setApiPublicKey(e.target.value)}
-                placeholder="Sua chave pública do RD Station"
-              />
-            </div>
-            <div className="space-y-2 max-w-md">
-              <Label>Chave Privada (Private API Key)</Label>
-              <Input
-                type="password"
-                value={apiPrivateKey}
-                onChange={(e) => setApiPrivateKey(e.target.value)}
-                placeholder="Sua chave privada do RD Station"
-              />
-              <p className="text-xs text-muted-foreground">
-                A chave privada é armazenada de forma segura e nunca será exibida novamente após salvar.
-              </p>
-            </div>
-            {(apiPrivateKey || settings?.api_private_key) && (
-              <Button variant="outline" onClick={handleSyncLeads} disabled={isSyncing} className="mt-2">
-                {isSyncing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sincronizando...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Sincronizar Leads via API
-                  </>
-                )}
-              </Button>
-            )}
-            {syncResult && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge variant="default">{syncResult.created} criados</Badge>
-                <Badge variant="secondary">{syncResult.duplicates} duplicados</Badge>
-                {syncResult.errors > 0 && (
-                  <Badge variant="destructive">{syncResult.errors} erros</Badge>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </>)}
 
       {/* CRM Settings */}
       <Card>

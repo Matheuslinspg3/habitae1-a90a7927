@@ -56,3 +56,12 @@ verify_jwt = false
 
 [functions.rd-station-sync-leads]
 verify_jwt = false
+
+[functions.rd-station-oauth-callback]
+verify_jwt = false
+
+[functions.rd-station-app-id]
+verify_jwt = false
+
+[functions.rd-station-send-event]
+verify_jwt = false
