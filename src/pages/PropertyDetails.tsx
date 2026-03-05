@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ImageGallery } from "@/components/properties/ImageViewer";
 import { proxyDriveImageUrl } from "@/lib/utils";
+import { getImageUrl } from "@/lib/imageUrl";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -268,14 +269,11 @@ export default function PropertyDetails() {
         description_generated: false,
       };
 
+      // Resolve full URLs and exclude R2/storage keys to prevent cascading deletions
       const images = (property.images || []).map((img: any, i: number) => ({
-        url: img.url,
+        url: getImageUrl(img, 'full'),
         is_cover: img.is_cover || i === 0,
         display_order: img.display_order ?? i,
-        ...(img.r2_key_full ? { r2_key_full: img.r2_key_full } : {}),
-        ...(img.r2_key_thumb ? { r2_key_thumb: img.r2_key_thumb } : {}),
-        ...(img.storage_provider ? { storage_provider: img.storage_provider } : {}),
-        ...(img.phash ? { phash: img.phash } : {}),
       }));
 
       const newProperty = await createProperty(duplicateData, images);
