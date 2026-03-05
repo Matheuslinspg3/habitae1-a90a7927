@@ -2976,6 +2976,10 @@ export type Database = {
           default_stage_id: string | null
           id: string
           is_active: boolean
+          oauth_access_token: string | null
+          oauth_client_id: string | null
+          oauth_refresh_token: string | null
+          oauth_token_expires_at: string | null
           organization_id: string
           updated_at: string
           webhook_secret: string
@@ -2989,6 +2993,10 @@ export type Database = {
           default_stage_id?: string | null
           id?: string
           is_active?: boolean
+          oauth_access_token?: string | null
+          oauth_client_id?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token_expires_at?: string | null
           organization_id: string
           updated_at?: string
           webhook_secret?: string
@@ -3002,6 +3010,10 @@ export type Database = {
           default_stage_id?: string | null
           id?: string
           is_active?: boolean
+          oauth_access_token?: string | null
+          oauth_client_id?: string | null
+          oauth_refresh_token?: string | null
+          oauth_token_expires_at?: string | null
           organization_id?: string
           updated_at?: string
           webhook_secret?: string
