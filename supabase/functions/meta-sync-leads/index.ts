@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -62,7 +62,6 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = account.auth_payload.access_token;
-    const adAccountId = account.external_account_id;
 
     // Parse request body for options
     let daysBack = 7;
@@ -71,81 +70,106 @@ Deno.serve(async (req) => {
       if (body.days_back) daysBack = Math.min(body.days_back, 90);
     } catch {}
 
-    // Fetch leads from Meta API
-    // First get all forms for this ad account
-    const formsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/leadgen_forms?fields=id,name&access_token=${accessToken}`;
-    const formsRes = await fetch(formsUrl);
-    const formsData = await formsRes.json();
+    // Step 1: Get Pages the user manages (leadgen_forms belong to Pages, not Ad Accounts)
+    const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${accessToken}`;
+    const pagesRes = await fetch(pagesUrl);
+    const pagesData = await pagesRes.json();
 
-    if (formsData.error) {
-      console.error("Meta API error (forms):", formsData.error);
-      return new Response(JSON.stringify({ error: "Meta API error", details: formsData.error.message }), { status: 502, headers: corsHeaders });
+    if (pagesData.error) {
+      console.error("Meta API error (pages):", pagesData.error);
+      return new Response(JSON.stringify({ error: "Meta API error", details: pagesData.error.message }), { status: 502, headers: corsHeaders });
     }
 
-    const forms = formsData.data || [];
+    const pages = pagesData.data || [];
+    if (pages.length === 0) {
+      return new Response(
+        JSON.stringify({ synced: 0, skipped: 0, auto_sent: 0, forms: 0, message: "Nenhuma página encontrada. Verifique se o token possui permissão pages_read_engagement." }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     let totalSynced = 0;
     let totalSkipped = 0;
+    let totalForms = 0;
 
-    for (const form of forms) {
-      // Fetch leads for each form
-      let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${accessToken}`;
+    for (const page of pages) {
+      // Use page-specific access token for better permissions
+      const pageToken = page.access_token || accessToken;
 
-      while (leadsUrl) {
-        const leadsRes = await fetch(leadsUrl);
-        const leadsData = await leadsRes.json();
+      // Step 2: Get leadgen forms for each page
+      const formsUrl = `https://graph.facebook.com/v21.0/${page.id}/leadgen_forms?fields=id,name&access_token=${pageToken}`;
+      const formsRes = await fetch(formsUrl);
+      const formsData = await formsRes.json();
 
-        if (leadsData.error) {
-          console.error(`Meta API error (leads for form ${form.id}):`, leadsData.error);
-          break;
-        }
+      if (formsData.error) {
+        console.error(`Meta API error (forms for page ${page.id}):`, formsData.error);
+        continue; // Skip this page, try next
+      }
 
-        const leads = leadsData.data || [];
+      const forms = formsData.data || [];
+      totalForms += forms.length;
 
-        for (const lead of leads) {
-          // Check date filter
-          const createdTime = new Date(lead.created_time);
-          const cutoff = new Date();
-          cutoff.setDate(cutoff.getDate() - daysBack);
-          if (createdTime < cutoff) continue;
+      for (const form of forms) {
+        // Step 3: Fetch leads for each form
+        let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
 
-          // Extract fields
-          const fieldData = lead.field_data || [];
-          const getField = (name: string) => {
-            const f = fieldData.find((fd: any) => fd.name === name);
-            return f?.values?.[0] || null;
-          };
+        while (leadsUrl) {
+          const leadsRes = await fetch(leadsUrl);
+          const leadsData = await leadsRes.json();
 
-          const name = getField("full_name") || getField("nome") || getField("name");
-          const email = getField("email");
-          const phone = getField("phone_number") || getField("telefone") || getField("phone");
-
-          // Upsert lead
-          const { error: upsertError } = await supa
-            .from("ad_leads")
-            .upsert({
-              organization_id: orgId,
-              provider: "meta",
-              external_lead_id: lead.id,
-              external_ad_id: lead.ad_id || "unknown",
-              external_form_id: form.id,
-              name,
-              email,
-              phone,
-              created_time: lead.created_time,
-              raw_payload: lead,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "organization_id,external_lead_id" });
-
-          if (upsertError) {
-            console.error("Lead upsert error:", upsertError);
-            totalSkipped++;
-          } else {
-            totalSynced++;
+          if (leadsData.error) {
+            console.error(`Meta API error (leads for form ${form.id}):`, leadsData.error);
+            break;
           }
-        }
 
-        // Pagination
-        leadsUrl = leadsData.paging?.next || null;
+          const leads = leadsData.data || [];
+
+          for (const lead of leads) {
+            // Check date filter
+            const createdTime = new Date(lead.created_time);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - daysBack);
+            if (createdTime < cutoff) continue;
+
+            // Extract fields
+            const fieldData = lead.field_data || [];
+            const getField = (name: string) => {
+              const f = fieldData.find((fd: any) => fd.name === name);
+              return f?.values?.[0] || null;
+            };
+
+            const name = getField("full_name") || getField("nome") || getField("name");
+            const email = getField("email");
+            const phone = getField("phone_number") || getField("telefone") || getField("phone");
+
+            // Upsert lead
+            const { error: upsertError } = await supa
+              .from("ad_leads")
+              .upsert({
+                organization_id: orgId,
+                provider: "meta",
+                external_lead_id: lead.id,
+                external_ad_id: lead.ad_id || "unknown",
+                external_form_id: form.id,
+                name,
+                email,
+                phone,
+                created_time: lead.created_time,
+                raw_payload: lead,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "organization_id,external_lead_id" });
+
+            if (upsertError) {
+              console.error("Lead upsert error:", upsertError);
+              totalSkipped++;
+            } else {
+              totalSynced++;
+            }
+          }
+
+          // Pagination
+          leadsUrl = leadsData.paging?.next || null;
+        }
       }
     }
 
@@ -194,7 +218,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ synced: totalSynced, skipped: totalSkipped, auto_sent: autoSent, forms: forms.length }),
+      JSON.stringify({ synced: totalSynced, skipped: totalSkipped, auto_sent: autoSent, forms: totalForms, pages: pages.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
