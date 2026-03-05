@@ -25,6 +25,7 @@ export const LEAD_SOURCES = [
   { id: 'anuncio', label: 'Anúncio' },
   { id: 'indicacao', label: 'Indicação' },
   { id: 'porta', label: 'Porta' },
+  { id: 'RD Station', label: 'RD Station' },
   { id: 'outro', label: 'Outro' },
 ] as const;
 
