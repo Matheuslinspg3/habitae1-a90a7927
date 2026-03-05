@@ -71,19 +71,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get API private key (required for CRM API contacts listing)
-    const privateKey = settings.api_private_key;
+    // Get OAuth access token (required for Marketing API)
+    let accessToken = settings.oauth_access_token;
 
-    if (!privateKey) {
+    if (!accessToken) {
       return new Response(
         JSON.stringify({
-          error: "Chave privada da API não configurada. Adicione sua Private Token do RD Station nas configurações.",
+          error: "Conexão OAuth não configurada. Conecte sua conta RD Station via OAuth.",
+          needs_oauth: true,
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Check if token is expired and try to refresh
+    if (settings.oauth_token_expires_at) {
+      const expiresAt = new Date(settings.oauth_token_expires_at);
+      if (expiresAt < new Date()) {
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth expirado. Reconecte sua conta RD Station.", needs_oauth: true }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token!;
+      }
+    }
+
     const apiHeaders: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       Accept: "application/json",
       "User-Agent": "Habitae-RD-Sync/1.0",
@@ -93,25 +110,31 @@ Deno.serve(async (req) => {
     let duplicates = 0;
     let errors = 0;
     let page = 1;
-    const pageSize = 100;
+    const pageSize = 125;
     const maxPages = 10;
     let hasMore = true;
 
     while (hasMore && page <= maxPages) {
-      let pageFetch = await fetchContactsPage(
-        page,
-        pageSize,
-        apiHeaders,
-        privateKey
-      );
+      let pageFetch = await fetchContactsPage(page, pageSize, apiHeaders);
 
       if (pageFetch.status === 401) {
-        return new Response(
-          JSON.stringify({
-            error: "Chave privada inválida. Verifique sua Private Token do RD Station.",
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        // Try refreshing the token
+        const refreshResult = await refreshToken(supabase, settings, orgId);
+        if (refreshResult.error) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth inválido. Reconecte sua conta RD Station.", needs_oauth: true }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        accessToken = refreshResult.access_token!;
+        apiHeaders.Authorization = `Bearer ${accessToken}`;
+        pageFetch = await fetchContactsPage(page, pageSize, apiHeaders);
+        if (pageFetch.status === 401) {
+          return new Response(
+            JSON.stringify({ error: "Token OAuth inválido após refresh. Reconecte sua conta RD Station.", needs_oauth: true }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
 
@@ -136,7 +159,7 @@ Deno.serve(async (req) => {
       }
 
       const data = await pageFetch.response.json();
-      // CRM API v1 returns { contacts: [...] } or directly an array
+      // Marketing API returns { contacts: [...] } or directly an array
       const contacts = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
       const currentPageSize = pageFetch.effective_page_size ?? pageSize;
 
@@ -233,8 +256,7 @@ async function refreshToken(
 async function fetchContactsPage(
   page: number,
   pageSize: number,
-  headers: Record<string, string>,
-  privateToken: string
+  headers: Record<string, string>
 ): Promise<{
   status: number;
   response?: Response;
@@ -242,8 +264,10 @@ async function fetchContactsPage(
   error_summary?: string;
   effective_page_size?: number;
 }> {
-  // Use CRM API v1 with private token (works on all RD Station plans)
-  const url = `https://crm.rdstation.com/api/v1/contacts?token=${encodeURIComponent(privateToken)}&page=${page}&limit=${pageSize}`;
+  // Use Marketing API with OAuth (confirmed working via /marketing/account_info)
+  const url = `https://api.rd.services/marketing/contacts?page=${page}&page_size=${pageSize}&order=created_at:desc`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
