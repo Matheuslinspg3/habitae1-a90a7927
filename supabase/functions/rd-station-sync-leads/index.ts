@@ -71,75 +71,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get OAuth access token (required for listing contacts)
-    let accessToken = settings.oauth_access_token;
+    // Get API private key (required for CRM API contacts listing)
+    const privateKey = settings.api_private_key;
 
-    if (!accessToken) {
+    if (!privateKey) {
       return new Response(
         JSON.stringify({
-          error: "Conexão OAuth não configurada. Conecte sua conta RD Station via OAuth para sincronizar leads.",
-          needs_oauth: true,
+          error: "Chave privada da API não configurada. Adicione sua Private Token do RD Station nas configurações.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if token is expired and try to refresh
-    if (settings.oauth_token_expires_at) {
-      const expiresAt = new Date(settings.oauth_token_expires_at);
-      if (expiresAt < new Date()) {
-        console.log("OAuth token expired, attempting refresh...");
-        const refreshResult = await refreshToken(supabase, settings, orgId);
-        if (refreshResult.error) {
-          return new Response(
-            JSON.stringify({
-              error: "Token OAuth expirado. Reconecte sua conta RD Station.",
-              needs_oauth: true,
-            }),
-            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        accessToken = refreshResult.access_token;
-      }
-    }
-
-    const baseUrl = "https://api.rd.services";
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${accessToken}`,
+    const apiHeaders: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
       "User-Agent": "Habitae-RD-Sync/1.0",
     };
-
-    // Verify token works with a lightweight endpoint first
-    const verifyRes = await fetch(`${baseUrl}/marketing/account_info`, { headers });
-    if (!verifyRes.ok) {
-      const verifyBody = await verifyRes.text();
-      console.error("Token verification failed:", verifyRes.status, verifyBody);
-      
-      if (verifyRes.status === 401) {
-        // Try refresh
-        const refreshResult = await refreshToken(supabase, settings, orgId);
-        if (refreshResult.error) {
-          return new Response(
-            JSON.stringify({
-              error: "Token OAuth inválido. Reconecte sua conta RD Station.",
-              needs_oauth: true,
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        accessToken = refreshResult.access_token;
-        headers.Authorization = `Bearer ${accessToken}`;
-      } else {
-        return new Response(
-          JSON.stringify({
-            error: `Erro ao verificar conexão com RD Station (${verifyRes.status}). Tente novamente ou reconecte sua conta.`,
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
 
     let created = 0;
     let duplicates = 0;
@@ -153,41 +101,19 @@ Deno.serve(async (req) => {
       let pageFetch = await fetchContactsPage(
         page,
         pageSize,
-        headers,
-        settings.api_private_key || null
+        apiHeaders,
+        privateKey
       );
-
-      if (pageFetch.status === 401) {
-        const refreshResult = await refreshToken(supabase, settings, orgId);
-        if (refreshResult.error) {
-          return new Response(
-            JSON.stringify({
-              error: "Token OAuth inválido ou expirado. Reconecte sua conta RD Station.",
-              needs_oauth: true,
-            }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        accessToken = refreshResult.access_token;
-        headers.Authorization = `Bearer ${accessToken}`;
-        pageFetch = await fetchContactsPage(
-          page,
-          pageSize,
-          headers,
-          settings.api_private_key || null
-        );
-      }
 
       if (pageFetch.status === 401) {
         return new Response(
           JSON.stringify({
-            error: "Token OAuth inválido ou expirado. Reconecte sua conta RD Station.",
-            needs_oauth: true,
+            error: "Chave privada inválida. Verifique sua Private Token do RD Station.",
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
 
       if (pageFetch.status === 429) {
         return new Response(
@@ -210,7 +136,8 @@ Deno.serve(async (req) => {
       }
 
       const data = await pageFetch.response.json();
-      const contacts = Array.isArray(data?.contacts) ? data.contacts : [];
+      // CRM API v1 returns { contacts: [...] } or directly an array
+      const contacts = Array.isArray(data?.contacts) ? data.contacts : (Array.isArray(data) ? data : []);
       const currentPageSize = pageFetch.effective_page_size ?? pageSize;
 
       if (contacts.length === 0) {
@@ -307,7 +234,7 @@ async function fetchContactsPage(
   page: number,
   pageSize: number,
   headers: Record<string, string>,
-  _privateToken?: string | null
+  privateToken: string
 ): Promise<{
   status: number;
   response?: Response;
@@ -315,8 +242,8 @@ async function fetchContactsPage(
   error_summary?: string;
   effective_page_size?: number;
 }> {
-  // Single attempt with a short timeout to avoid edge function timeout
-  const url = `https://api.rd.services/platform/contacts?page=${page}&limit=${pageSize}`;
+  // Use CRM API v1 with private token (works on all RD Station plans)
+  const url = `https://crm.rdstation.com/api/v1/contacts?token=${encodeURIComponent(privateToken)}&page=${page}&limit=${pageSize}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
 
