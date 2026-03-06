@@ -4066,6 +4066,7 @@ export type Database = {
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }
+      is_org_manager_or_above: { Args: { _user_id: string }; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
       log_bulk_operation: {
         Args: {
