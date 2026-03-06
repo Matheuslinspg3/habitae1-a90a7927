@@ -75,7 +75,7 @@ async function handleAutoSync(supabase: any): Promise<Response> {
         continue;
       }
 
-      const syncResult = await syncOrgContacts(supabase, settings, orgId, adminProfile.user_id);
+      const syncResult = await syncOrgContacts(supabase, settings, orgId, adminProfile.user_id, { skipDuplicateLog: true });
       results.push({ org: orgId, ...syncResult });
 
       // Update last_sync_at
@@ -511,7 +511,7 @@ async function syncOrgContacts(
 
     const result = await processContacts(supabase, contacts, orgId, settings, userId, {
       created, duplicates, errors,
-    });
+    }, options);
     created = result.created;
     duplicates = result.duplicates;
     errors = result.errors;
