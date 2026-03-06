@@ -723,6 +723,36 @@ async function processContacts(
         }
 
         created++;
+
+        // Notify org managers about new RD Station lead
+        if (newLead?.id) {
+          const { data: managers } = await supabase
+            .from("user_roles")
+            .select("user_id")
+            .in("role", ["admin", "sub_admin"]);
+
+          for (const mgr of (managers || [])) {
+            const { data: mgrProfile } = await supabase
+              .from("profiles")
+              .select("user_id")
+              .eq("user_id", mgr.user_id)
+              .eq("organization_id", orgId)
+              .maybeSingle();
+
+            if (mgrProfile) {
+              await supabase.rpc("insert_notification", {
+                p_user_id: mgrProfile.user_id,
+                p_organization_id: orgId,
+                p_type: "rd_lead_received",
+                p_title: "Novo lead do RD Station",
+                p_message: `O lead "${name}" foi sincronizado do RD Station.`,
+                p_entity_id: newLead.id,
+                p_entity_type: "lead",
+              });
+            }
+          }
+        }
+
         await supabase.from("rd_station_webhook_logs").insert({
           organization_id: orgId,
           event_type: "api_sync",

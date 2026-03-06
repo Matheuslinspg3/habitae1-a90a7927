@@ -7,12 +7,62 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, RefreshCw, Users, Mail, TrendingUp,
-  BarChart3, ArrowDownToLine, AlertCircle, Webhook
+  BarChart3, ArrowDownToLine, AlertCircle, Webhook, Download
 } from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function RDStationStatsContent() {
   const { profile, session } = useAuth();
   const orgId = profile?.organization_id;
+
+  const { data: rdLeads = [] } = useQuery({
+    queryKey: ["rd-station-leads-export", orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data, error } = await supabase
+        .from("leads")
+        .select("name, email, phone, source, temperature, created_at, notes")
+        .eq("organization_id", orgId)
+        .eq("external_source", "rdstation")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!orgId,
+  });
+
+  const handleExportCSV = () => {
+    if (rdLeads.length === 0) {
+      toast.error("Nenhum lead do RD Station para exportar.");
+      return;
+    }
+    const headers = ["Nome", "E-mail", "Telefone", "Origem", "Temperatura", "Data Criação", "Notas"];
+    const rows = rdLeads.map((l: any) => [
+      l.name || "",
+      l.email || "",
+      l.phone || "",
+      l.source || "",
+      l.temperature || "",
+      l.created_at ? format(new Date(l.created_at), "dd/MM/yyyy HH:mm") : "",
+      (l.notes || "").replace(/\n/g, " "),
+    ]);
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row: string[]) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leads_rdstation_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`${rdLeads.length} leads exportados com sucesso!`);
+  };
 
   const { data: stats, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["rd-station-stats", orgId],
@@ -65,10 +115,16 @@ export default function RDStationStatsContent() {
           <h3 className="text-base font-semibold">Estatísticas RD Station</h3>
           <p className="text-xs text-muted-foreground">Últimos 30 dias</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
-          Atualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rdLeads.length === 0}>
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Exportar CSV ({rdLeads.length})
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Internal CRM Stats */}
