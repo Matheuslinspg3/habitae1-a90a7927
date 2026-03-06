@@ -136,7 +136,7 @@ export function KanbanBoard() {
     reorderStages(reordered.map((s, i) => ({ id: s.id, position: i })));
   }, [leadStages, reorderStages]);
 
-  // Filter leads
+  // Filter and sort leads (stalest first)
   const filteredLeadsByStage = useMemo(() => {
     const searchLower = search.toLowerCase();
     
@@ -158,7 +158,10 @@ export function KanbanBoard() {
       if (selectedTemperature) {
         stageLeads = stageLeads.filter((lead) => lead.temperature === selectedTemperature);
       }
-      return stageLeads;
+      // Sort: oldest updated_at first (stalest leads on top)
+      return [...stageLeads].sort((a, b) => 
+        new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+      );
     };
 
     const result = leadStages.reduce((acc, stage) => {

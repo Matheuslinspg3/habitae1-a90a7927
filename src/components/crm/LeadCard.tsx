@@ -89,7 +89,16 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
     addSuffix: true,
     locale: ptBR,
   }), [lead.created_at]);
-  const isStale = useMemo(() => differenceInDays(new Date(), new Date(lead.updated_at)) >= 7, [lead.updated_at]);
+
+  const daysSinceUpdate = useMemo(() => differenceInDays(new Date(), new Date(lead.updated_at)), [lead.updated_at]);
+  const isStale = daysSinceUpdate >= 7;
+
+  // Staleness color: green < 7 days, yellow 7-13 days, red >= 14 days
+  const stalenessClass = useMemo(() => {
+    if (daysSinceUpdate >= 14) return 'bg-red-50 dark:bg-red-950/30';
+    if (daysSinceUpdate >= 7) return 'bg-amber-50 dark:bg-amber-950/30';
+    return 'bg-emerald-50/50 dark:bg-emerald-950/20';
+  }, [daysSinceUpdate]);
 
   const tempConfig = TEMPERATURE_CONFIG[lead.temperature || ''] || DEFAULT_TEMP_CONFIG;
   const TempIcon = tempConfig.icon;
@@ -100,7 +109,7 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow bg-card ${tempConfig.borderClass} ${isDragging ? 'shadow-lg' : ''}`}
+      className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${stalenessClass} ${tempConfig.borderClass} ${isDragging ? 'shadow-lg' : ''}`}
       onClick={onClick}
     >
       <CardContent className="p-3 space-y-2">

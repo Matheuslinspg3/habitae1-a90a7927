@@ -1,9 +1,9 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Phone, ChevronRight, Flame, Snowflake, Sun, Zap } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Lead } from '@/hooks/useLeads';
 
@@ -55,9 +55,17 @@ function MobileLeadCardComponent({ lead, onClick, isSelected, onToggleSelect, se
     }
   }, [selectionMode, lead.id, onToggleSelect]);
 
+  // Staleness color coding
+  const daysSinceUpdate = useMemo(() => differenceInDays(new Date(), new Date(lead.updated_at)), [lead.updated_at]);
+  const stalenessClass = useMemo(() => {
+    if (daysSinceUpdate >= 14) return 'bg-red-50 dark:bg-red-950/30';
+    if (daysSinceUpdate >= 7) return 'bg-amber-50 dark:bg-amber-950/30';
+    return 'bg-emerald-50/50 dark:bg-emerald-950/20';
+  }, [daysSinceUpdate]);
+
   return (
     <Card 
-      className={`cursor-pointer hover:bg-accent/50 transition-colors active:scale-[0.99] ${tempStyle?.border || ''} ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+      className={`cursor-pointer hover:bg-accent/50 transition-colors active:scale-[0.99] ${tempStyle?.border || ''} ${stalenessClass} ${isSelected ? 'ring-2 ring-primary' : ''}`}
       onClick={handleClick}
       onContextMenu={(e) => { e.preventDefault(); handleLongPress(); }}
     >
