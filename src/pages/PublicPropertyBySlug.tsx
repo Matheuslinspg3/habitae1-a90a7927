@@ -183,7 +183,7 @@ export default function PublicPropertyBySlug() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <HabitaeLogo size="sm" />
+          <div />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={handleShare} className="h-9 w-9 rounded-full">
               <Share2 className="h-4 w-4" />
@@ -370,7 +370,6 @@ export default function PublicPropertyBySlug() {
 
       {/* Footer */}
       <footer className="border-t mt-16 py-8 text-center text-sm text-muted-foreground">
-        <p>Powered by <strong>Porta do Corretor</strong></p>
       </footer>
     </div>
   );

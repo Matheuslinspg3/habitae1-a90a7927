@@ -266,7 +266,7 @@ export default function PropertyLandingPage() {
       {/* Minimal sticky header — Vizcom-style */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <HabitaeLogo size="sm" />
+          <div />
           <div className="flex items-center gap-1 sm:gap-2">
             <Button variant="ghost" size="icon" onClick={() => handleShare("whatsapp")} className="h-9 w-9 rounded-full">
               <MessageCircle className="h-4 w-4" />
@@ -597,9 +597,8 @@ export default function PropertyLandingPage() {
       {/* Footer — minimal */}
       <footer className="mt-16 py-12 border-t border-border/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center space-y-3">
-          <HabitaeLogo size="sm" className="mx-auto" />
           <p className="text-xs text-muted-foreground/60 tracking-wide">
-            © {new Date().getFullYear()} Habitae — Gestão imobiliária simplificada
+            © {new Date().getFullYear()} — Gestão imobiliária simplificada
           </p>
         </div>
       </footer>
