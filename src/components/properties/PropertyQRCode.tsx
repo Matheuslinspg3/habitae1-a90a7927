@@ -8,9 +8,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Download, QrCode } from "lucide-react";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 
 interface PropertyQRCodeProps {
   propertyId: string;
+  propertyCode?: string | null;
   propertyTitle?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,7 +59,7 @@ function generateQRMatrix(data: string): boolean[][] {
   return matrix;
 }
 
-export function PropertyQRCode({ propertyId, propertyTitle, open, onOpenChange }: PropertyQRCodeProps) {
+export function PropertyQRCode({ propertyId, propertyCode, propertyTitle, open, onOpenChange }: PropertyQRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { buildPublicUrl } = usePropertyPublicUrl();
   const url = buildPublicUrl(propertyId, propertyCode);

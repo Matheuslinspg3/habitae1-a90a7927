@@ -16,6 +16,7 @@ import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 
 interface PropertyListItemProps {
   property: PropertyWithDetails;

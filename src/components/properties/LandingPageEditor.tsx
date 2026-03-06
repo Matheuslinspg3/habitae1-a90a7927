@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useLandingOverrides, type LandingOverrides } from "@/hooks/useLandingOverrides";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -32,11 +33,12 @@ const ICON_OPTIONS = [
 
 interface LandingPageEditorProps {
   propertyId: string;
+  propertyCode?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function LandingPageEditor({ propertyId, open, onOpenChange }: LandingPageEditorProps) {
+export function LandingPageEditor({ propertyId, propertyCode, open, onOpenChange }: LandingPageEditorProps) {
   const { toast } = useToast();
   const { overrides, saveOverrides, isSaving } = useLandingOverrides(propertyId);
   const { content: aiContent } = useLandingContent(propertyId);

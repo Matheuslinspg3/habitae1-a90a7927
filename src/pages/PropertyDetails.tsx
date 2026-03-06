@@ -18,6 +18,7 @@ import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/us
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShareLink } from "@/hooks/useShareLink";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
