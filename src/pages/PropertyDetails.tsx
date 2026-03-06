@@ -846,6 +846,7 @@ export default function PropertyDetails() {
       {id && (
         <LandingPageEditor
           propertyId={id}
+          propertyCode={property?.property_code}
           open={editorOpen}
           onOpenChange={setEditorOpen}
         />
@@ -853,6 +854,7 @@ export default function PropertyDetails() {
       {id && (
         <PropertyQRCode
           propertyId={id}
+          propertyCode={property?.property_code}
           propertyTitle={property?.title}
           open={qrOpen}
           onOpenChange={setQrOpen}
