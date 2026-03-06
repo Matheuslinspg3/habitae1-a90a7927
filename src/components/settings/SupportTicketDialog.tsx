@@ -82,6 +82,8 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
             category,
             status: "open",
             source: "porta_do_corretor",
+            project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
+            user_id: user.id,
             user_name: profile.full_name || "Desconhecido",
             user_email: user.email || "",
             organization_name: orgName,
