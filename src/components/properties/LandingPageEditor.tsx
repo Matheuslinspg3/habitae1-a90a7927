@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useLandingOverrides, type LandingOverrides } from "@/hooks/useLandingOverrides";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -32,11 +33,12 @@ const ICON_OPTIONS = [
 
 interface LandingPageEditorProps {
   propertyId: string;
+  propertyCode?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function LandingPageEditor({ propertyId, open, onOpenChange }: LandingPageEditorProps) {
+export function LandingPageEditor({ propertyId, propertyCode, open, onOpenChange }: LandingPageEditorProps) {
   const { toast } = useToast();
   const { overrides, saveOverrides, isSaving } = useLandingOverrides(propertyId);
   const { content: aiContent } = useLandingContent(propertyId);
@@ -142,8 +144,10 @@ export function LandingPageEditor({ propertyId, open, onOpenChange }: LandingPag
 
   const [mobilePreview, setMobilePreview] = useState(false);
 
+  const { buildPublicUrl } = usePropertyPublicUrl();
+
   const handlePreview = () => {
-    window.open(`/imovel/${propertyId}`, "_blank");
+    window.open(buildPublicUrl(propertyId, propertyCode), "_blank");
   };
 
   return (
@@ -331,7 +335,7 @@ export function LandingPageEditor({ propertyId, open, onOpenChange }: LandingPag
               <CardContent className="flex justify-center">
                 <div className="border-2 border-muted rounded-2xl overflow-hidden shadow-lg" style={{ width: 375, height: 667 }}>
                   <iframe
-                    src={`/imovel/${propertyId}`}
+                    src={buildPublicUrl(propertyId, propertyCode).replace(window.location.origin, '')}
                     className="w-full h-full border-0"
                     title="Preview mobile"
                   />

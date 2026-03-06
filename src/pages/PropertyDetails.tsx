@@ -18,6 +18,7 @@ import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/us
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShareLink } from "@/hooks/useShareLink";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -94,6 +95,7 @@ export default function PropertyDetails() {
   const [qrOpen, setQrOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
+  const { buildPublicUrl } = usePropertyPublicUrl();
 
   const property = properties.find((p) => p.id === id);
   const { logActivity } = useActivityLogger();
@@ -176,8 +178,7 @@ export default function PropertyDetails() {
   };
 
   const generateLandingPageUrl = () => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/imovel/${id}`;
+    return buildPublicUrl(id!, property?.property_code);
   };
 
   const handleCopyLink = async () => {
@@ -845,6 +846,7 @@ export default function PropertyDetails() {
       {id && (
         <LandingPageEditor
           propertyId={id}
+          propertyCode={property?.property_code}
           open={editorOpen}
           onOpenChange={setEditorOpen}
         />
@@ -852,6 +854,7 @@ export default function PropertyDetails() {
       {id && (
         <PropertyQRCode
           propertyId={id}
+          propertyCode={property?.property_code}
           propertyTitle={property?.title}
           open={qrOpen}
           onOpenChange={setQrOpen}

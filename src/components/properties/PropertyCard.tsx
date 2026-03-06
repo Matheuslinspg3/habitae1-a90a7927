@@ -16,6 +16,7 @@ import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, getImageSrcSet, type ImageRecord } from "@/lib/imageUrl";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 
 interface PropertyCardProps {
   property: PropertyWithDetails;
@@ -26,6 +27,7 @@ interface PropertyCardProps {
 
 export function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
   const navigate = useNavigate();
+  const { buildPublicUrl } = usePropertyPublicUrl();
   const isAvailable = property.status === "disponivel";
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   
@@ -86,7 +88,7 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
   };
 
   const handleOpenLandingPage = () => {
-    window.open(`/imovel/${property.id}`, "_blank");
+    window.open(buildPublicUrl(property.id, property.property_code), "_blank");
   };
 
   // Compact card for unavailable properties

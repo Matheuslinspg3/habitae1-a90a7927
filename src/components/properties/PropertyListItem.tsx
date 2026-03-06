@@ -16,6 +16,7 @@ import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
+import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 
 interface PropertyListItemProps {
   property: PropertyWithDetails;
@@ -39,6 +40,7 @@ export function PropertyListItem({
   isPublished,
 }: PropertyListItemProps) {
   const navigate = useNavigate();
+  const { buildPublicUrl } = usePropertyPublicUrl();
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   const imageRecord = coverImageData as unknown as ImageRecord | null;
   const coverImage = imageRecord?.storage_provider === 'r2' || imageRecord?.r2_key_thumb
@@ -199,7 +201,7 @@ export function PropertyListItem({
               <Eye className="h-4 w-4 mr-2" /> Ver detalhes
             </DropdownMenuItem>
             {isAvailable && (
-              <DropdownMenuItem onClick={() => window.open(`/imovel/${property.id}`, "_blank")}>
+              <DropdownMenuItem onClick={() => window.open(buildPublicUrl(property.id, property.property_code), "_blank")}>
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
               </DropdownMenuItem>
             )}
