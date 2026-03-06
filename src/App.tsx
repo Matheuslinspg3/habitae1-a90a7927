@@ -138,7 +138,7 @@ const App = () => (
                         <Route path="/agenda" element={<Schedule />} />
                         
                         <Route path="/automacoes" element={<Automations />} />
-                        <Route path="/atividades" element={<AdminRoute><Activities /></AdminRoute>} />
+                        <Route path="/atividades" element={<ManagerRoute><Activities /></ManagerRoute>} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
