@@ -619,7 +619,8 @@ async function processContacts(
   orgId: string,
   settings: any,
   userId: string,
-  counters: { created: number; duplicates: number; errors: number }
+  counters: { created: number; duplicates: number; errors: number },
+  options?: { skipDuplicateLog?: boolean }
 ) {
   let { created, duplicates, errors } = counters;
 
