@@ -44,6 +44,7 @@ const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
 const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
+const Activities = lazy(() => import("./pages/Activities"));
 const Administration = lazy(() => import("./pages/Administration"));
 const Anuncios = lazy(() => import("./pages/Anuncios"));
 const RDStation = lazy(() => import("./pages/RDStation"));
@@ -136,6 +137,7 @@ const App = () => (
                         <Route path="/agenda" element={<Schedule />} />
                         
                         <Route path="/automacoes" element={<Automations />} />
+                        <Route path="/atividades" element={<Activities />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
