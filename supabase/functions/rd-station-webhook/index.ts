@@ -167,23 +167,64 @@ Deno.serve(async (req) => {
           status = "received_not_sent";
         }
 
-        results.push({ name, email, status, leadId });
-      } catch (err: any) {
-        errorMessage = err.message || "Unknown error";
-        status = "error";
-        results.push({ status: "error", error: errorMessage });
-      }
+function buildNotes(data: Record<string, any>): string {
+  const ignore = new Set([
+    "id", "name", "nome", "email", "phone", "telefone",
+    "personal_phone", "mobile_phone", "personal_email",
+    "first_name", "last_name", "traffic_source",
+    "conversion_identifier",
+  ]);
+  const lines: string[] = [];
 
-      // Log webhook
-      await supabase.from("rd_station_webhook_logs").insert({
-        organization_id: orgId,
-        event_type: payload.event_type || "conversion",
-        payload: leadData,
-        lead_id: leadId,
-        status,
-        error_message: errorMessage,
-      });
+  // Extract conversion events
+  if (data.first_conversion) {
+    const fc = data.first_conversion;
+    lines.push(`Primeira conversão: ${fc.content?.identifier || fc.conversion_identifier || JSON.stringify(fc.content || fc)}`);
+    if (fc.source) lines.push(`  Origem: ${fc.source}`);
+    if (fc.created_at) lines.push(`  Data: ${fc.created_at}`);
+  }
+  if (data.last_conversion && data.last_conversion !== data.first_conversion) {
+    const lc = data.last_conversion;
+    lines.push(`Última conversão: ${lc.content?.identifier || lc.conversion_identifier || JSON.stringify(lc.content || lc)}`);
+    if (lc.source) lines.push(`  Origem: ${lc.source}`);
+    if (lc.created_at) lines.push(`  Data: ${lc.created_at}`);
+  }
+
+  // Extract custom fields
+  if (data.custom_fields && typeof data.custom_fields === "object") {
+    const cf = data.custom_fields;
+    for (const [key, value] of Object.entries(cf)) {
+      if (value != null && value !== "") {
+        lines.push(`${key}: ${value}`);
+      }
     }
+  }
+
+  // Extract other useful fields
+  if (data.lead_stage) lines.push(`Estágio no funil: ${data.lead_stage}`);
+  if (data.number_conversions) lines.push(`Nº conversões: ${data.number_conversions}`);
+  if (data.public_url) lines.push(`URL RD Station: ${data.public_url}`);
+  if (data.uuid) lines.push(`UUID: ${data.uuid}`);
+  if (data.opportunity === true) lines.push(`Oportunidade: Sim`);
+  if (data.company) lines.push(`Empresa: ${data.company}`);
+  if (data.job_title) lines.push(`Cargo: ${data.job_title}`);
+  if (data.city) lines.push(`Cidade: ${data.city}`);
+  if (data.state) lines.push(`Estado: ${data.state}`);
+  if (data.tags && Array.isArray(data.tags)) lines.push(`Tags: ${data.tags.join(", ")}`);
+
+  // Remaining simple fields
+  for (const [key, value] of Object.entries(data)) {
+    if (ignore.has(key) || value == null || value === "" || typeof value === "object" ||
+        ["first_conversion", "last_conversion", "custom_fields", "lead_stage",
+         "number_conversions", "public_url", "uuid", "opportunity", "company",
+         "job_title", "city", "state", "tags", "created_at"].includes(key)) continue;
+    lines.push(`${key}: ${value}`);
+  }
+
+  return lines.length > 0
+    ? `[RD Station]\n${lines.join("\n")}`
+    : "[Importado via RD Station]";
+}
 
     return new Response(JSON.stringify({ success: true, results }), {
       status: 200,
