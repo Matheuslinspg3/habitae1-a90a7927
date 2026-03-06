@@ -95,6 +95,7 @@ export default function PropertyDetails() {
   const [qrOpen, setQrOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const { generateShareLink, isGenerating: isGeneratingShareLink } = useShareLink();
+  const { buildPublicUrl } = usePropertyPublicUrl();
 
   const property = properties.find((p) => p.id === id);
   const { logActivity } = useActivityLogger();

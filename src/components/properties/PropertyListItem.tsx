@@ -40,6 +40,7 @@ export function PropertyListItem({
   isPublished,
 }: PropertyListItemProps) {
   const navigate = useNavigate();
+  const { buildPublicUrl } = usePropertyPublicUrl();
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   const imageRecord = coverImageData as unknown as ImageRecord | null;
   const coverImage = imageRecord?.storage_provider === 'r2' || imageRecord?.r2_key_thumb

@@ -27,6 +27,7 @@ interface PropertyCardProps {
 
 export function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
   const navigate = useNavigate();
+  const { buildPublicUrl } = usePropertyPublicUrl();
   const isAvailable = property.status === "disponivel";
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   
