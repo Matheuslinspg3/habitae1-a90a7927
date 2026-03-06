@@ -364,7 +364,6 @@ export default function PropertyLandingPage() {
           <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight font-display">
             {headline}
           </h1>
-          </h1>
           {subheadline && (
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl">{subheadline}</p>
           )}
