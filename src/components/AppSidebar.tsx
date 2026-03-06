@@ -236,6 +236,23 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
+                    isActive={isActive("/atividades")}
+                    tooltip="Atividades"
+                    className={isActive("/atividades") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+                  >
+                    <NavLink 
+                      to="/atividades" 
+                      className="flex items-center gap-3"
+                      activeClassName="text-primary font-medium"
+                    >
+                      <BarChart3 className={`h-4 w-4 ${isActive("/atividades") ? "text-primary" : ""}`} />
+                      <span>Atividades</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
                     isActive={isActive("/administracao")}
                     tooltip="Administração"
                     className={isActive("/administracao") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
