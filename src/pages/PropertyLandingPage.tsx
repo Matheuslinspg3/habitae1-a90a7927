@@ -15,6 +15,7 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { Hash } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import {
   MapPin,
@@ -352,6 +353,12 @@ export default function PropertyLandingPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={isAvailable ? "default" : "secondary"} className="rounded-full px-3">{statusLabels[property.status]}</Badge>
             <Badge variant="outline" className="rounded-full px-3">{transactionLabels[property.transaction_type]}</Badge>
+            {(property as any).property_code && (
+              <Badge variant="outline" className="rounded-full px-3 font-mono">
+                <Hash className="h-3 w-3 mr-1" />
+                {(property as any).property_code}
+              </Badge>
+            )}
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight font-display">
