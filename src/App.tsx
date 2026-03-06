@@ -11,6 +11,7 @@ import { DemoProvider } from "@/contexts/DemoContext";
 import { ImportProgressProvider } from "@/contexts/ImportProgressContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/admin/AdminRoute";
+import { ManagerRoute } from "@/components/admin/ManagerRoute";
 import { DeveloperRoute } from "@/components/developer/DeveloperRoute";
 import { AppLayout } from "@/components/layouts/AppLayout";
 import { FloatingImportProgress } from "@/components/integrations/FloatingImportProgress";
