@@ -430,11 +430,11 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
             </div>
 
             {/* Mobile: horizontal scroll thumbnails */}
-            <div className="flex md:hidden gap-1 overflow-x-auto pb-1">
-              {images.slice(1, 5).map((image, index) => (
+            <div className="flex md:hidden gap-1.5 overflow-x-auto pb-2 px-1 -mx-1">
+              {images.slice(1, 6).map((image, index) => (
                 <div
                   key={index}
-                  className="relative flex-shrink-0 w-24 h-24 cursor-pointer group rounded-md overflow-hidden"
+                  className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 cursor-pointer group rounded-lg overflow-hidden"
                   onClick={() => handleImageClick(index + 1)}
                 >
                   <img
@@ -442,9 +442,9 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
                     alt={image.alt || `Imagem ${index + 2}`}
                     className="w-full h-full object-cover"
                   />
-                  {index === 3 && remainingCount > 0 && (
+                  {index === 4 && images.length > 6 && (
                     <div className="absolute inset-0 bg-foreground/40 flex items-center justify-center">
-                      <span className="text-sm font-bold text-background">+{remainingCount}</span>
+                      <span className="text-sm font-bold text-background">+{images.length - 6}</span>
                     </div>
                   )}
                 </div>

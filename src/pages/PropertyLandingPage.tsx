@@ -15,6 +15,7 @@ import { proxyDriveImageUrl } from "@/lib/utils";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { Hash } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import {
   MapPin,
@@ -352,9 +353,15 @@ export default function PropertyLandingPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={isAvailable ? "default" : "secondary"} className="rounded-full px-3">{statusLabels[property.status]}</Badge>
             <Badge variant="outline" className="rounded-full px-3">{transactionLabels[property.transaction_type]}</Badge>
+            {(property as any).property_code && (
+              <Badge variant="outline" className="rounded-full px-3 font-mono">
+                <Hash className="h-3 w-3 mr-1" />
+                {(property as any).property_code}
+              </Badge>
+            )}
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.05] tracking-tight font-display">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight font-display">
             {headline}
           </h1>
           {subheadline && (
@@ -370,35 +377,35 @@ export default function PropertyLandingPage() {
           <hr className="section-divider" />
 
           {/* Price Cards — with colorful accents */}
-          <div className="flex flex-wrap gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 pt-2">
             {property.sale_price && (
-              <div className="flex-1 min-w-[200px] p-5 sm:p-6 rounded-2xl border border-primary/15 relative overflow-hidden">
+              <div className="flex-1 min-w-0 sm:min-w-[200px] p-4 sm:p-6 rounded-2xl border border-primary/15 relative overflow-hidden">
                 <div className="absolute top-0 inset-x-0 h-[2px]" style={{ background: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)), transparent)" }} />
                 <p className="editorial-label-muted mb-1">Valor de Venda</p>
-                <p className="text-3xl sm:text-4xl font-extrabold text-gradient-vibrant tracking-tight">{formatPrice(property.sale_price)}</p>
+                <p className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gradient-vibrant tracking-tight">{formatPrice(property.sale_price)}</p>
               </div>
             )}
             {property.rent_price && (
-              <div className="flex-1 min-w-[200px] p-5 sm:p-6 rounded-2xl border border-accent/15 relative overflow-hidden">
+              <div className="flex-1 min-w-0 sm:min-w-[200px] p-4 sm:p-6 rounded-2xl border border-accent/15 relative overflow-hidden">
                 <div className="absolute top-0 inset-x-0 h-[2px]" style={{ background: "linear-gradient(90deg, hsl(var(--accent)), hsl(var(--warning)), transparent)" }} />
                 <p className="editorial-label-muted mb-1">Aluguel</p>
-                <p className="text-3xl sm:text-4xl font-extrabold text-gradient-warm tracking-tight">{formatPrice(property.rent_price, true)}</p>
+                <p className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-gradient-warm tracking-tight">{formatPrice(property.rent_price, true)}</p>
               </div>
             )}
           </div>
 
           {/* Quick costs */}
           {(property.condominium_fee || property.iptu) && (
-            <div className="flex gap-6 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 text-sm text-muted-foreground">
               {property.condominium_fee && (
                 <span className="flex items-center gap-1.5">
-                  <DollarSign className="h-4 w-4" />
+                  <DollarSign className="h-4 w-4 shrink-0" />
                   Condomínio: <strong>{formatPrice(property.condominium_fee)}/mês</strong>
                 </span>
               )}
               {property.iptu && (
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" />
+                  <Calendar className="h-4 w-4 shrink-0" />
                   IPTU: <strong>{formatPrice(property.iptu)}/ano</strong>
                 </span>
               )}
