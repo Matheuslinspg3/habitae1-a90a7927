@@ -75,7 +75,7 @@ async function handleAutoSync(supabase: any): Promise<Response> {
         continue;
       }
 
-      const syncResult = await syncOrgContacts(supabase, settings, orgId, adminProfile.user_id);
+      const syncResult = await syncOrgContacts(supabase, settings, orgId, adminProfile.user_id, { skipDuplicateLog: true });
       results.push({ org: orgId, ...syncResult });
 
       // Update last_sync_at
@@ -392,7 +392,8 @@ async function syncOrgContacts(
   supabase: any,
   settings: any,
   orgId: string,
-  userId: string
+  userId: string,
+  options?: { skipDuplicateLog?: boolean }
 ): Promise<Record<string, any>> {
   let accessToken = settings.oauth_access_token;
 
@@ -510,7 +511,7 @@ async function syncOrgContacts(
 
     const result = await processContacts(supabase, contacts, orgId, settings, userId, {
       created, duplicates, errors,
-    });
+    }, options);
     created = result.created;
     duplicates = result.duplicates;
     errors = result.errors;
@@ -619,7 +620,8 @@ async function processContacts(
   orgId: string,
   settings: any,
   userId: string,
-  counters: { created: number; duplicates: number; errors: number }
+  counters: { created: number; duplicates: number; errors: number },
+  options?: { skipDuplicateLog?: boolean }
 ) {
   let { created, duplicates, errors } = counters;
 
@@ -644,13 +646,15 @@ async function processContacts(
 
         if (existingByEmail) {
           duplicates++;
-          await supabase.from("rd_station_webhook_logs").insert({
-            organization_id: orgId,
-            event_type: "api_sync",
-            payload: { name, email, phone, rd_uuid: contact.uuid },
-            status: "duplicate",
-            error_message: "Duplicado por email",
-          });
+          if (!options?.skipDuplicateLog) {
+            await supabase.from("rd_station_webhook_logs").insert({
+              organization_id: orgId,
+              event_type: "api_sync",
+              payload: { name, email, phone, rd_uuid: contact.uuid },
+              status: "duplicate",
+              error_message: "Duplicado por email",
+            });
+          }
           continue;
         }
       }
@@ -676,13 +680,15 @@ async function processContacts(
 
           if (phoneMatch) {
             duplicates++;
-            await supabase.from("rd_station_webhook_logs").insert({
-              organization_id: orgId,
-              event_type: "api_sync",
-              payload: { name, email, phone, rd_uuid: contact.uuid },
-              status: "duplicate",
-              error_message: "Duplicado por telefone",
-            });
+            if (!options?.skipDuplicateLog) {
+              await supabase.from("rd_station_webhook_logs").insert({
+                organization_id: orgId,
+                event_type: "api_sync",
+                payload: { name, email, phone, rd_uuid: contact.uuid },
+                status: "duplicate",
+                error_message: "Duplicado por telefone",
+              });
+            }
             continue;
           }
         }
