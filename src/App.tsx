@@ -96,6 +96,7 @@ const App = () => (
                       <Route path="/demo" element={<Demo />} />
                       <Route path="/imovel/:id" element={<PropertyLandingPage />} />
                       <Route path="/instalar" element={<Install />} />
+                      <Route path="/i/:orgSlug/:code" element={<PublicPropertyBySlug />} />
                       <Route path="/i/:slug" element={<PublicPropertyBySlug />} />
                       <Route path="/privacidade" element={<PrivacyPolicy />} />
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />

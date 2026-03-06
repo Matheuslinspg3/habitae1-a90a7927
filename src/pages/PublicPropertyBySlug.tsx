@@ -6,11 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImageGallery } from "@/components/properties/ImageViewer";
+import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { proxyDriveImageUrl } from "@/lib/utils";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import {
   MapPin, Bed, Bath, Car, Building2, MessageCircle, Share2,
   Phone, Maximize, DollarSign, Calendar, Home, CheckCircle2,
+  Hash,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,14 +36,28 @@ interface PublicPropertyData {
     amenities: string[] | null; neighborhood: string | null;
     city: string | null; state: string | null;
     youtube_url: string | null; property_condition: string | null; floor: number | null;
+    property_code: string | null;
   };
-  images: Array<{ id: string; url: string; is_cover: boolean; display_order: number }>;
+  images: Array<{
+    id: string; url: string; is_cover: boolean; display_order: number;
+    r2_key_full?: string | null; r2_key_thumb?: string | null;
+    storage_provider?: string | null; cached_thumbnail_url?: string | null;
+  }>;
   media: Array<{ id: string; url: string; display_order: number }>;
   broker: { name: string | null; phone: string | null; avatar_url: string | null };
 }
 
+function resolveImageUrl(img: PublicPropertyData["images"][0]): string {
+  // If it has R2 fields, use the imageUrl resolver
+  if (img.storage_provider === "r2" && (img.r2_key_full || img.r2_key_thumb)) {
+    return getImageUrl(img as ImageRecord, "full");
+  }
+  // Otherwise proxy Drive URLs or pass through
+  return proxyDriveImageUrl(img.url, "w1600");
+}
+
 export default function PublicPropertyBySlug() {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, orgSlug, code } = useParams<{ slug?: string; orgSlug?: string; code?: string }>();
   const { toast } = useToast();
   const [data, setData] = useState<PublicPropertyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,10 +65,25 @@ export default function PublicPropertyBySlug() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!slug) return;
-      const { data: result, error } = await (supabase.rpc as any)(
-        "get_public_property_by_slug", { p_slug: slug }
-      );
+      let result: any = null;
+      let error: any = null;
+
+      if (orgSlug && code) {
+        // New format: /i/:orgSlug/:code
+        const resp = await (supabase.rpc as any)(
+          "get_public_property_by_org_code", { p_org_slug: orgSlug, p_property_code: code }
+        );
+        result = resp.data;
+        error = resp.error;
+      } else if (slug) {
+        // Legacy format: /i/:slug
+        const resp = await (supabase.rpc as any)(
+          "get_public_property_by_slug", { p_slug: slug }
+        );
+        result = resp.data;
+        error = resp.error;
+      }
+
       if (error || !result) {
         setNotFound(true);
       } else {
@@ -64,7 +95,7 @@ export default function PublicPropertyBySlug() {
       setLoading(false);
     }
     fetchData();
-  }, [slug]);
+  }, [slug, orgSlug, code]);
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
@@ -78,7 +109,7 @@ export default function PublicPropertyBySlug() {
     if (!data?.broker?.phone) return;
     const phone = data.broker.phone.replace(/\D/g, "");
     const msg = encodeURIComponent(
-      `Olá! Vi o imóvel "${data.property.title}" e gostaria de mais informações.`
+      `Olá! Vi o imóvel "${data.property.title}"${data.property.property_code ? ` (cód. ${data.property.property_code})` : ""} e gostaria de mais informações.`
     );
     window.open(`https://wa.me/55${phone}?text=${msg}`, "_blank");
   };
@@ -129,9 +160,22 @@ export default function PublicPropertyBySlug() {
   }
 
   const { property: prop, broker } = data;
+
+  // Resolve images using R2 or Drive proxy
   const images = data.images?.length > 0
-    ? data.images
-    : data.media?.map((m, i) => ({ id: m.id, url: m.url, is_cover: i === 0, display_order: m.display_order })) || [];
+    ? data.images.map((img) => ({
+        id: img.id,
+        url: resolveImageUrl(img),
+        is_cover: img.is_cover,
+        display_order: img.display_order,
+      }))
+    : data.media?.map((m, i) => ({
+        id: m.id,
+        url: proxyDriveImageUrl(m.url, "w1600"),
+        is_cover: i === 0,
+        display_order: m.display_order,
+      })) || [];
+
   const location = [prop.neighborhood, prop.city, prop.state].filter(Boolean).join(", ");
 
   return (
@@ -160,7 +204,7 @@ export default function PublicPropertyBySlug() {
           <div className="rounded-2xl overflow-hidden">
             <ImageGallery
               images={images.map((img) => ({
-                url: proxyDriveImageUrl(img.url, "w1600"),
+                url: img.url,
                 alt: prop.title,
                 is_cover: img.is_cover,
               }))}
@@ -195,6 +239,12 @@ export default function PublicPropertyBySlug() {
             <Badge variant="outline" className="rounded-full">
               {transactionLabels[prop.transaction_type] || prop.transaction_type}
             </Badge>
+            {prop.property_code && (
+              <Badge variant="outline" className="rounded-full font-mono">
+                <Hash className="h-3 w-3 mr-1" />
+                {prop.property_code}
+              </Badge>
+            )}
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">{prop.title}</h1>
           {location && (
@@ -290,6 +340,11 @@ export default function PublicPropertyBySlug() {
                     className="w-16 h-16 rounded-full object-cover" />
                 )}
                 {broker.name && <p className="font-medium">{broker.name}</p>}
+                {prop.property_code && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    Cód. do imóvel: #{prop.property_code}
+                  </p>
+                )}
                 {broker.phone && (
                   <>
                     <p className="text-sm text-muted-foreground flex items-center gap-1.5">
