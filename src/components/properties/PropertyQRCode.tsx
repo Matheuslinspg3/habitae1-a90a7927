@@ -59,7 +59,8 @@ function generateQRMatrix(data: string): boolean[][] {
 
 export function PropertyQRCode({ propertyId, propertyTitle, open, onOpenChange }: PropertyQRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const url = `${window.location.origin}/imovel/${propertyId}`;
+  const { buildPublicUrl } = usePropertyPublicUrl();
+  const url = buildPublicUrl(propertyId, propertyCode);
   
   useEffect(() => {
     if (!open || !canvasRef.current) return;

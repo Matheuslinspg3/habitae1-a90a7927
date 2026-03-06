@@ -142,8 +142,10 @@ export function LandingPageEditor({ propertyId, open, onOpenChange }: LandingPag
 
   const [mobilePreview, setMobilePreview] = useState(false);
 
+  const { buildPublicUrl } = usePropertyPublicUrl();
+
   const handlePreview = () => {
-    window.open(`/imovel/${propertyId}`, "_blank");
+    window.open(buildPublicUrl(propertyId, propertyCode), "_blank");
   };
 
   return (

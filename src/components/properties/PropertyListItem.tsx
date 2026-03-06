@@ -199,7 +199,7 @@ export function PropertyListItem({
               <Eye className="h-4 w-4 mr-2" /> Ver detalhes
             </DropdownMenuItem>
             {isAvailable && (
-              <DropdownMenuItem onClick={() => window.open(`/imovel/${property.id}`, "_blank")}>
+              <DropdownMenuItem onClick={() => window.open(buildPublicUrl(property.id, property.property_code), "_blank")}>
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir landing page
               </DropdownMenuItem>
             )}

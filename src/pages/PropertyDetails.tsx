@@ -176,8 +176,7 @@ export default function PropertyDetails() {
   };
 
   const generateLandingPageUrl = () => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/imovel/${id}`;
+    return buildPublicUrl(id!, property?.property_code);
   };
 
   const handleCopyLink = async () => {

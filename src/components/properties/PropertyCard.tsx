@@ -86,7 +86,7 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
   };
 
   const handleOpenLandingPage = () => {
-    window.open(`/imovel/${property.id}`, "_blank");
+    window.open(buildPublicUrl(property.id, property.property_code), "_blank");
   };
 
   // Compact card for unavailable properties
