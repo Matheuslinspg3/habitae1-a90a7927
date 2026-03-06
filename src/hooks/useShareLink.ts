@@ -3,61 +3,61 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
-function generateSlug(length = 12): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let result = "";
-  const array = new Uint8Array(length);
-  crypto.getRandomValues(array);
-  for (let i = 0; i < length; i++) {
-    result += chars[array[i] % chars.length];
-  }
-  return result;
-}
-
 export function useShareLink() {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateShareLink = async (propertyId: string): Promise<string | null> => {
-    if (!profile?.user_id) {
+    if (!profile?.user_id || !profile?.organization_id) {
       toast({ title: "Erro", description: "Você precisa estar logado.", variant: "destructive" });
       return null;
     }
 
     setIsGenerating(true);
     try {
-      // Check if an active link already exists for this broker+property
+      // Get org slug and property code to build the short URL
+      const [{ data: orgData }, { data: propData }] = await Promise.all([
+        supabase
+          .from("organizations")
+          .select("slug")
+          .eq("id", profile.organization_id)
+          .single(),
+        supabase
+          .from("properties")
+          .select("property_code")
+          .eq("id", propertyId)
+          .single(),
+      ]);
+
+      if (!orgData?.slug || !propData?.property_code) {
+        toast({ title: "Erro", description: "Não foi possível gerar o link.", variant: "destructive" });
+        return null;
+      }
+
+      // Ensure a share link record exists for tracking (broker attribution)
       const { data: existing } = await (supabase
         .from("property_share_links" as any)
-        .select("slug")
+        .select("id")
         .eq("property_id", propertyId)
         .eq("broker_id", profile.user_id)
         .eq("active", true)
         .maybeSingle() as any);
 
-      if ((existing as any)?.slug) {
-        return `${window.location.origin}/i/${(existing as any).slug}`;
+      if (!existing) {
+        // Create share link record for broker tracking
+        const slug = `${orgData.slug}-${propData.property_code}`;
+        await supabase
+          .from("property_share_links" as any)
+          .insert({
+            property_id: propertyId,
+            broker_id: profile.user_id,
+            slug,
+            active: true,
+          });
       }
 
-      // Create new link
-      const slug = generateSlug();
-      const { error } = await supabase
-        .from("property_share_links" as any)
-        .insert({
-          property_id: propertyId,
-          broker_id: profile.user_id,
-          slug,
-          active: true,
-        });
-
-      if (error) {
-        console.error("Error creating share link:", error);
-        toast({ title: "Erro ao gerar link", description: error.message, variant: "destructive" });
-        return null;
-      }
-
-      return `${window.location.origin}/i/${slug}`;
+      return `${window.location.origin}/i/${orgData.slug}/${propData.property_code}`;
     } catch (err) {
       console.error("Error generating share link:", err);
       toast({ title: "Erro", description: "Não foi possível gerar o link.", variant: "destructive" });

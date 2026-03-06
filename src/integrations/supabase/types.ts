@@ -1820,6 +1820,7 @@ export type Database = {
           logo_url: string | null
           name: string
           phone: string | null
+          slug: string
           trial_ends_at: string | null
           trial_started_at: string | null
           type: Database["public"]["Enums"]["organization_type"]
@@ -1845,6 +1846,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           phone?: string | null
+          slug: string
           trial_ends_at?: string | null
           trial_started_at?: string | null
           type?: Database["public"]["Enums"]["organization_type"]
@@ -1870,6 +1872,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           phone?: string | null
+          slug?: string
           trial_ends_at?: string | null
           trial_started_at?: string | null
           type?: Database["public"]["Enums"]["organization_type"]
@@ -4005,6 +4008,10 @@ export type Database = {
           youtube_url: string
         }[]
       }
+      get_public_property_by_org_code: {
+        Args: { p_org_slug: string; p_property_code: string }
+        Returns: Json
+      }
       get_public_property_by_slug: { Args: { p_slug: string }; Returns: Json }
       get_public_property_images: {
         Args: { p_property_id: string }
@@ -4224,6 +4231,7 @@ export type Database = {
       }
       seed_org_lead_stages: { Args: { p_org_id: string }; Returns: undefined }
       seed_org_lead_types: { Args: { p_org_id: string }; Returns: undefined }
+      slugify: { Args: { val: string }; Returns: string }
       validate_invite_org_code: {
         Args: { p_code: string; p_org_id: string }
         Returns: boolean
