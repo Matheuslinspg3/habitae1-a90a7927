@@ -51,7 +51,6 @@ const mainMenuItems = [
   { title: "Contratos", url: "/contratos", icon: FileText },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Agenda", url: "/agenda", icon: Calendar },
-  { title: "Atividades", url: "/atividades", icon: BarChart3 },
 ];
 
 const settingsItems = [
