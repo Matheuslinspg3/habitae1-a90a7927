@@ -392,7 +392,8 @@ async function syncOrgContacts(
   supabase: any,
   settings: any,
   orgId: string,
-  userId: string
+  userId: string,
+  options?: { skipDuplicateLog?: boolean }
 ): Promise<Record<string, any>> {
   let accessToken = settings.oauth_access_token;
 
