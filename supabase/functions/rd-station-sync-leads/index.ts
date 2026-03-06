@@ -645,13 +645,15 @@ async function processContacts(
 
         if (existingByEmail) {
           duplicates++;
-          await supabase.from("rd_station_webhook_logs").insert({
-            organization_id: orgId,
-            event_type: "api_sync",
-            payload: { name, email, phone, rd_uuid: contact.uuid },
-            status: "duplicate",
-            error_message: "Duplicado por email",
-          });
+          if (!options?.skipDuplicateLog) {
+            await supabase.from("rd_station_webhook_logs").insert({
+              organization_id: orgId,
+              event_type: "api_sync",
+              payload: { name, email, phone, rd_uuid: contact.uuid },
+              status: "duplicate",
+              error_message: "Duplicado por email",
+            });
+          }
           continue;
         }
       }
@@ -677,13 +679,15 @@ async function processContacts(
 
           if (phoneMatch) {
             duplicates++;
-            await supabase.from("rd_station_webhook_logs").insert({
-              organization_id: orgId,
-              event_type: "api_sync",
-              payload: { name, email, phone, rd_uuid: contact.uuid },
-              status: "duplicate",
-              error_message: "Duplicado por telefone",
-            });
+            if (!options?.skipDuplicateLog) {
+              await supabase.from("rd_station_webhook_logs").insert({
+                organization_id: orgId,
+                event_type: "api_sync",
+                payload: { name, email, phone, rd_uuid: contact.uuid },
+                status: "duplicate",
+                error_message: "Duplicado por telefone",
+              });
+            }
             continue;
           }
         }
