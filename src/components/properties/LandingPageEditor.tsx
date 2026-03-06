@@ -335,7 +335,7 @@ export function LandingPageEditor({ propertyId, propertyCode, open, onOpenChange
               <CardContent className="flex justify-center">
                 <div className="border-2 border-muted rounded-2xl overflow-hidden shadow-lg" style={{ width: 375, height: 667 }}>
                   <iframe
-                    src={`/imovel/${propertyId}`}
+                    src={buildPublicUrl(propertyId, propertyCode).replace(window.location.origin, '')}
                     className="w-full h-full border-0"
                     title="Preview mobile"
                   />
