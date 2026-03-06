@@ -206,11 +206,59 @@ function buildNotes(data: Record<string, any>): string {
     "conversion_identifier",
   ]);
   const lines: string[] = [];
-  for (const [key, value] of Object.entries(data)) {
-    if (!ignore.has(key) && value != null && value !== "") {
-      lines.push(`${key}: ${value}`);
+
+  // Extract conversion events
+  if (data.first_conversion && typeof data.first_conversion === "object") {
+    const fc = data.first_conversion;
+    const fcContent = fc.content || fc;
+    lines.push(`Primeira conversão: ${fcContent.identifier || fcContent.conversion_identifier || JSON.stringify(fcContent)}`);
+    if (fc.source || fcContent.source) lines.push(`  Origem: ${fc.source || fcContent.source}`);
+    if (fc.created_at || fcContent.created_at) lines.push(`  Data: ${fc.created_at || fcContent.created_at}`);
+  }
+  if (data.last_conversion && typeof data.last_conversion === "object") {
+    const lc = data.last_conversion;
+    const lcContent = lc.content || lc;
+    const lcId = lcContent.identifier || lcContent.conversion_identifier || JSON.stringify(lcContent);
+    // Avoid duplicating if same as first
+    const fcId = data.first_conversion?.content?.identifier || data.first_conversion?.conversion_identifier;
+    if (lcId !== fcId) {
+      lines.push(`Última conversão: ${lcId}`);
+      if (lc.source || lcContent.source) lines.push(`  Origem: ${lc.source || lcContent.source}`);
+      if (lc.created_at || lcContent.created_at) lines.push(`  Data: ${lc.created_at || lcContent.created_at}`);
     }
   }
+
+  // Extract custom fields
+  if (data.custom_fields && typeof data.custom_fields === "object") {
+    for (const [key, value] of Object.entries(data.custom_fields)) {
+      if (value != null && value !== "") {
+        lines.push(`${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`);
+      }
+    }
+  }
+
+  // Extract other useful fields
+  if (data.lead_stage) lines.push(`Estágio no funil: ${data.lead_stage}`);
+  if (data.number_conversions) lines.push(`Nº conversões: ${data.number_conversions}`);
+  if (data.public_url) lines.push(`URL RD Station: ${data.public_url}`);
+  if (data.opportunity === true) lines.push(`Oportunidade: Sim`);
+  if (data.company) lines.push(`Empresa: ${data.company}`);
+  if (data.job_title) lines.push(`Cargo: ${data.job_title}`);
+  if (data.city) lines.push(`Cidade: ${data.city}`);
+  if (data.state) lines.push(`Estado: ${data.state}`);
+  if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) lines.push(`Tags: ${data.tags.join(", ")}`);
+
+  // Remaining simple fields
+  const handled = new Set([
+    ...ignore, "first_conversion", "last_conversion", "custom_fields", "lead_stage",
+    "number_conversions", "public_url", "uuid", "opportunity", "company",
+    "job_title", "city", "state", "tags", "created_at",
+  ]);
+  for (const [key, value] of Object.entries(data)) {
+    if (handled.has(key) || value == null || value === "" || typeof value === "object") continue;
+    lines.push(`${key}: ${value}`);
+  }
+
   return lines.length > 0
     ? `[RD Station]\n${lines.join("\n")}`
     : "[Importado via RD Station]";
