@@ -255,32 +255,32 @@ export default function PublicPropertyBySlug() {
         </div>
 
         {/* Prices */}
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
           {prop.sale_price && (
-            <div className="flex-1 min-w-[200px] p-5 rounded-2xl border">
+            <div className="flex-1 min-w-0 sm:min-w-[200px] p-4 sm:p-5 rounded-2xl border">
               <p className="text-sm text-muted-foreground mb-1">Valor de Venda</p>
-              <p className="text-3xl font-extrabold text-primary">{formatPrice(prop.sale_price)}</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-primary">{formatPrice(prop.sale_price)}</p>
             </div>
           )}
           {prop.rent_price && (
-            <div className="flex-1 min-w-[200px] p-5 rounded-2xl border">
+            <div className="flex-1 min-w-0 sm:min-w-[200px] p-4 sm:p-5 rounded-2xl border">
               <p className="text-sm text-muted-foreground mb-1">Aluguel</p>
-              <p className="text-3xl font-extrabold text-primary">{formatPrice(prop.rent_price, true)}</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-primary">{formatPrice(prop.rent_price, true)}</p>
             </div>
           )}
         </div>
 
         {/* Costs */}
         {(prop.condominium_fee || prop.iptu) && (
-          <div className="flex gap-6 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 text-sm text-muted-foreground">
             {prop.condominium_fee && (
               <span className="flex items-center gap-1.5">
-                <DollarSign className="h-4 w-4" /> Condomínio: <strong>{formatPrice(prop.condominium_fee)}/mês</strong>
+                <DollarSign className="h-4 w-4 shrink-0" /> Condomínio: <strong>{formatPrice(prop.condominium_fee)}/mês</strong>
               </span>
             )}
             {prop.iptu && (
               <span className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" /> IPTU: <strong>{formatPrice(prop.iptu)}/ano</strong>
+                <Calendar className="h-4 w-4 shrink-0" /> IPTU: <strong>{formatPrice(prop.iptu)}/ano</strong>
               </span>
             )}
           </div>
