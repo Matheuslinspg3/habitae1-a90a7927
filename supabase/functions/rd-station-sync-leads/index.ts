@@ -846,4 +846,3 @@ function buildNotes(data: Record<string, any>): string {
     ? `[Sincronizado via RD Station API]\n${lines.join("\n")}`
     : "[Sincronizado via RD Station API]";
 }
-}
