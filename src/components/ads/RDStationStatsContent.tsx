@@ -9,7 +9,6 @@ import {
   Loader2, RefreshCw, Users, Mail, TrendingUp,
   BarChart3, ArrowDownToLine, AlertCircle, Webhook, Download
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
