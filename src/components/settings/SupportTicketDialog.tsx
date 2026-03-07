@@ -22,7 +22,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Bug, Loader2, MessageSquarePlus } from "lucide-react";
+import { Bug, Loader2, MessageSquarePlus, ArrowLeft } from "lucide-react";
+import { TicketChat } from "@/components/developer/TicketChat";
 
 const CATEGORIES = [
   { value: "bug", label: "Bug / Erro" },
@@ -42,6 +43,8 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("bug");
   const [sending, setSending] = useState(false);
+  const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
+  const [createdTicketSubject, setCreatedTicketSubject] = useState("");
 
   const handleSubmit = async () => {
     if (!subject.trim() || !description.trim()) {
@@ -62,9 +65,10 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
       category,
     } as any).select().single();
 
-    // Enviar para webhook n8n/WhatsApp independente do retorno do data
-    if (!error) {
-      // Buscar nome da organização para o webhook
+    if (!error && data) {
+      const ticketId = (data as any).id;
+
+      // Send webhook notification (fire-and-forget)
       const orgName = await supabase
         .from("organizations")
         .select("name")
@@ -76,7 +80,7 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
         body: {
           webhook_url: "https://n8n.costazul.shop/webhook/lovableportadocorrerora",
           payload: {
-            ticket_id: (data as any)?.id ?? "unknown",
+            ticket_id: ticketId,
             subject: subject.trim(),
             description: description.trim(),
             category,
@@ -90,22 +94,42 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
           },
         },
       }).catch((err) => console.error("Webhook error:", err));
+
+      // Auto-trigger AI diagnostic with the ticket description
+      supabase.functions.invoke("ticket-chat", {
+        body: {
+          ticket_id: ticketId,
+          message: `${subject.trim()}: ${description.trim()}`,
+        },
+      }).catch((err) => console.error("AI diagnostic error:", err));
+
+      toast.success("Ticket criado! A IA está analisando seu problema...");
+      setCreatedTicketId(ticketId);
+      setCreatedTicketSubject(subject.trim());
     }
 
     setSending(false);
     if (error) {
       toast.error("Erro ao enviar ticket: " + error.message);
-    } else {
-      toast.success("Ticket enviado com sucesso! A equipe técnica irá analisar.");
-      setSubject("");
-      setDescription("");
-      setCategory("bug");
-      setOpen(false);
+    }
+  };
+
+  const handleClose = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      // Reset state when dialog closes
+      setTimeout(() => {
+        setCreatedTicketId(null);
+        setCreatedTicketSubject("");
+        setSubject("");
+        setDescription("");
+        setCategory("bug");
+      }, 300);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" className="gap-2">
@@ -114,65 +138,88 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageSquarePlus className="h-5 w-5 text-primary" />
-            Reportar problema
-          </DialogTitle>
-          <DialogDescription>
-            Descreva o problema ou sugestão. Nossa equipe técnica receberá e responderá em breve.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="ticket-category">Categoria</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c.value} value={c.value}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="ticket-subject">Assunto</Label>
-            <Input
-              id="ticket-subject"
-              placeholder="Ex: Erro ao salvar imóvel"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
+      <DialogContent className="sm:max-w-md max-h-[90vh]">
+        {createdTicketId ? (
+          // Show AI chat after ticket creation
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquarePlus className="h-5 w-5 text-primary" />
+                Diagnóstico IA
+              </DialogTitle>
+              <DialogDescription>
+                A IA está analisando seu problema. Converse para mais detalhes.
+              </DialogDescription>
+            </DialogHeader>
+            <TicketChat
+              ticketId={createdTicketId}
+              ticketSubject={createdTicketSubject}
+              showSupportButton={false}
             />
-          </div>
+          </>
+        ) : (
+          // Show ticket creation form
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquarePlus className="h-5 w-5 text-primary" />
+                Reportar problema
+              </DialogTitle>
+              <DialogDescription>
+                Descreva o problema ou sugestão. Nossa IA fará um diagnóstico inicial.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-2">
-            <Label htmlFor="ticket-description">Descrição</Label>
-            <Textarea
-              id="ticket-description"
-              placeholder="Descreva o problema com o máximo de detalhes possível..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-            />
-          </div>
-        </div>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="ticket-category">Categoria</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSubmit} disabled={sending}>
-            {sending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Enviar ticket
-          </Button>
-        </DialogFooter>
+              <div className="space-y-2">
+                <Label htmlFor="ticket-subject">Assunto</Label>
+                <Input
+                  id="ticket-subject"
+                  placeholder="Ex: Erro ao salvar imóvel"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ticket-description">Descrição</Label>
+                <Textarea
+                  id="ticket-description"
+                  placeholder="Descreva o problema com o máximo de detalhes possível..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => handleClose(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSubmit} disabled={sending}>
+                {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Enviar ticket
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
