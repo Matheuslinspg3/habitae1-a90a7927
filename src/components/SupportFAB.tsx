@@ -2,12 +2,22 @@ import { useState } from "react";
 import { MessageCircleQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function SupportFAB() {
   const [pulse, setPulse] = useState(true);
+  const isMobile = useIsMobile();
 
   return (
-    <div className="fixed left-4 bottom-20 z-50 md:fixed md:bottom-6 md:left-6">
+    <div
+      className={cn(
+        "fixed z-50 transition-all duration-300",
+        // Desktop: bottom-right corner
+        "right-6 bottom-6",
+        // Mobile: above the bottom nav bar to avoid overlap
+        isMobile && "right-4 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+      )}
+    >
       <SupportTicketDialog
         trigger={
           <button
