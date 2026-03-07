@@ -63,7 +63,7 @@ export function CloudinaryCleanupSection({ account, label = "Cloudinary" }: Clou
 
   useEffect(() => {
     fetchBgQueue();
-    const interval = setInterval(fetchBgQueue, 30000);
+    const interval = setInterval(fetchBgQueue, 60000);
     return () => clearInterval(interval);
   }, [fetchBgQueue]);
 
