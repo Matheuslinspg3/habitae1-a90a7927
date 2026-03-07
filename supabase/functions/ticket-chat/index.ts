@@ -10,6 +10,7 @@ const corsHeaders = {
 const OLLAMA_BASE_URL = "https://costazulagente-ollama.n32vzc.easypanel.host";
 const OLLAMA_MODEL = "gemma:2b";
 const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
+const MAX_AI_QUESTIONS = 3;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -69,23 +70,55 @@ serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(50);
 
-    const systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
-Seu papel é realizar uma ANAMNESE TÉCNICA do problema reportado pelo usuário.
+    // Count existing AI messages to track anamnesis progress
+    const aiMessageCount = (history || []).filter((m: any) => m.sender_role === "ai").length;
+    const questionsRemaining = MAX_AI_QUESTIONS - aiMessageCount;
+    const isLastQuestion = questionsRemaining <= 1;
+
+    // Build system prompt based on anamnesis stage
+    let systemPrompt: string;
+
+    if (isLastQuestion) {
+      // Final question - conclude the diagnosis
+      systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
 
 Contexto do ticket:
 - Assunto: ${ticket.subject}
 - Descrição: ${ticket.description}
 - Categoria: ${ticket.category}
-- Status: ${ticket.status}
 
-Siga este processo de diagnóstico:
-1. Faça perguntas específicas para entender o problema (qual tela, qual ação, que erro aparece, quando começou)
-2. Sugira soluções práticas baseadas nas funcionalidades da plataforma (imóveis, CRM, contratos, financeiro, agenda, integrações, importação)
-3. Se identificar o problema, forneça a solução passo a passo
-4. Se o problema persistir ou for complexo, informe que será escalado para suporte humano
+Esta é sua ÚLTIMA interação com o usuário. Você já fez ${aiMessageCount} perguntas de diagnóstico.
+Agora você DEVE:
+1. Agradecer as informações fornecidas
+2. Fazer um RESUMO TÉCNICO COMPLETO do problema identificado, incluindo:
+   - Módulo/funcionalidade afetada
+   - Passos para reproduzir
+   - Impacto no uso da plataforma
+3. Sugerir possíveis soluções ou workarounds se possível
+4. Informar que o diagnóstico será enviado à equipe técnica
 
-Responda em português brasileiro, de forma clara, empática e objetiva.
-Não invente funcionalidades que não existem. Se não souber, diga claramente.`;
+Responda em português brasileiro, de forma clara e profissional.`;
+    } else {
+      // Still gathering information
+      systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
+
+Contexto do ticket:
+- Assunto: ${ticket.subject}
+- Descrição: ${ticket.description}
+- Categoria: ${ticket.category}
+
+Você está realizando uma ANAMNESE TÉCNICA. Você deve fazer exatamente ${MAX_AI_QUESTIONS} perguntas no total para diagnosticar o problema.
+Já fez ${aiMessageCount} pergunta(s). Faltam ${questionsRemaining} pergunta(s).
+
+REGRAS:
+- Faça APENAS UMA pergunta por resposta
+- Seja direto e específico
+- Pergunte sobre: qual tela/módulo, qual ação estava executando, qual erro apareceu, quando começou, se é recorrente, qual navegador/dispositivo
+- NÃO tente resolver ainda, apenas colete informações
+- NÃO faça resumo ainda
+
+Responda em português brasileiro, de forma empática e objetiva.`;
+    }
 
     const ollamaMessages = [
       { role: "system", content: systemPrompt },
@@ -100,6 +133,9 @@ Não invente funcionalidades que não existem. Se não souber, diga claramente.`
     let aiDiagnosticSuccess = false;
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const aiResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -108,7 +144,10 @@ Não invente funcionalidades que não existem. Se não souber, diga claramente.`
           messages: ollamaMessages,
           stream: false,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
@@ -129,69 +168,79 @@ Não invente funcionalidades que não existem. Se não souber, diga claramente.`
       content: aiContent,
     });
 
-    // Get user profile for webhook
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, organization_id")
-      .eq("user_id", user.id)
-      .single();
+    // Only send webhook AFTER the last AI question (anamnesis complete)
+    if (isLastQuestion) {
+      // Get full conversation history for webhook
+      const { data: fullHistory } = await supabase
+        .from("ticket_messages")
+        .select("sender_role, content, created_at")
+        .eq("ticket_id", ticket_id)
+        .order("created_at", { ascending: true });
 
-    let orgName = "Desconhecida";
-    if (profile?.organization_id) {
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("name")
-        .eq("id", profile.organization_id)
+      // Get user profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, organization_id")
+        .eq("user_id", user.id)
         .single();
-      orgName = org?.name || orgName;
+
+      let orgName = "Desconhecida";
+      if (profile?.organization_id) {
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", profile.organization_id)
+          .single();
+        orgName = org?.name || orgName;
+      }
+
+      // Format conversation for webhook
+      const conversationLog = (fullHistory || []).map((m: any) => ({
+        role: m.sender_role,
+        content: m.content,
+        timestamp: m.created_at,
+      }));
+
+      // Send ONE webhook with ticket + full anamnesis
+      const webhookPayload = {
+        type: "ticket_anamnesis_complete",
+        ticket_id: ticket.id,
+        subject: ticket.subject,
+        description: ticket.description,
+        category: ticket.category,
+        status: ticket.status,
+        created_at: ticket.created_at,
+        source: "porta_do_corretor",
+        project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
+        user_id: user.id,
+        user_name: profile?.full_name || "Desconhecido",
+        user_email: user.email || "",
+        organization_name: orgName,
+        ai_model: OLLAMA_MODEL,
+        ai_success: aiDiagnosticSuccess,
+        ai_conclusion: aiContent,
+        conversation_history: conversationLog,
+        total_messages: conversationLog.length,
+      };
+
+      fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookPayload),
+      }).catch((err) => console.error("Webhook error:", err));
+
+      // Update ticket status to indicate anamnesis is done
+      await supabase
+        .from("support_tickets")
+        .update({ status: "in_progress" })
+        .eq("id", ticket_id);
     }
 
-    // Send webhook 1: Normal ticket notification
-    const ticketPayload = {
-      type: "ticket_message",
-      ticket_id: ticket.id,
-      subject: ticket.subject,
-      description: ticket.description,
-      category: ticket.category,
-      status: ticket.status,
-      source: "porta_do_corretor",
-      project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
-      user_id: user.id,
-      user_name: profile?.full_name || "Desconhecido",
-      user_email: user.email || "",
-      organization_name: orgName,
-      user_message: message,
-    };
-
-    // Send webhook 2: AI diagnostic conclusion
-    const aiPayload = {
-      type: "ai_diagnostic",
-      ticket_id: ticket.id,
-      subject: ticket.subject,
-      category: ticket.category,
-      user_name: profile?.full_name || "Desconhecido",
-      organization_name: orgName,
-      user_message: message,
-      ai_response: aiContent,
-      ai_success: aiDiagnosticSuccess,
-      ai_model: OLLAMA_MODEL,
-    };
-
-    // Fire-and-forget both webhooks
-    Promise.allSettled([
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(ticketPayload),
-      }),
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(aiPayload),
-      }),
-    ]).catch((err) => console.error("Webhook error:", err));
-
-    return new Response(JSON.stringify({ reply: aiContent }), {
+    return new Response(JSON.stringify({
+      reply: aiContent,
+      anamnesis_complete: isLastQuestion,
+      questions_remaining: isLastQuestion ? 0 : questionsRemaining - 1,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
