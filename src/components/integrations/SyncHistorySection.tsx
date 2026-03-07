@@ -373,9 +373,9 @@ export function SyncHistorySection() {
       return data as ImportRun[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: (data: ImportRun[] | undefined) => {
-      // Only poll when there's an active import
-      const hasActive = data?.some(r => ['processing', 'running', 'starting', 'pending', 'paused'].includes(r.status));
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasActive = data?.some((r: ImportRun) => ['processing', 'running', 'starting', 'pending', 'paused'].includes(r.status));
       return hasActive ? 5000 : false;
     },
   });
