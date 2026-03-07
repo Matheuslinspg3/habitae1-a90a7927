@@ -8,8 +8,129 @@ const corsHeaders = {
 
 const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
 const MAX_AI_QUESTIONS = 3;
-const AI_MODEL = "google/gemini-2.5-flash";
 
+// --- AI Provider Config ---
+const GROQ_KEYS = [
+  Deno.env.get("GROQ_API_KEY_1"),
+  Deno.env.get("GROQ_API_KEY_2"),
+].filter(Boolean) as string[];
+
+const GOOGLE_AI_KEYS = [
+  Deno.env.get("GOOGLE_AI_KEY_1"),
+  Deno.env.get("GOOGLE_AI_KEY_2"),
+].filter(Boolean) as string[];
+
+const GROQ_MODEL = "llama-3.1-8b-instant";
+const GOOGLE_MODEL = "gemini-2.0-flash";
+
+let groqKeyIndex = 0;
+let googleKeyIndex = 0;
+
+function nextGroqKey(): string | null {
+  if (GROQ_KEYS.length === 0) return null;
+  const key = GROQ_KEYS[groqKeyIndex % GROQ_KEYS.length];
+  groqKeyIndex++;
+  return key;
+}
+
+function nextGoogleKey(): string | null {
+  if (GOOGLE_AI_KEYS.length === 0) return null;
+  const key = GOOGLE_AI_KEYS[googleKeyIndex % GOOGLE_AI_KEYS.length];
+  googleKeyIndex++;
+  return key;
+}
+
+// --- AI Call Functions ---
+async function callGroq(messages: any[]): Promise<string | null> {
+  for (let attempt = 0; attempt < GROQ_KEYS.length; attempt++) {
+    const key = nextGroqKey();
+    if (!key) return null;
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.4, max_tokens: 1024 }),
+      });
+      if (res.status === 429) {
+        console.warn(`Groq key ${attempt + 1} rate limited, trying next...`);
+        continue;
+      }
+      if (!res.ok) {
+        console.error(`Groq error: ${res.status}`, await res.text());
+        continue;
+      }
+      const data = await res.json();
+      return data.choices?.[0]?.message?.content || null;
+    } catch (err) {
+      console.error(`Groq connection error (key ${attempt + 1}):`, err);
+    }
+  }
+  return null;
+}
+
+async function callGoogleAI(messages: any[]): Promise<string | null> {
+  for (let attempt = 0; attempt < GOOGLE_AI_KEYS.length; attempt++) {
+    const key = nextGoogleKey();
+    if (!key) return null;
+    try {
+      // Convert OpenAI-style messages to Gemini format
+      const systemInstruction = messages.find((m: any) => m.role === "system")?.content || "";
+      const contents = messages
+        .filter((m: any) => m.role !== "system")
+        .map((m: any) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }));
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_MODEL}:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: { temperature: 0.4, maxOutputTokens: 1024 },
+          }),
+        }
+      );
+      if (res.status === 429) {
+        console.warn(`Google AI key ${attempt + 1} rate limited, trying next...`);
+        continue;
+      }
+      if (!res.ok) {
+        console.error(`Google AI error: ${res.status}`, await res.text());
+        continue;
+      }
+      const data = await res.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    } catch (err) {
+      console.error(`Google AI connection error (key ${attempt + 1}):`, err);
+    }
+  }
+  return null;
+}
+
+async function callAI(messages: any[]): Promise<{ content: string; provider: string; success: boolean }> {
+  // Try Groq first
+  const groqResult = await callGroq(messages);
+  if (groqResult) return { content: groqResult, provider: "groq", success: true };
+
+  // Fallback to Google AI Studio
+  const googleResult = await callGoogleAI(messages);
+  if (googleResult) return { content: googleResult, provider: "google", success: true };
+
+  return {
+    content: "Desculpe, não consegui processar sua mensagem. O suporte técnico foi notificado.",
+    provider: "none",
+    success: false,
+  };
+}
+
+// --- Main Handler ---
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -22,8 +143,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    if (GROQ_KEYS.length === 0 && GOOGLE_AI_KEYS.length === 0) {
       return new Response(JSON.stringify({ error: "AI not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -92,49 +212,24 @@ Deno.serve(async (req) => {
       })),
     ];
 
-    // Call Lovable AI
-    let aiContent = "Desculpe, não consegui processar sua mensagem. O suporte técnico foi notificado.";
-    let aiDiagnosticSuccess = false;
-
-    try {
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: aiMessages,
-        }),
-      });
-
-      if (aiResponse.ok) {
-        const aiData = await aiResponse.json();
-        aiContent = aiData.choices?.[0]?.message?.content || aiContent;
-        aiDiagnosticSuccess = true;
-      } else {
-        console.error("AI error:", aiResponse.status, await aiResponse.text());
-      }
-    } catch (aiErr) {
-      console.error("AI connection error:", aiErr);
-    }
+    // Call AI with fallback
+    const aiResult = await callAI(aiMessages);
 
     // Save AI response
     await supabase.from("ticket_messages").insert({
       ticket_id,
       sender_role: "ai",
       sender_id: null,
-      content: aiContent,
+      content: aiResult.content,
     });
 
     // Send webhook AFTER last AI question (anamnesis complete)
     if (isLastQuestion) {
-      await handleAnamnesisComplete(supabase, ticket, user, aiContent, aiDiagnosticSuccess, ticket_id);
+      await handleAnamnesisComplete(supabase, ticket, user, aiResult, ticket_id);
     }
 
     return new Response(JSON.stringify({
-      reply: aiContent,
+      reply: aiResult.content,
       anamnesis_complete: isLastQuestion,
       questions_remaining: isLastQuestion ? 0 : questionsRemaining - 1,
     }), {
@@ -198,7 +293,7 @@ REGRAS:
 }
 
 async function handleAnamnesisComplete(
-  supabase: any, ticket: any, user: any, aiContent: string, aiDiagnosticSuccess: boolean, ticket_id: string
+  supabase: any, ticket: any, user: any, aiResult: { content: string; provider: string; success: boolean }, ticket_id: string
 ) {
   const { data: fullHistory } = await supabase
     .from("ticket_messages")
@@ -242,9 +337,9 @@ async function handleAnamnesisComplete(
     user_name: profile?.full_name || "Desconhecido",
     user_email: user.email || "",
     organization_name: orgName,
-    ai_model: AI_MODEL,
-    ai_success: aiDiagnosticSuccess,
-    ai_conclusion: aiContent,
+    ai_provider: aiResult.provider,
+    ai_success: aiResult.success,
+    ai_conclusion: aiResult.content,
     conversation_history: conversationLog,
     total_messages: conversationLog.length,
   };
