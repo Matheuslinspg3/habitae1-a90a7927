@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,12 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const OLLAMA_BASE_URL = "https://costazulagente-ollama.n32vzc.easypanel.host";
-const OLLAMA_MODEL = "gemma:2b";
 const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
 const MAX_AI_QUESTIONS = 3;
+const AI_MODEL = "google/gemini-2.5-flash";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -20,6 +18,14 @@ serve(async (req) => {
     if (!ticket_id || !message) {
       return new Response(JSON.stringify({ error: "ticket_id and message required" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "AI not configured" }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -75,52 +81,10 @@ serve(async (req) => {
     const questionsRemaining = MAX_AI_QUESTIONS - aiMessageCount;
     const isLastQuestion = questionsRemaining <= 1;
 
-    // Build system prompt based on anamnesis stage
-    let systemPrompt: string;
+    // Build system prompt
+    const systemPrompt = buildSystemPrompt(ticket, aiMessageCount, questionsRemaining, isLastQuestion);
 
-    if (isLastQuestion) {
-      // Final question - conclude the diagnosis
-      systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
-
-Contexto do ticket:
-- Assunto: ${ticket.subject}
-- Descrição: ${ticket.description}
-- Categoria: ${ticket.category}
-
-Esta é sua ÚLTIMA interação com o usuário. Você já fez ${aiMessageCount} perguntas de diagnóstico.
-Agora você DEVE:
-1. Agradecer as informações fornecidas
-2. Fazer um RESUMO TÉCNICO COMPLETO do problema identificado, incluindo:
-   - Módulo/funcionalidade afetada
-   - Passos para reproduzir
-   - Impacto no uso da plataforma
-3. Sugerir possíveis soluções ou workarounds se possível
-4. Informar que o diagnóstico será enviado à equipe técnica
-
-Responda em português brasileiro, de forma clara e profissional.`;
-    } else {
-      // Still gathering information
-      systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
-
-Contexto do ticket:
-- Assunto: ${ticket.subject}
-- Descrição: ${ticket.description}
-- Categoria: ${ticket.category}
-
-Você está realizando uma ANAMNESE TÉCNICA. Você deve fazer exatamente ${MAX_AI_QUESTIONS} perguntas no total para diagnosticar o problema.
-Já fez ${aiMessageCount} pergunta(s). Faltam ${questionsRemaining} pergunta(s).
-
-REGRAS:
-- Faça APENAS UMA pergunta por resposta
-- Seja direto e específico
-- Pergunte sobre: qual tela/módulo, qual ação estava executando, qual erro apareceu, quando começou, se é recorrente, qual navegador/dispositivo
-- NÃO tente resolver ainda, apenas colete informações
-- NÃO faça resumo ainda
-
-Responda em português brasileiro, de forma empática e objetiva.`;
-    }
-
-    const ollamaMessages = [
+    const aiMessages = [
       { role: "system", content: systemPrompt },
       ...(history || []).map((m: any) => ({
         role: m.sender_role === "user" ? "user" : "assistant",
@@ -128,36 +92,32 @@ Responda em português brasileiro, de forma empática e objetiva.`;
       })),
     ];
 
-    // Call Ollama
+    // Call Lovable AI
     let aiContent = "Desculpe, não consegui processar sua mensagem. O suporte técnico foi notificado.";
     let aiDiagnosticSuccess = false;
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-
-      const aiResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          model: OLLAMA_MODEL,
-          messages: ollamaMessages,
-          stream: false,
+          model: AI_MODEL,
+          messages: aiMessages,
         }),
-        signal: controller.signal,
       });
-
-      clearTimeout(timeout);
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
-        aiContent = aiData.message?.content || aiContent;
+        aiContent = aiData.choices?.[0]?.message?.content || aiContent;
         aiDiagnosticSuccess = true;
       } else {
-        console.error("Ollama error:", aiResponse.status, await aiResponse.text());
+        console.error("AI error:", aiResponse.status, await aiResponse.text());
       }
-    } catch (ollamaErr) {
-      console.error("Ollama connection error:", ollamaErr);
+    } catch (aiErr) {
+      console.error("AI connection error:", aiErr);
     }
 
     // Save AI response
@@ -168,72 +128,9 @@ Responda em português brasileiro, de forma empática e objetiva.`;
       content: aiContent,
     });
 
-    // Only send webhook AFTER the last AI question (anamnesis complete)
+    // Send webhook AFTER last AI question (anamnesis complete)
     if (isLastQuestion) {
-      // Get full conversation history for webhook
-      const { data: fullHistory } = await supabase
-        .from("ticket_messages")
-        .select("sender_role, content, created_at")
-        .eq("ticket_id", ticket_id)
-        .order("created_at", { ascending: true });
-
-      // Get user profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, organization_id")
-        .eq("user_id", user.id)
-        .single();
-
-      let orgName = "Desconhecida";
-      if (profile?.organization_id) {
-        const { data: org } = await supabase
-          .from("organizations")
-          .select("name")
-          .eq("id", profile.organization_id)
-          .single();
-        orgName = org?.name || orgName;
-      }
-
-      // Format conversation for webhook
-      const conversationLog = (fullHistory || []).map((m: any) => ({
-        role: m.sender_role,
-        content: m.content,
-        timestamp: m.created_at,
-      }));
-
-      // Send ONE webhook with ticket + full anamnesis
-      const webhookPayload = {
-        type: "ticket_anamnesis_complete",
-        ticket_id: ticket.id,
-        subject: ticket.subject,
-        description: ticket.description,
-        category: ticket.category,
-        status: ticket.status,
-        created_at: ticket.created_at,
-        source: "porta_do_corretor",
-        project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
-        user_id: user.id,
-        user_name: profile?.full_name || "Desconhecido",
-        user_email: user.email || "",
-        organization_name: orgName,
-        ai_model: OLLAMA_MODEL,
-        ai_success: aiDiagnosticSuccess,
-        ai_conclusion: aiContent,
-        conversation_history: conversationLog,
-        total_messages: conversationLog.length,
-      };
-
-      fetch(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(webhookPayload),
-      }).catch((err) => console.error("Webhook error:", err));
-
-      // Update ticket status to indicate anamnesis is done
-      await supabase
-        .from("support_tickets")
-        .update({ status: "in_progress" })
-        .eq("id", ticket_id);
+      await handleAnamnesisComplete(supabase, ticket, user, aiContent, aiDiagnosticSuccess, ticket_id);
     }
 
     return new Response(JSON.stringify({
@@ -251,3 +148,115 @@ Responda em português brasileiro, de forma empática e objetiva.`;
     });
   }
 });
+
+function buildSystemPrompt(ticket: any, aiMessageCount: number, questionsRemaining: number, isLastQuestion: boolean): string {
+  const context = `Contexto do ticket:
+- Assunto: ${ticket.subject}
+- Descrição: ${ticket.description}
+- Categoria: ${ticket.category}`;
+
+  if (isLastQuestion) {
+    return `Você é o assistente de suporte técnico da plataforma Porta do Corretor, um sistema de gestão imobiliária para corretores e imobiliárias.
+
+${context}
+
+Esta é sua ÚLTIMA interação com o usuário. Você já fez ${aiMessageCount} perguntas de diagnóstico.
+Agora você DEVE:
+1. Agradecer as informações fornecidas
+2. Fazer um RESUMO TÉCNICO COMPLETO do problema identificado, incluindo:
+   - Módulo/funcionalidade afetada
+   - Passos para reproduzir
+   - Impacto no uso da plataforma
+3. Sugerir possíveis soluções ou workarounds se possível
+4. Informar que o diagnóstico será enviado à equipe técnica
+
+REGRAS IMPORTANTES:
+- O nome da plataforma é "Porta do Corretor", NUNCA chame de "Habitae" ou outro nome
+- NÃO invente informações que o usuário não forneceu
+- NÃO invente erros, URLs ou códigos de status que não foram mencionados
+- Baseie-se EXCLUSIVAMENTE no que o usuário disse
+- Responda em português brasileiro, de forma clara e profissional`;
+  }
+
+  return `Você é o assistente de suporte técnico da plataforma Porta do Corretor, um sistema de gestão imobiliária para corretores e imobiliárias.
+
+${context}
+
+Você está realizando uma ANAMNESE TÉCNICA para diagnosticar o problema do usuário.
+Já fez ${aiMessageCount} pergunta(s). Faltam ${questionsRemaining} pergunta(s).
+
+REGRAS:
+- Faça APENAS UMA pergunta por resposta
+- Seja direto e específico
+- Pergunte sobre: qual tela/módulo, qual ação estava executando, qual erro apareceu, quando começou, se é recorrente, qual navegador/dispositivo
+- NÃO tente resolver ainda, apenas colete informações
+- NÃO faça resumo ainda
+- NÃO faça listas de perguntas, faça UMA pergunta por vez
+- O nome da plataforma é "Porta do Corretor", NUNCA chame de "Habitae" ou outro nome
+- NÃO invente informações, erros ou URLs que o usuário não mencionou
+- Responda em português brasileiro, de forma empática e objetiva`;
+}
+
+async function handleAnamnesisComplete(
+  supabase: any, ticket: any, user: any, aiContent: string, aiDiagnosticSuccess: boolean, ticket_id: string
+) {
+  const { data: fullHistory } = await supabase
+    .from("ticket_messages")
+    .select("sender_role, content, created_at")
+    .eq("ticket_id", ticket_id)
+    .order("created_at", { ascending: true });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, organization_id")
+    .eq("user_id", user.id)
+    .single();
+
+  let orgName = "Desconhecida";
+  if (profile?.organization_id) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", profile.organization_id)
+      .single();
+    orgName = org?.name || orgName;
+  }
+
+  const conversationLog = (fullHistory || []).map((m: any) => ({
+    role: m.sender_role,
+    content: m.content,
+    timestamp: m.created_at,
+  }));
+
+  const webhookPayload = {
+    type: "ticket_anamnesis_complete",
+    ticket_id: ticket.id,
+    subject: ticket.subject,
+    description: ticket.description,
+    category: ticket.category,
+    status: ticket.status,
+    created_at: ticket.created_at,
+    source: "porta_do_corretor",
+    project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
+    user_id: user.id,
+    user_name: profile?.full_name || "Desconhecido",
+    user_email: user.email || "",
+    organization_name: orgName,
+    ai_model: AI_MODEL,
+    ai_success: aiDiagnosticSuccess,
+    ai_conclusion: aiContent,
+    conversation_history: conversationLog,
+    total_messages: conversationLog.length,
+  };
+
+  fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(webhookPayload),
+  }).catch((err) => console.error("Webhook error:", err));
+
+  await supabase
+    .from("support_tickets")
+    .update({ status: "in_progress" })
+    .eq("id", ticket_id);
+}
