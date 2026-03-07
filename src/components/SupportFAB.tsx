@@ -5,7 +5,7 @@ import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export function SupportFAB() {
-  const [pulse, setPulse] = useState(true);
+  const [pulse, setPulse] = useState(false);
   const isMobile = useIsMobile();
 
   return (
@@ -25,7 +25,7 @@ export function SupportFAB() {
             className={cn(
               "flex items-center justify-center",
               "w-12 h-12 md:w-14 md:h-14 rounded-full",
-              "bg-destructive text-destructive-foreground",
+              "bg-primary text-primary-foreground",
               "shadow-lg hover:shadow-xl",
               "transition-all duration-200",
               "active:scale-90 touch-manipulation",
