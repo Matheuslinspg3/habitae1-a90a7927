@@ -30,18 +30,69 @@ interface PropertyData {
   floor: number | null;
 }
 
+// --- Groq Config (free tier) ---
+const GROQ_KEYS = [
+  Deno.env.get("GROQ_LANDING_KEY_1"),
+  Deno.env.get("GROQ_LANDING_KEY_2"),
+].filter(Boolean) as string[];
+
+const GROQ_MODEL = "llama-3.1-8b-instant";
+let groqKeyIndex = 0;
+
+function nextGroqKey(): string | null {
+  if (GROQ_KEYS.length === 0) return null;
+  const key = GROQ_KEYS[groqKeyIndex % GROQ_KEYS.length];
+  groqKeyIndex++;
+  return key;
+}
+
+async function callGroq(messages: any[], tools: any[], toolChoice: any): Promise<any> {
+  for (let attempt = 0; attempt < GROQ_KEYS.length; attempt++) {
+    const key = nextGroqKey();
+    if (!key) return null;
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages,
+          tools,
+          tool_choice: toolChoice,
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+      if (res.status === 429) {
+        console.warn(`Groq landing key ${attempt + 1} rate limited, trying next...`);
+        continue;
+      }
+      if (!res.ok) {
+        console.error(`Groq error: ${res.status}`, await res.text());
+        continue;
+      }
+      return await res.json();
+    } catch (err) {
+      console.error(`Groq connection error (key ${attempt + 1}):`, err);
+    }
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (GROQ_KEYS.length === 0) {
+      throw new Error("AI not configured (no Groq keys)");
     }
 
-    // Validate JWT - ensure only authenticated users can generate content
+    // Validate JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(
@@ -74,11 +125,10 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role for data operations
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check if content already exists and is recent (less than 24h old)
+    // Check cache
     if (!forceRegenerate) {
       const { data: existingContent } = await supabase
         .from("property_landing_content")
@@ -103,10 +153,7 @@ serve(async (req) => {
     // Fetch property data
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select(`
-        *,
-        property_type:property_types(name)
-      `)
+      .select(`*, property_type:property_types(name)`)
       .eq("id", propertyId)
       .single();
 
@@ -118,23 +165,9 @@ serve(async (req) => {
     }
 
     const prop = property as PropertyData;
-
-    // Build property context for AI
     const propertyContext = buildPropertyContext(prop);
 
-    // Generate content using AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `Você é um copywriter especializado em marketing imobiliário de alto padrão no Brasil. 
+    const systemPrompt = `Você é um copywriter especializado em marketing imobiliário de alto padrão no Brasil. 
 Seu objetivo é criar textos persuasivos e únicos para landing pages de imóveis que convertem visitantes em leads qualificados.
 
 Diretrizes:
@@ -146,94 +179,84 @@ Diretrizes:
 - Seja específico sobre características e benefícios
 - Crie CTAs (Call to Action) persuasivos e variados
 - Considere o contexto do bairro e região
-- NUNCA invente informações não fornecidas`
-          },
-          {
-            role: "user",
-            content: propertyContext
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_landing_content",
-              description: "Gera conteúdo persuasivo para landing page de imóvel",
-              parameters: {
-                type: "object",
-                properties: {
-                  headline: {
-                    type: "string",
-                    description: "Título principal impactante (máx 80 caracteres). Deve capturar a essência única do imóvel."
-                  },
-                  subheadline: {
-                    type: "string",
-                    description: "Subtítulo complementar (máx 120 caracteres). Reforça a proposta de valor."
-                  },
-                  description_persuasive: {
-                    type: "string",
-                    description: "Descrição persuasiva e concisa do imóvel (100-180 palavras no máximo). Use 2-3 parágrafos curtos de 2-3 frases cada. Foque nos benefícios emocionais principais."
-                  },
-                  key_features: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        icon: { type: "string", description: "Nome do ícone Lucide (ex: 'Sun', 'Shield', 'Leaf')" },
-                        title: { type: "string", description: "Título curto do diferencial" },
-                        description: { type: "string", description: "Descrição breve do benefício" }
-                      },
-                      required: ["icon", "title", "description"]
-                    },
-                    description: "Lista de 3-5 diferenciais únicos do imóvel com ícones"
-                  },
-                  cta_primary: {
-                    type: "string",
-                    description: "Call to Action principal (ex: 'Agende sua Visita Exclusiva')"
-                  },
-                  cta_secondary: {
-                    type: "string",
-                    description: "Call to Action secundário (ex: 'Quero Saber Mais')"
-                  },
-                  seo_title: {
-                    type: "string",
-                    description: "Título SEO otimizado (máx 60 caracteres)"
-                  },
-                  seo_description: {
-                    type: "string",
-                    description: "Meta description SEO (máx 160 caracteres)"
-                  }
-                },
-                required: ["headline", "subheadline", "description_persuasive", "key_features", "cta_primary", "seo_title", "seo_description"]
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "generate_landing_content" } }
-      }),
-    });
+- NUNCA invente informações não fornecidas`;
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "generate_landing_content",
+          description: "Gera conteúdo persuasivo para landing page de imóvel",
+          parameters: {
+            type: "object",
+            properties: {
+              headline: {
+                type: "string",
+                description: "Título principal impactante (máx 80 caracteres)."
+              },
+              subheadline: {
+                type: "string",
+                description: "Subtítulo complementar (máx 120 caracteres)."
+              },
+              description_persuasive: {
+                type: "string",
+                description: "Descrição persuasiva e concisa do imóvel (100-180 palavras, 2-3 parágrafos curtos)."
+              },
+              key_features: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    icon: { type: "string", description: "Nome do ícone Lucide (ex: 'Sun', 'Shield', 'Leaf')" },
+                    title: { type: "string", description: "Título curto do diferencial" },
+                    description: { type: "string", description: "Descrição breve do benefício" }
+                  },
+                  required: ["icon", "title", "description"]
+                },
+                description: "Lista de 3-5 diferenciais únicos do imóvel com ícones"
+              },
+              cta_primary: {
+                type: "string",
+                description: "Call to Action principal"
+              },
+              cta_secondary: {
+                type: "string",
+                description: "Call to Action secundário"
+              },
+              seo_title: {
+                type: "string",
+                description: "Título SEO otimizado (máx 60 caracteres)"
+              },
+              seo_description: {
+                type: "string",
+                description: "Meta description SEO (máx 160 caracteres)"
+              }
+            },
+            required: ["headline", "subheadline", "description_persuasive", "key_features", "cta_primary", "seo_title", "seo_description"]
+          }
+        }
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add more credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+    ];
+
+    const toolChoice = { type: "function", function: { name: "generate_landing_content" } };
+
+    const aiData = await callGroq(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: propertyContext },
+      ],
+      tools,
+      toolChoice
+    );
+
+    if (!aiData) {
+      return new Response(
+        JSON.stringify({ error: "Todas as chaves de IA estão indisponíveis. Tente novamente em alguns minutos." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
     if (!toolCall?.function?.arguments) {
       throw new Error("Invalid AI response format");
     }
@@ -254,7 +277,7 @@ Diretrizes:
         seo_title: generatedContent.seo_title,
         seo_description: generatedContent.seo_description,
         generated_at: new Date().toISOString(),
-        model_used: "google/gemini-3-flash-preview",
+        model_used: `groq/${GROQ_MODEL}`,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "property_id"
@@ -264,7 +287,6 @@ Diretrizes:
 
     if (saveError) {
       console.error("Error saving content:", saveError);
-      // Return generated content even if save fails
       return new Response(
         JSON.stringify({ content: generatedContent, cached: false, saveError: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

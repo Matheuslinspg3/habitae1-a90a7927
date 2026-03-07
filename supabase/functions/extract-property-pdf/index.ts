@@ -16,9 +16,7 @@ const ALLOWED_HOSTS = [
 function isAllowedUrl(urlStr: string): boolean {
   try {
     const url = new URL(urlStr);
-    // Block non-https
     if (url.protocol !== "https:") return false;
-    // Block private/internal IPs
     const hostname = url.hostname;
     if (
       hostname === "localhost" ||
@@ -27,20 +25,16 @@ function isAllowedUrl(urlStr: string): boolean {
       hostname.startsWith("10.") ||
       hostname.startsWith("192.168.") ||
       hostname.startsWith("172.") ||
-      hostname === "169.254.169.254" || // metadata endpoint
+      hostname === "169.254.169.254" ||
       hostname.endsWith(".internal") ||
       hostname.endsWith(".local")
     ) return false;
-    // Check allowlist
     return ALLOWED_HOSTS.some(h => hostname === h || hostname.endsWith(`.${h}`));
   } catch {
     return false;
   }
 }
 
-/**
- * Encode Uint8Array to base64 in chunks to avoid stack overflow.
- */
 function encodeBase64Chunked(bytes: Uint8Array): string {
   const chunkSize = 8192;
   let binary = "";
@@ -54,9 +48,6 @@ function encodeBase64Chunked(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/**
- * Extract hyperlink URIs from raw PDF bytes.
- */
 function extractPdfHyperlinks(bytes: Uint8Array): string[] {
   let raw = "";
   const chunkSize = 32768;
@@ -100,28 +91,25 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
     
     if (!storage_url) throw new Error("storage_url é obrigatório");
 
-    // A07: Validate URL against allowlist
     if (!isAllowedUrl(storage_url)) {
       throw new Error("URL não permitida. Apenas URLs do storage do projeto são aceitas.");
     }
     
     console.log("[extract-pdf] Downloading PDF from allowed storage URL");
     
-    // A07: Fetch with timeout and size limit
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeout = setTimeout(() => controller.abort(), 30000);
     
     try {
       const pdfResponse = await fetch(storage_url, {
         signal: controller.signal,
-        redirect: "error", // Block redirects to prevent SSRF via redirect
+        redirect: "error",
       });
       if (!pdfResponse.ok) throw new Error(`Falha ao baixar PDF: ${pdfResponse.status}`);
       
       const arrayBuffer = await pdfResponse.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       
-      // 20MB limit
       if (bytes.length > 20 * 1024 * 1024) {
         throw new Error("Arquivo muito grande. Limite: 20MB.");
       }
@@ -133,7 +121,6 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
     }
   }
   
-  // FormData with file
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   
@@ -144,6 +131,143 @@ async function getPdfBytes(req: Request): Promise<{ bytes: Uint8Array; fileName:
   
   const arrayBuffer = await file.arrayBuffer();
   return { bytes: new Uint8Array(arrayBuffer), fileName: file.name };
+}
+
+// --- Google AI Studio Config (free tier, supports multimodal) ---
+const GOOGLE_PDF_KEYS = [
+  Deno.env.get("GOOGLE_AI_PDF_KEY_1"),
+  Deno.env.get("GOOGLE_AI_PDF_KEY_2"),
+].filter(Boolean) as string[];
+
+const GOOGLE_MODEL = "gemini-2.0-flash";
+let googleKeyIndex = 0;
+
+function nextGoogleKey(): string | null {
+  if (GOOGLE_PDF_KEYS.length === 0) return null;
+  const key = GOOGLE_PDF_KEYS[googleKeyIndex % GOOGLE_PDF_KEYS.length];
+  googleKeyIndex++;
+  return key;
+}
+
+const toolDefinition = {
+  name: "extract_property_list",
+  description: "Extrai dados estruturados de múltiplos imóveis",
+  parameters: {
+    type: "object",
+    properties: {
+      properties: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            unit_identifier: { type: "string" },
+            property_type: { type: "string" },
+            transaction_type: { type: "string", enum: ["venda", "aluguel", "ambos"] },
+            property_condition: { type: "string", enum: ["novo", "usado"] },
+            development_name: { type: "string" },
+            sale_price: { type: "number" },
+            sale_price_financed: { type: "number" },
+            rent_price: { type: "number" },
+            condominium_fee: { type: "number" },
+            iptu: { type: "number" },
+            bedrooms: { type: "integer" },
+            suites: { type: "integer" },
+            bathrooms: { type: "integer" },
+            parking_spots: { type: "integer" },
+            area_total: { type: "number" },
+            area_built: { type: "number" },
+            area_useful: { type: "number" },
+            floor: { type: "integer" },
+            beach_distance_meters: { type: "integer" },
+            address_zipcode: { type: "string" },
+            address_street: { type: "string" },
+            address_number: { type: "string" },
+            address_complement: { type: "string" },
+            address_neighborhood: { type: "string" },
+            address_city: { type: "string" },
+            address_state: { type: "string" },
+            description: { type: "string" },
+            amenities: { type: "array", items: { type: "string" } },
+            owner_name: { type: "string" },
+            owner_phone: { type: "string" },
+            owner_email: { type: "string" },
+            is_sold: { type: "boolean" },
+            is_reserved: { type: "boolean" },
+            photos_url: { type: "string" },
+          },
+          required: ["transaction_type"],
+        },
+      },
+    },
+    required: ["properties"],
+  },
+};
+
+async function callGoogleAIWithPdf(systemPrompt: string, base64Pdf: string): Promise<any> {
+  for (let attempt = 0; attempt < GOOGLE_PDF_KEYS.length; attempt++) {
+    const key = nextGoogleKey();
+    if (!key) return null;
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GOOGLE_MODEL}:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: "Extraia TODOS os imóveis deste documento PDF." },
+                  {
+                    inline_data: {
+                      mime_type: "application/pdf",
+                      data: base64Pdf,
+                    },
+                  },
+                ],
+              },
+            ],
+            tools: [{ function_declarations: [toolDefinition] }],
+            tool_config: {
+              function_calling_config: {
+                mode: "ANY",
+                allowed_function_names: ["extract_property_list"],
+              },
+            },
+            generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+          }),
+        }
+      );
+
+      if (res.status === 429) {
+        console.warn(`Google AI PDF key ${attempt + 1} rate limited, trying next...`);
+        continue;
+      }
+      if (!res.ok) {
+        console.error(`Google AI error: ${res.status}`, await res.text());
+        continue;
+      }
+
+      const data = await res.json();
+      
+      // Extract function call from Gemini response
+      const candidate = data.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+      const functionCall = parts.find((p: any) => p.functionCall);
+      
+      if (functionCall?.functionCall?.args) {
+        return { extractedData: functionCall.functionCall.args };
+      }
+      
+      console.error("No function call in Google AI response");
+      continue;
+    } catch (err) {
+      console.error(`Google AI connection error (key ${attempt + 1}):`, err);
+    }
+  }
+  return null;
 }
 
 serve(async (req) => {
@@ -174,9 +298,13 @@ serve(async (req) => {
       );
     }
 
+    if (GOOGLE_PDF_KEYS.length === 0) {
+      throw new Error("AI not configured (no Google AI keys for PDF extraction)");
+    }
+
     const { bytes, fileName } = await getPdfBytes(req);
 
-    // Extract hyperlinks from PDF binary BEFORE converting to base64
+    // Extract hyperlinks from PDF binary
     const hyperlinks = extractPdfHyperlinks(bytes);
     console.log(`[extract-pdf] Found ${hyperlinks.length} hyperlinks`);
 
@@ -190,11 +318,6 @@ serve(async (req) => {
     );
 
     const base64 = encodeBase64Chunked(bytes);
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
 
     const hyperlinksContext = photoLinks.length > 0
       ? `\n\nLINKS DE FOTOS EXTRAÍDOS DO PDF (hiperlinks embutidos):
@@ -219,111 +342,16 @@ Regras:
 - Se o imóvel estiver marcado como "vendido", defina is_sold = true
 - Se estiver marcado como "reservado", defina is_reserved = true${hyperlinksContext}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extraia TODOS os imóveis deste documento PDF." },
-              { type: "image_url", image_url: { url: `data:application/pdf;base64,${base64}` } },
-            ],
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "extract_property_list",
-              description: "Extrai dados estruturados de múltiplos imóveis",
-              parameters: {
-                type: "object",
-                properties: {
-                  properties: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        unit_identifier: { type: "string" },
-                        property_type: { type: "string" },
-                        transaction_type: { type: "string", enum: ["venda", "aluguel", "ambos"] },
-                        property_condition: { type: "string", enum: ["novo", "usado"] },
-                        development_name: { type: "string" },
-                        sale_price: { type: "number" },
-                        sale_price_financed: { type: "number" },
-                        rent_price: { type: "number" },
-                        condominium_fee: { type: "number" },
-                        iptu: { type: "number" },
-                        bedrooms: { type: "integer" },
-                        suites: { type: "integer" },
-                        bathrooms: { type: "integer" },
-                        parking_spots: { type: "integer" },
-                        area_total: { type: "number" },
-                        area_built: { type: "number" },
-                        area_useful: { type: "number" },
-                        floor: { type: "integer" },
-                        beach_distance_meters: { type: "integer" },
-                        address_zipcode: { type: "string" },
-                        address_street: { type: "string" },
-                        address_number: { type: "string" },
-                        address_complement: { type: "string" },
-                        address_neighborhood: { type: "string" },
-                        address_city: { type: "string" },
-                        address_state: { type: "string" },
-                        description: { type: "string" },
-                        amenities: { type: "array", items: { type: "string" } },
-                        owner_name: { type: "string" },
-                        owner_phone: { type: "string" },
-                        owner_email: { type: "string" },
-                        is_sold: { type: "boolean" },
-                        is_reserved: { type: "boolean" },
-                        photos_url: { type: "string" },
-                      },
-                      required: ["transaction_type"],
-                    },
-                  },
-                },
-                required: ["properties"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "extract_property_list" } },
-      }),
-    });
+    const result = await callGoogleAIWithPdf(systemPrompt, base64);
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA insuficientes." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("[extract-pdf] AI Gateway error:", response.status);
-      throw new Error(`AI Gateway error: ${response.status}`);
+    if (!result) {
+      return new Response(
+        JSON.stringify({ error: "Todas as chaves de IA estão indisponíveis. Tente novamente em alguns minutos." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const aiResult = await response.json();
-    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.function?.name !== "extract_property_list") {
-      throw new Error("Não foi possível extrair dados do documento");
-    }
-
-    const extractedData = JSON.parse(toolCall.function.arguments);
-
-    return new Response(JSON.stringify({ success: true, data: extractedData }), {
+    return new Response(JSON.stringify({ success: true, data: result.extractedData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
