@@ -6,6 +6,7 @@ import { DemoBanner } from "@/components/DemoBanner";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { MobileTopBar } from "@/components/MobileTopBar";
 import { MobileFAB } from "@/components/MobileFAB";
+import { SupportFAB } from "@/components/SupportFAB";
 import { usePerformanceMode } from "@/hooks/usePerformanceMode";
 import { RenewalBanner } from "@/components/RenewalBanner";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -34,6 +35,7 @@ export function AppLayout() {
           </main>
         </div>
         <MobileFAB />
+        <SupportFAB />
         <MobileBottomNav />
         <PWAInstallPrompt />
         <UpdateBanner />
