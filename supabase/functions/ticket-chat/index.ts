@@ -7,6 +7,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const OLLAMA_BASE_URL = "https://costazulagente-ollama.n32vzc.easypanel.host";
+const OLLAMA_MODEL = "gemma:2b";
+const WEBHOOK_URL = "https://n8n.costazul.shop/webhook/lovableportadocorrerora";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -65,11 +69,8 @@ serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(50);
 
-    const messages = [
-      {
-        role: "system",
-        content: `Você é o assistente de suporte da plataforma Habitae (sistema de gestão imobiliária).
-Responda em português brasileiro, de forma clara e objetiva.
+    const systemPrompt = `Você é o assistente de suporte técnico da plataforma Habitae (Porta do Corretor), um sistema de gestão imobiliária.
+Seu papel é realizar uma ANAMNESE TÉCNICA do problema reportado pelo usuário.
 
 Contexto do ticket:
 - Assunto: ${ticket.subject}
@@ -77,63 +78,48 @@ Contexto do ticket:
 - Categoria: ${ticket.category}
 - Status: ${ticket.status}
 
-Você pode ajudar com:
-- Dúvidas sobre funcionalidades (imóveis, CRM, contratos, financeiro, agenda, integrações)
-- Problemas técnicos e bugs reportados
-- Orientações de uso da plataforma
+Siga este processo de diagnóstico:
+1. Faça perguntas específicas para entender o problema (qual tela, qual ação, que erro aparece, quando começou)
+2. Sugira soluções práticas baseadas nas funcionalidades da plataforma (imóveis, CRM, contratos, financeiro, agenda, integrações, importação)
+3. Se identificar o problema, forneça a solução passo a passo
+4. Se o problema persistir ou for complexo, informe que será escalado para suporte humano
 
-Se não souber responder ou o problema precisar de intervenção humana, diga claramente que vai escalar para o suporte humano.
-Não invente informações sobre funcionalidades que não existem.`,
-      },
+Responda em português brasileiro, de forma clara, empática e objetiva.
+Não invente funcionalidades que não existem. Se não souber, diga claramente.`;
+
+    const ollamaMessages = [
+      { role: "system", content: systemPrompt },
       ...(history || []).map((m: any) => ({
         role: m.sender_role === "user" ? "user" : "assistant",
         content: m.content,
       })),
     ];
 
-    // Call Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Call Ollama
+    let aiContent = "Desculpe, não consegui processar sua mensagem. O suporte técnico foi notificado.";
+    let aiDiagnosticSuccess = false;
+
+    try {
+      const aiResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          messages: ollamaMessages,
+          stream: false,
+        }),
       });
-    }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, tente novamente em instantes." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        aiContent = aiData.message?.content || aiContent;
+        aiDiagnosticSuccess = true;
+      } else {
+        console.error("Ollama error:", aiResponse.status, await aiResponse.text());
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      console.error("AI error:", aiResponse.status, await aiResponse.text());
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    } catch (ollamaErr) {
+      console.error("Ollama connection error:", ollamaErr);
     }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content || "Desculpe, não consegui processar sua mensagem.";
 
     // Save AI response
     await supabase.from("ticket_messages").insert({
@@ -142,6 +128,68 @@ Não invente informações sobre funcionalidades que não existem.`,
       sender_id: null,
       content: aiContent,
     });
+
+    // Get user profile for webhook
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, organization_id")
+      .eq("id", user.id)
+      .single();
+
+    let orgName = "Desconhecida";
+    if (profile?.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", profile.organization_id)
+        .single();
+      orgName = org?.name || orgName;
+    }
+
+    // Send webhook 1: Normal ticket notification
+    const ticketPayload = {
+      type: "ticket_message",
+      ticket_id: ticket.id,
+      subject: ticket.subject,
+      description: ticket.description,
+      category: ticket.category,
+      status: ticket.status,
+      source: "porta_do_corretor",
+      project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
+      user_id: user.id,
+      user_name: profile?.full_name || "Desconhecido",
+      user_email: user.email || "",
+      organization_name: orgName,
+      user_message: message,
+    };
+
+    // Send webhook 2: AI diagnostic conclusion
+    const aiPayload = {
+      type: "ai_diagnostic",
+      ticket_id: ticket.id,
+      subject: ticket.subject,
+      category: ticket.category,
+      user_name: profile?.full_name || "Desconhecido",
+      organization_name: orgName,
+      user_message: message,
+      ai_response: aiContent,
+      ai_success: aiDiagnosticSuccess,
+      ai_model: OLLAMA_MODEL,
+    };
+
+    // Fire-and-forget both webhooks
+    Promise.allSettled([
+      fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ticketPayload),
+      }),
+      fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(aiPayload),
+      }),
+    ]).catch((err) => console.error("Webhook error:", err));
 
     return new Response(JSON.stringify({ reply: aiContent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
