@@ -133,7 +133,7 @@ Não invente funcionalidades que não existem. Se não souber, diga claramente.`
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, organization_id")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .single();
 
     let orgName = "Desconhecida";
