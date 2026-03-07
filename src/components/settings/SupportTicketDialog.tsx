@@ -68,34 +68,8 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
     if (!error && data) {
       const ticketId = (data as any).id;
 
-      // Send webhook notification (fire-and-forget)
-      const orgName = await supabase
-        .from("organizations")
-        .select("name")
-        .eq("id", profile.organization_id)
-        .single()
-        .then((r) => (r.data as any)?.name || "Desconhecida");
-
-      supabase.functions.invoke("send-ticket-webhook", {
-        body: {
-          webhook_url: "https://n8n.costazul.shop/webhook/lovableportadocorrerora",
-          payload: {
-            ticket_id: ticketId,
-            subject: subject.trim(),
-            description: description.trim(),
-            category,
-            status: "open",
-            source: "porta_do_corretor",
-            project_id: "32f18075-f5bc-4619-801e-39da715b91b0",
-            user_id: user.id,
-            user_name: profile.full_name || "Desconhecido",
-            user_email: user.email || "",
-            organization_name: orgName,
-          },
-        },
-      }).catch((err) => console.error("Webhook error:", err));
-
       // Auto-trigger AI diagnostic with the ticket description
+      // The webhook will be sent by the ticket-chat edge function AFTER the AI analysis
       supabase.functions.invoke("ticket-chat", {
         body: {
           ticket_id: ticketId,
