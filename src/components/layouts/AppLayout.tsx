@@ -35,6 +35,7 @@ export function AppLayout() {
           </main>
         </div>
         <MobileFAB />
+        <SupportFAB />
         <MobileBottomNav />
         <PWAInstallPrompt />
         <UpdateBanner />
