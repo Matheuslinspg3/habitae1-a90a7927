@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Send, Bot, User, Headset, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -48,8 +47,31 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
       if (error) throw error;
       return (data || []) as unknown as ChatMessage[];
     },
-    refetchInterval: 10000,
+    // No polling — realtime handles updates
   });
+
+  // Realtime subscription for new messages
+  useEffect(() => {
+    const channel = supabase
+      .channel(`ticket-messages-${ticketId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ticket_messages',
+          filter: `ticket_id=eq.${ticketId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [ticketId, queryClient]);
 
   const sendMessage = useMutation({
     mutationFn: async (message: string) => {
@@ -66,7 +88,6 @@ export function TicketChat({ ticketId, ticketSubject, showSupportButton = true }
     },
     onError: (e: Error) => {
       toast.error(e.message || "Erro ao enviar mensagem");
-      // Still refresh to show the user message that was saved
       queryClient.invalidateQueries({ queryKey: ["ticket-messages", ticketId] });
     },
   });

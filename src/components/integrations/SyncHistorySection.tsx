@@ -373,7 +373,11 @@ export function SyncHistorySection() {
       return data as ImportRun[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: 5000, // Auto-refresh to show live status
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const hasActive = data?.some((r: ImportRun) => ['processing', 'running', 'starting', 'pending', 'paused'].includes(r.status));
+      return hasActive ? 5000 : false;
+    },
   });
 
   // Load API keys on mount

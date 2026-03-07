@@ -22,34 +22,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
 });
 
 // autoPurgeCloudflare removed — domain connected directly to Lovable, no CDN to purge
-
-/** Poll for new version every 15s by checking /version.json */
-function setupVersionPolling() {
-  const CURRENT_VERSION = APP_VERSION;
-
-  async function checkForUpdate() {
-    try {
-      const res = await fetch(`/version.json?_t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.version && data.version !== CURRENT_VERSION) {
-        console.log(`[Version Check] Nova versão detectada: ${data.version} (atual: ${CURRENT_VERSION})`);
-        window.__newVersionAvailable = true;
-        window.dispatchEvent(new CustomEvent("sw-update-available"));
-      }
-    } catch {
-      // silently ignore fetch errors
-    }
-  }
-
-  // Start polling after page loads
-  window.addEventListener("load", () => {
-    // First check after 5s (let page settle)
-    setTimeout(checkForUpdate, 5_000);
-    // Then every 15 seconds
-    setInterval(checkForUpdate, 15_000);
-  });
-}
+// Version polling removed — relying solely on Service Worker update routine (setupServiceWorkerUpdateRoutine)
 
 function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
@@ -107,6 +80,5 @@ if (
   );
 } else {
   setupServiceWorkerUpdateRoutine();
-  setupVersionPolling();
   createRoot(document.getElementById("root")!).render(<App />);
 }
