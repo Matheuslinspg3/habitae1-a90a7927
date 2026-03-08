@@ -4016,11 +4016,15 @@ export type Database = {
       get_public_property_images: {
         Args: { p_property_id: string }
         Returns: {
+          cached_thumbnail_url: string
           display_order: number
           id: string
           image_type: Database["public"]["Enums"]["property_image_type"]
           is_cover: boolean
+          r2_key_full: string
+          r2_key_thumb: string
           source: string
+          storage_provider: string
           url: string
         }[]
       }
