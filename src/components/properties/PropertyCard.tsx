@@ -34,10 +34,14 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
   // Use optimized image URL helper for R2/Cloudinary
   const getCoverImage = () => {
     if (!isAvailable || !coverImageData) return null;
-    // Check for R2 image first
     const imageRecord = coverImageData as unknown as ImageRecord;
+    // R2 images: use getImageUrl directly
     if (imageRecord.storage_provider === 'r2' || imageRecord.r2_key_thumb) {
       return getImageUrl(imageRecord, 'thumb');
+    }
+    // Use cached_thumbnail_url if available (Cloudinary cached thumbs)
+    if (imageRecord.cached_thumbnail_url) {
+      return imageRecord.cached_thumbnail_url;
     }
     // Drive file ID proxy
     const driveFileId = (coverImageData as any).drive_file_id;

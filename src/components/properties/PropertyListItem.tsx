@@ -43,9 +43,16 @@ export function PropertyListItem({
   const { buildPublicUrl } = usePropertyPublicUrl();
   const coverImageData = property.images?.find((img) => img.is_cover) || property.images?.[0] || null;
   const imageRecord = coverImageData as unknown as ImageRecord | null;
-  const coverImage = imageRecord?.storage_provider === 'r2' || imageRecord?.r2_key_thumb
-    ? getImageUrl(imageRecord, 'thumb')
-    : coverImageData?.url ? proxyDriveImageUrl(coverImageData.url) : null;
+  const coverImage = (() => {
+    if (!imageRecord) return null;
+    if (imageRecord.storage_provider === 'r2' || imageRecord.r2_key_thumb) {
+      return getImageUrl(imageRecord, 'thumb');
+    }
+    if (imageRecord.cached_thumbnail_url) {
+      return imageRecord.cached_thumbnail_url;
+    }
+    return coverImageData?.url ? proxyDriveImageUrl(coverImageData.url) : null;
+  })();
 
   const formatPrice = (price: number | null, isRent = false) => {
     if (!price) return null;
