@@ -143,6 +143,10 @@ export default function PropertyLandingPage() {
         image_type: img.image_type || 'photo',
         source: img.source,
         scraped_from_url: null,
+        r2_key_full: img.r2_key_full || null,
+        r2_key_thumb: img.r2_key_thumb || null,
+        storage_provider: img.storage_provider || null,
+        cached_thumbnail_url: img.cached_thumbnail_url || null,
       }));
 
       // Fallback to property_media if no images
