@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { ImageGallery } from "@/components/properties/ImageViewer";
 import { useToast } from "@/hooks/use-toast";
 import { proxyDriveImageUrl } from "@/lib/utils";
+import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { useLandingContent } from "@/hooks/useLandingContent";
 import { useLandingOverrides } from "@/hooks/useLandingOverrides";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
@@ -312,11 +313,23 @@ export default function PropertyLandingPage() {
           {hasImages ? (
             <div className="rounded-2xl overflow-hidden">
               <ImageGallery
-                images={property.images!.map((img) => ({
-                  url: proxyDriveImageUrl(img.url, "w1600"),
-                  alt: aiContent?.headline || property.title,
-                  is_cover: img.is_cover || false,
-                }))}
+                images={property.images!.map((img: any) => {
+                  const imageRecord: ImageRecord = {
+                    url: img.url,
+                    r2_key_full: img.r2_key_full,
+                    r2_key_thumb: img.r2_key_thumb,
+                    storage_provider: img.storage_provider,
+                    cached_thumbnail_url: img.cached_thumbnail_url,
+                  };
+                  const resolvedUrl = imageRecord.storage_provider === 'r2'
+                    ? getImageUrl(imageRecord, 'full')
+                    : proxyDriveImageUrl(img.url, "w1600");
+                  return {
+                    url: resolvedUrl,
+                    alt: aiContent?.headline || property.title,
+                    is_cover: img.is_cover || false,
+                  };
+                })}
               />
             </div>
           ) : (
