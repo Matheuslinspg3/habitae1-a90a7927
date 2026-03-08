@@ -3413,6 +3413,7 @@ export type Database = {
       }
       ticket_messages: {
         Row: {
+          attachments: Json | null
           content: string
           created_at: string
           id: string
@@ -3421,6 +3422,7 @@ export type Database = {
           ticket_id: string
         }
         Insert: {
+          attachments?: Json | null
           content: string
           created_at?: string
           id?: string
@@ -3429,6 +3431,7 @@ export type Database = {
           ticket_id: string
         }
         Update: {
+          attachments?: Json | null
           content?: string
           created_at?: string
           id?: string
