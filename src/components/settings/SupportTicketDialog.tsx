@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Bug, Loader2, MessageSquarePlus, ArrowLeft } from "lucide-react";
+import { Bug, Loader2, MessageSquarePlus, Paperclip, X, FileText, Image as ImageIcon, Video } from "lucide-react";
 import { TicketChat } from "@/components/developer/TicketChat";
 
 const CATEGORIES = [
@@ -31,6 +31,15 @@ const CATEGORIES = [
   { value: "duvida", label: "Dúvida" },
   { value: "outro", label: "Outro" },
 ];
+
+const ACCEPTED_TYPES = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function getFileIcon(type: string) {
+  if (type.startsWith("image/")) return ImageIcon;
+  if (type.startsWith("video/")) return Video;
+  return FileText;
+}
 
 interface SupportTicketDialogProps {
   trigger?: React.ReactNode;
@@ -45,6 +54,25 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
   const [sending, setSending] = useState(false);
   const [createdTicketId, setCreatedTicketId] = useState<string | null>(null);
   const [createdTicketSubject, setCreatedTicketSubject] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const valid = selected.filter(f => {
+      if (f.size > MAX_FILE_SIZE) {
+        toast.error(`${f.name} excede o limite de 10MB`);
+        return false;
+      }
+      return true;
+    });
+    setFiles(prev => [...prev, ...valid].slice(0, 5));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     if (!subject.trim() || !description.trim()) {
@@ -57,6 +85,8 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
     }
 
     setSending(true);
+
+    // Create ticket
     const { data, error } = await supabase.from("support_tickets" as any).insert({
       user_id: user.id,
       organization_id: profile.organization_id,
@@ -68,8 +98,45 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
     if (!error && data) {
       const ticketId = (data as any).id;
 
-      // Auto-trigger AI diagnostic with the ticket description
-      // The webhook will be sent by the ticket-chat edge function AFTER the AI analysis
+      // Upload files if any
+      let attachments: any[] = [];
+      if (files.length > 0) {
+        for (const file of files) {
+          const ext = file.name.split('.').pop();
+          const path = `${ticketId}/${crypto.randomUUID()}.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from("ticket-attachments")
+            .upload(path, file, { contentType: file.type });
+          if (uploadError) {
+            console.error("Upload error:", uploadError);
+            continue;
+          }
+          const { data: signedData } = await supabase.storage
+            .from("ticket-attachments")
+            .createSignedUrl(path, 60 * 60 * 24 * 365);
+          if (signedData?.signedUrl) {
+            attachments.push({
+              name: file.name,
+              url: signedData.signedUrl,
+              type: file.type,
+              size: file.size,
+            });
+          }
+        }
+
+        // Insert a user message with attachments
+        if (attachments.length > 0) {
+          await supabase.from("ticket_messages" as any).insert({
+            ticket_id: ticketId,
+            sender_role: "user",
+            sender_id: user.id,
+            content: "📎 Anexo(s) do ticket",
+            attachments,
+          } as any);
+        }
+      }
+
+      // Trigger AI diagnostic
       supabase.functions.invoke("ticket-chat", {
         body: {
           ticket_id: ticketId,
@@ -91,13 +158,13 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
   const handleClose = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-      // Reset state when dialog closes
       setTimeout(() => {
         setCreatedTicketId(null);
         setCreatedTicketSubject("");
         setSubject("");
         setDescription("");
         setCategory("bug");
+        setFiles([]);
       }, 300);
     }
   };
@@ -114,7 +181,6 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[90vh]">
         {createdTicketId ? (
-          // Show AI chat after ticket creation
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -132,7 +198,6 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
             />
           </>
         ) : (
-          // Show ticket creation form
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -178,8 +243,79 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
                   placeholder="Descreva o problema com o máximo de detalhes possível..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
+                  rows={4}
                 />
+              </div>
+
+              {/* File attachments */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4" />
+                  Anexos (opcional)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Fotos, vídeos ou documentos (máx. 10MB cada, até 5 arquivos)
+                </p>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_TYPES}
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={files.length >= 5}
+                >
+                  <Paperclip className="h-3.5 w-3.5 mr-1" />
+                  Adicionar arquivo
+                </Button>
+
+                {files.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {files.map((file, i) => {
+                      const Icon = getFileIcon(file.type);
+                      const isImage = file.type.startsWith("image/");
+                      return (
+                        <div key={i} className="relative group">
+                          {isImage ? (
+                            <div className="relative w-16 h-16 rounded-md overflow-hidden border border-border">
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                onClick={() => removeFile(i)}
+                                className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1.5 text-xs">
+                              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="truncate max-w-[80px]">{file.name}</span>
+                              <button
+                                onClick={() => removeFile(i)}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
