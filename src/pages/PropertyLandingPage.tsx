@@ -321,9 +321,13 @@ export default function PropertyLandingPage() {
                     storage_provider: img.storage_provider,
                     cached_thumbnail_url: img.cached_thumbnail_url,
                   };
-                  const resolvedUrl = imageRecord.storage_provider === 'r2'
-                    ? getImageUrl(imageRecord, 'full')
-                    : proxyDriveImageUrl(img.url, "w1600");
+                  // Use getImageUrl which handles R2, Cloudinary cached URLs, and fallbacks
+                  let resolvedUrl = getImageUrl(imageRecord, 'full');
+                  // Only use Drive proxy as last resort if getImageUrl returned the raw url
+                  // and there's no cached URL available
+                  if (resolvedUrl === img.url && !img.cached_thumbnail_url && !img.storage_provider) {
+                    resolvedUrl = proxyDriveImageUrl(img.url, "w1600");
+                  }
                   return {
                     url: resolvedUrl,
                     alt: aiContent?.headline || property.title,
