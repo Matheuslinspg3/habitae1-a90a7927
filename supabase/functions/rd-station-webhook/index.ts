@@ -82,21 +82,42 @@ Deno.serve(async (req) => {
         const source = "RD Station (Webhook)";
 
         // Check for duplicate by email
+        let existingLead: any = null;
         if (email) {
           const { data: existing } = await supabase
             .from("leads")
             .select("id")
             .eq("organization_id", orgId)
             .eq("email", email)
+            .eq("is_active", true)
             .limit(1)
-            .single();
+            .maybeSingle();
+          if (existing) existingLead = existing;
+        }
 
-          if (existing) {
-            leadId = existing.id;
-            status = "duplicate";
-            results.push({ name, email, status: "duplicate", leadId });
-            continue;
+        // Check for duplicate by phone if no email match
+        if (!existingLead && phone) {
+          const normalizedPhone = phone.replace(/\D/g, "");
+          if (normalizedPhone.length >= 8) {
+            const { data: allLeads } = await supabase
+              .from("leads")
+              .select("id, phone")
+              .eq("organization_id", orgId)
+              .eq("is_active", true)
+              .not("phone", "is", null);
+            const match = (allLeads || []).find((l: any) => {
+              const lPhone = (l.phone || "").replace(/\D/g, "");
+              return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+            });
+            if (match) existingLead = match;
           }
+        }
+
+        if (existingLead) {
+          leadId = existingLead.id;
+          status = "duplicate";
+          results.push({ name, email, status: "duplicate", leadId });
+          continue;
         }
 
         if (settings.auto_send_to_crm) {
