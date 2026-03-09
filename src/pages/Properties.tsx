@@ -18,7 +18,7 @@ import { BulkActionsToolbar } from "@/components/properties/BulkActionsToolbar";
 import { UnifiedPropertySearch } from "@/components/properties/UnifiedPropertySearch";
 import { PropertyFilters } from "@/components/properties/PropertyFilters";
 import { SavedSearchManager } from "@/components/properties/SavedSearchManager";
-import { PropertyViewControls, ViewMode, PageSize } from "@/components/properties/PropertyViewControls";
+import { PropertyViewControls, ViewMode, PageSize, SortOption } from "@/components/properties/PropertyViewControls";
 import { PropertyStatusStats } from "@/components/properties/PropertyStatusStats";
 import { usePropertyFilters } from "@/hooks/usePropertyFilters";
 import { useAdvancedPropertySearch } from "@/hooks/useAdvancedPropertySearch";
