@@ -388,12 +388,44 @@ export default function Properties() {
     return results;
   }, [searchResults, allProperties, filters.ownerId, ownerPropertyIds]);
 
+  // Sort
+  const sortedProperties = useMemo(() => {
+    const sorted = [...filteredProperties];
+    const getPrice = (p: PropertyWithDetails) => {
+      if (p.transaction_type === 'aluguel') return p.rent_price ?? 0;
+      return p.sale_price ?? p.rent_price ?? 0;
+    };
+    switch (sortBy) {
+      case 'oldest':
+        return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      case 'price_asc':
+        return sorted.sort((a, b) => getPrice(a) - getPrice(b));
+      case 'price_desc':
+        return sorted.sort((a, b) => getPrice(b) - getPrice(a));
+      case 'beach_asc':
+        return sorted.sort((a, b) => {
+          const da = (a as any).beach_distance_meters ?? Infinity;
+          const db = (b as any).beach_distance_meters ?? Infinity;
+          return da - db;
+        });
+      case 'beach_desc':
+        return sorted.sort((a, b) => {
+          const da = (a as any).beach_distance_meters ?? -1;
+          const db = (b as any).beach_distance_meters ?? -1;
+          return db - da;
+        });
+      case 'recent':
+      default:
+        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+  }, [filteredProperties, sortBy]);
+
   // Pagination
   const paginatedProperties = useMemo(() => {
-    if (pageSize === "all") return filteredProperties;
+    if (pageSize === "all") return sortedProperties;
     const start = (currentPage - 1) * pageSize;
-    return filteredProperties.slice(start, start + pageSize);
-  }, [filteredProperties, pageSize, currentPage]);
+    return sortedProperties.slice(start, start + pageSize);
+  }, [sortedProperties, pageSize, currentPage]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filters]);
