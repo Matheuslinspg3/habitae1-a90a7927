@@ -629,6 +629,8 @@ export default function Properties() {
             totalCount={filteredProperties.length}
             currentPage={currentPage}
             onPageChange={setCurrentPage}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
           />
         )}
 
