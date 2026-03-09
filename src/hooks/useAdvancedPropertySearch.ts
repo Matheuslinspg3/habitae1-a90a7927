@@ -22,6 +22,7 @@ interface SearchResult {
   transaction_type: string;
   property_type_id: string | null;
   cover_image_url: string | null;
+  beach_distance_meters: number | null;
   created_at: string;
   updated_at: string;
 }
