@@ -1,9 +1,10 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LayoutGrid, List, MapPin } from "lucide-react";
+import { LayoutGrid, List, MapPin, ArrowUpDown } from "lucide-react";
 
 export type ViewMode = "grid" | "list" | "map";
 export type PageSize = 50 | 150 | 300 | "all";
+export type SortOption = "recent" | "oldest" | "price_asc" | "price_desc" | "beach_asc" | "beach_desc";
 
 interface PropertyViewControlsProps {
   viewMode: ViewMode;
@@ -13,6 +14,8 @@ interface PropertyViewControlsProps {
   totalCount: number;
   currentPage: number;
   onPageChange: (page: number) => void;
+  sortBy?: SortOption;
+  onSortChange?: (sort: SortOption) => void;
 }
 
 export function PropertyViewControls({
@@ -23,6 +26,8 @@ export function PropertyViewControls({
   totalCount,
   currentPage,
   onPageChange,
+  sortBy = "recent",
+  onSortChange,
 }: PropertyViewControlsProps) {
   const numericPageSize = pageSize === "all" ? totalCount : pageSize;
   const totalPages = numericPageSize > 0 ? Math.ceil(totalCount / numericPageSize) : 1;
@@ -47,6 +52,24 @@ export function PropertyViewControls({
             <MapPin className="h-4 w-4" />
           </ToggleGroupItem>
         </ToggleGroup>
+
+        {/* Sort */}
+        {onSortChange && (
+          <Select value={sortBy} onValueChange={(val) => onSortChange(val as SortOption)}>
+            <SelectTrigger className="w-[180px]">
+              <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+              <SelectValue placeholder="Ordenar" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Mais recentes</SelectItem>
+              <SelectItem value="oldest">Mais antigos</SelectItem>
+              <SelectItem value="price_asc">Menor preço</SelectItem>
+              <SelectItem value="price_desc">Maior preço</SelectItem>
+              <SelectItem value="beach_asc">Mais perto da praia</SelectItem>
+              <SelectItem value="beach_desc">Mais longe da praia</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Page size */}
         <Select
