@@ -59,6 +59,7 @@ export default function Properties() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [pageSize, setPageSize] = useState<PageSize>(50);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [prefillData, setPrefillData] = useState<Record<string, any> | null>(null);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
