@@ -190,6 +190,49 @@ Deno.serve(async (req) => {
         .eq("status", "new");
 
       for (const nl of (newLeads || [])) {
+        // Deduplication: check if a CRM lead with the same email or phone already exists
+        let existingCrmLead: any = null;
+
+        if (nl.email) {
+          const { data: byEmail } = await supa
+            .from("leads")
+            .select("id")
+            .eq("organization_id", orgId)
+            .eq("email", nl.email)
+            .eq("is_active", true)
+            .limit(1)
+            .maybeSingle();
+          if (byEmail) existingCrmLead = byEmail;
+        }
+
+        if (!existingCrmLead && nl.phone) {
+          const normalizedPhone = nl.phone.replace(/\D/g, "");
+          if (normalizedPhone.length >= 8) {
+            const { data: allLeads } = await supa
+              .from("leads")
+              .select("id, phone")
+              .eq("organization_id", orgId)
+              .eq("is_active", true)
+              .not("phone", "is", null);
+            const match = (allLeads || []).find((l: any) => {
+              const lPhone = (l.phone || "").replace(/\D/g, "");
+              return lPhone.length >= 8 && (lPhone === normalizedPhone || lPhone.endsWith(normalizedPhone) || normalizedPhone.endsWith(lPhone));
+            });
+            if (match) existingCrmLead = match;
+          }
+        }
+
+        if (existingCrmLead) {
+          // Mark ad_lead as sent_to_crm linking to existing CRM lead (avoid duplicate)
+          await supa.from("ad_leads").update({
+            status: "sent_to_crm",
+            crm_record_id: existingCrmLead.id,
+            updated_at: new Date().toISOString(),
+          }).eq("id", nl.id);
+          autoSent++;
+          continue;
+        }
+
         const { data: crmLead, error: crmError } = await supa
           .from("leads")
           .insert({
