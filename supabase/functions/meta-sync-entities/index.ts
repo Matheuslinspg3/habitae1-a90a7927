@@ -22,10 +22,13 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
+    console.log("[meta-sync-entities] Validating token, length:", token.length);
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
+      console.error("[meta-sync-entities] Auth failed:", userError?.message || "no user");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+    console.log("[meta-sync-entities] Auth OK, user:", user.id);
 
     const userId = user.id;
 
