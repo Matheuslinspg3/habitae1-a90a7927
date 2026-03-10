@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     }
     console.log("[meta-sync-entities] Auth OK, user:", userId);
 
-    const userId = user.id;
+    
 
     const { data: profile } = await supabase
       .from("profiles")
