@@ -41,10 +41,7 @@ Deno.serve(async (req) => {
 
     const orgId = profile.organization_id;
 
-    const supa = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supa = supabase;
 
     const { data: account } = await supa
       .from("ad_accounts")
