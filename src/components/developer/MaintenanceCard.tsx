@@ -256,6 +256,9 @@ export function MaintenanceCard() {
           action,
           message: message || undefined,
           auto_purge_cache: autoPurgeCache,
+          send_push: sendPush,
+          push_title: pushTitle || undefined,
+          push_message: pushMessage || undefined,
         },
       });
 
@@ -265,6 +268,8 @@ export function MaintenanceCard() {
       // Show propagation results
       setPropagationResult({
         cachePurge: data?.cache_purge?.success ?? null,
+        pushSent: data?.push_notification?.ok ?? null,
+        pushRecipients: data?.push_notification?.recipientsCount ?? null,
       });
 
       toast({
