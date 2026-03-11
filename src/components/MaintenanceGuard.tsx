@@ -12,9 +12,14 @@ const PUBLIC_ROUTES = ["/manutencao", "/privacidade", "/instalar"];
 // Routes that start with these prefixes are public app consumer routes
 const PUBLIC_PREFIXES = ["/app/", "/i/", "/imovel/"];
 
-function useIsSystemAdmin() {
-  const { user } = useAuth();
-  return useQuery({
+export function MaintenanceGuard({ children }: { children: ReactNode }) {
+  const { isMaintenanceMode, isLoading: maintenanceLoading } = useMaintenanceMode();
+  const { user, loading: authLoading } = useAuth();
+  const { isDemoMode } = useDemo();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { data: isAdmin, isLoading: adminLoading } = useQuery({
     queryKey: ["is-system-admin", user?.id],
     queryFn: async () => {
       if (!user) return false;
@@ -25,15 +30,6 @@ function useIsSystemAdmin() {
     enabled: !!user,
     staleTime: 60_000,
   });
-}
-
-export function MaintenanceGuard({ children }: { children: ReactNode }) {
-  const { isMaintenanceMode, isLoading: maintenanceLoading } = useMaintenanceMode();
-  const { user, loading: authLoading } = useAuth();
-  const { isDemoMode } = useDemo();
-  const { data: isAdmin, isLoading: adminLoading } = useIsSystemAdmin();
-  const navigate = useNavigate();
-  const location = useLocation();
 
   const isPublicRoute =
     PUBLIC_ROUTES.includes(location.pathname) ||
