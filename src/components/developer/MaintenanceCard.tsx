@@ -152,6 +152,7 @@ interface PropagationResult {
   cachePurge: boolean | null;
   pushSent: boolean | null;
   pushRecipients: number | null;
+  forceLogout: boolean | null;
 }
 
 function PropagationStatus({ result }: { result: PropagationResult | null }) {
