@@ -5,10 +5,11 @@ import { trackLoginSuccess } from "@/components/ClarityProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Construction } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
+import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { z } from "zod";
 
 const loginSchema = z.object({
