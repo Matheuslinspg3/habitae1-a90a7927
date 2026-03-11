@@ -93,7 +93,9 @@ const App = () => (
                   <ClarityProvider />
                   <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
+                    <MaintenanceGuard>
                     <Routes>
+                      <Route path="/manutencao" element={<Maintenance />} />
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/convite/:id" element={<AcceptInvite />} />
                       <Route path="/cadastro/:id" element={<PlatformSignup />} />
