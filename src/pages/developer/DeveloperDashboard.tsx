@@ -17,6 +17,7 @@ import { TicketsTab } from "@/components/developer/TicketsTab";
 import { SendPushCard } from "@/components/developer/SendPushCard";
 import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
 import { PwaDiagnosticsCard } from "@/components/developer/PwaDiagnosticsCard";
+import { MaintenanceCard } from "@/components/developer/MaintenanceCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
