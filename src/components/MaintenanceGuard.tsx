@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,11 +13,12 @@ const PUBLIC_ROUTES = ["/manutencao", "/privacidade", "/instalar"];
 const PUBLIC_PREFIXES = ["/app/", "/i/", "/imovel/"];
 
 export function MaintenanceGuard({ children }: { children: ReactNode }) {
-  const { isMaintenanceMode, isLoading: maintenanceLoading } = useMaintenanceMode();
-  const { user, loading: authLoading } = useAuth();
+  const { isMaintenanceMode, isLoading: maintenanceLoading, forceLogoutAt } = useMaintenanceMode();
+  const { user, loading: authLoading, session } = useAuth();
   const { isDemoMode } = useDemo();
   const navigate = useNavigate();
   const location = useLocation();
+  const logoutTriggered = useRef(false);
 
   const { data: isAdmin, isLoading: adminLoading } = useQuery({
     queryKey: ["is-system-admin", user?.id],
@@ -34,6 +35,26 @@ export function MaintenanceGuard({ children }: { children: ReactNode }) {
   const isPublicRoute =
     PUBLIC_ROUTES.includes(location.pathname) ||
     PUBLIC_PREFIXES.some((p) => location.pathname.startsWith(p));
+
+  // Force logout: if force_logout_at is set and session was created before it
+  useEffect(() => {
+    if (!forceLogoutAt || !session || !user || logoutTriggered.current) return;
+    if (isAdmin) return; // admins bypass
+
+    const forceAt = new Date(forceLogoutAt).getTime();
+    // Use token iat (issued at) - session.expires_at is expiry epoch in seconds
+    const tokenIssuedAt = session.expires_at
+      ? (session.expires_at - 3600) * 1000
+      : Date.now();
+
+    if (tokenIssuedAt < forceAt) {
+      logoutTriggered.current = true;
+      console.log("[MaintenanceGuard] Force logout triggered");
+      supabase.auth.signOut().then(() => {
+        navigate("/manutencao", { replace: true });
+      });
+    }
+  }, [forceLogoutAt, session, user, isAdmin, navigate]);
 
   useEffect(() => {
     if (maintenanceLoading || authLoading) return;

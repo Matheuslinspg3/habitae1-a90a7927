@@ -347,6 +347,7 @@ export type Database = {
       }
       app_runtime_config: {
         Row: {
+          force_logout_at: string | null
           id: string
           maintenance_message: string
           maintenance_mode: boolean
@@ -355,6 +356,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          force_logout_at?: string | null
           id?: string
           maintenance_message?: string
           maintenance_mode?: boolean
@@ -363,6 +365,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          force_logout_at?: string | null
           id?: string
           maintenance_message?: string
           maintenance_mode?: boolean

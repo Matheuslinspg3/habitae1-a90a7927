@@ -7,6 +7,7 @@ interface MaintenanceConfig {
   maintenance_message: string;
   maintenance_started_at: string | null;
   maintenance_started_by: string | null;
+  force_logout_at: string | null;
   updated_at: string;
 }
 
@@ -64,6 +65,7 @@ export function useMaintenanceMode() {
     maintenanceMessage,
     maintenanceStartedAt: data?.maintenance_started_at ?? null,
     maintenanceStartedBy: data?.maintenance_started_by ?? null,
+    forceLogoutAt: data?.force_logout_at ?? null,
     isLoading,
     error,
     refetch,

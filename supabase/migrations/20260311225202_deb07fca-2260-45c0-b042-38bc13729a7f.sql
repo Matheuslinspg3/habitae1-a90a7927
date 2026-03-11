@@ -1,0 +1,1 @@
+ALTER TABLE public.app_runtime_config ADD COLUMN IF NOT EXISTS force_logout_at timestamptz DEFAULT NULL;

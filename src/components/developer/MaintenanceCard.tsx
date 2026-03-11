@@ -18,7 +18,7 @@ import {
 import {
   Construction, Power, PowerOff, Loader2, AlertTriangle,
   Clock, User, Plus, Trash2, ShieldCheck, Mail,
-  RefreshCw, Wifi, CheckCircle2, XCircle, Radio, Bell,
+  RefreshCw, Wifi, CheckCircle2, XCircle, Radio, Bell, LogOut,
 } from "lucide-react";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,6 +152,7 @@ interface PropagationResult {
   cachePurge: boolean | null;
   pushSent: boolean | null;
   pushRecipients: number | null;
+  forceLogout: boolean | null;
 }
 
 function PropagationStatus({ result }: { result: PropagationResult | null }) {
@@ -204,6 +205,16 @@ function PropagationStatus({ result }: { result: PropagationResult | null }) {
             <span className="text-muted-foreground">Desativado</span>
           )}
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Force logout</span>
+          {result.forceLogout === true ? (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" /> Sessões invalidadas
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Desativado</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -220,6 +231,7 @@ export function MaintenanceCard() {
   const [toggling, setToggling] = useState(false);
   const [autoPurgeCache, setAutoPurgeCache] = useState(true);
   const [sendPush, setSendPush] = useState(true);
+  const [forceLogout, setForceLogout] = useState(true);
   const [pushTitle, setPushTitle] = useState("⚠️ Sistema em Manutenção");
   const [pushMessage, setPushMessage] = useState("O sistema entrará em manutenção em breve. Salve seu trabalho.");
   const [propagationResult, setPropagationResult] = useState<PropagationResult | null>(null);
@@ -230,6 +242,7 @@ export function MaintenanceCard() {
     setPropagationResult(null);
     setAutoPurgeCache(true);
     setSendPush(true);
+    setForceLogout(!isMaintenanceMode);
     setPushTitle(isMaintenanceMode ? "✅ Sistema Restaurado" : "⚠️ Sistema em Manutenção");
     setPushMessage(isMaintenanceMode
       ? "O sistema voltou ao normal. Você já pode acessar a plataforma."
@@ -256,6 +269,7 @@ export function MaintenanceCard() {
           action,
           message: message || undefined,
           auto_purge_cache: autoPurgeCache,
+          force_logout: forceLogout,
           send_push: sendPush,
           push_title: pushTitle || undefined,
           push_message: pushMessage || undefined,
@@ -270,6 +284,7 @@ export function MaintenanceCard() {
         cachePurge: data?.cache_purge?.success ?? null,
         pushSent: data?.push_notification?.ok ?? null,
         pushRecipients: data?.push_notification?.recipientsCount ?? null,
+        forceLogout: forceLogout && action === "activate" ? true : null,
       });
 
       toast({
@@ -428,7 +443,26 @@ export function MaintenanceCard() {
                   />
                 </div>
 
-                {/* Push notification */}
+                {/* Force logout */}
+                {!isMaintenanceMode && (
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="force-logout" className="text-xs font-medium flex items-center gap-1.5">
+                        <LogOut className="h-3 w-3" />
+                        Deslogar todos os usuários
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Encerra todas as sessões ativas (exceto admins)
+                      </p>
+                    </div>
+                    <Switch
+                      id="force-logout"
+                      checked={forceLogout}
+                      onCheckedChange={setForceLogout}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="send-push" className="text-xs font-medium flex items-center gap-1.5">
