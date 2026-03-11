@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { NotificationService } from "../_shared/notification-service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,6 +98,9 @@ Deno.serve(async (req) => {
     const action = body.action as "activate" | "deactivate";
     const message = body.message as string | undefined;
     const autoPurgeCache = body.auto_purge_cache !== false; // default true
+    const sendPushNotification = body.send_push === true;
+    const pushTitle = body.push_title as string | undefined;
+    const pushMessage = body.push_message as string | undefined;
 
     if (!action || !["activate", "deactivate"].includes(action)) {
       return new Response(JSON.stringify({ error: "Invalid action" }), {
@@ -161,6 +165,21 @@ Deno.serve(async (req) => {
       cachePurgeResult = await purgeCloudflareCache();
     }
 
+    // Send push notification to all users
+    let pushResult = null;
+    if (sendPushNotification && pushTitle) {
+      try {
+        const ns = new NotificationService(req);
+        pushResult = await ns.sendToAll(
+          pushTitle,
+          pushMessage || pushTitle,
+          { type: "maintenance", action },
+        );
+      } catch (pushErr) {
+        pushResult = { ok: false, error: (pushErr as Error).message };
+      }
+    }
+
     // Return final state
     const { data: finalConfig } = await supabaseAdmin
       .from("app_runtime_config")
@@ -172,6 +191,7 @@ Deno.serve(async (req) => {
       success: true,
       config: finalConfig,
       cache_purge: cachePurgeResult,
+      push_notification: pushResult,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

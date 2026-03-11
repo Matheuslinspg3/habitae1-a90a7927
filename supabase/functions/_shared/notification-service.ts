@@ -315,6 +315,48 @@ export class NotificationService {
     };
   }
 
+  /**
+   * Send push notification to ALL subscribed users via OneSignal segments.
+   */
+  async sendToAll(title: string, message: string, data: Record<string, unknown> = {}) {
+    const response = await fetch("https://api.onesignal.com/notifications", {
+      method: "POST",
+      headers: {
+        "Authorization": `Key ${this.restApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        app_id: this.appId,
+        included_segments: ["Subscribed Users"],
+        target_channel: "push",
+        headings: { en: title },
+        contents: { en: message || title },
+        data,
+      }),
+    });
+
+    const body = await response.json() as OneSignalResponse;
+    if (!response.ok) {
+      this.log.error("OneSignal broadcast failed", { status: response.status, response: body });
+      return {
+        ok: false,
+        provider: "onesignal",
+        errorMessage: "Falha no envio broadcast via OneSignal",
+        errorDetails: body,
+      };
+    }
+
+    const recipientsCount = Number(body.recipients ?? 0);
+    this.log.info("Broadcast push sent", { recipients: recipientsCount, notification_id: body.id });
+
+    return {
+      ok: true,
+      provider: "onesignal",
+      notificationId: body.id ?? null,
+      recipientsCount,
+    };
+  }
+
   async sendTest(target: { userId?: string; onesignalIds?: string[] }, params: SendParams) {
     const { title, message, data = {} } = params;
 
