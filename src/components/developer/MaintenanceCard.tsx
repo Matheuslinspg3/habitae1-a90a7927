@@ -431,7 +431,26 @@ export function MaintenanceCard() {
                   />
                 </div>
 
-                {/* Push notification */}
+                {/* Force logout */}
+                {!isMaintenanceMode && (
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="force-logout" className="text-xs font-medium flex items-center gap-1.5">
+                        <LogOut className="h-3 w-3" />
+                        Deslogar todos os usuários
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Encerra todas as sessões ativas (exceto admins)
+                      </p>
+                    </div>
+                    <Switch
+                      id="force-logout"
+                      checked={forceLogout}
+                      onCheckedChange={setForceLogout}
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label htmlFor="send-push" className="text-xs font-medium flex items-center gap-1.5">
