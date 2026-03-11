@@ -219,6 +219,9 @@ export function MaintenanceCard() {
   const [message, setMessage] = useState("");
   const [toggling, setToggling] = useState(false);
   const [autoPurgeCache, setAutoPurgeCache] = useState(true);
+  const [sendPush, setSendPush] = useState(true);
+  const [pushTitle, setPushTitle] = useState("⚠️ Sistema em Manutenção");
+  const [pushMessage, setPushMessage] = useState("O sistema entrará em manutenção em breve. Salve seu trabalho.");
   const [propagationResult, setPropagationResult] = useState<PropagationResult | null>(null);
 
   const openDialog = () => {
@@ -226,6 +229,11 @@ export function MaintenanceCard() {
     setMessage(maintenanceMessage);
     setPropagationResult(null);
     setAutoPurgeCache(true);
+    setSendPush(true);
+    setPushTitle(isMaintenanceMode ? "✅ Sistema Restaurado" : "⚠️ Sistema em Manutenção");
+    setPushMessage(isMaintenanceMode
+      ? "O sistema voltou ao normal. Você já pode acessar a plataforma."
+      : "O sistema entrará em manutenção em breve. Salve seu trabalho.");
     setShowDialog(true);
   };
 
