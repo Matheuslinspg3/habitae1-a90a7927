@@ -231,6 +231,7 @@ export function MaintenanceCard() {
     setPropagationResult(null);
     setAutoPurgeCache(true);
     setSendPush(true);
+    setForceLogout(!isMaintenanceMode);
     setPushTitle(isMaintenanceMode ? "✅ Sistema Restaurado" : "⚠️ Sistema em Manutenção");
     setPushMessage(isMaintenanceMode
       ? "O sistema voltou ao normal. Você já pode acessar a plataforma."
