@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.rd-station-send-event]
 verify_jwt = false
+
+[functions.toggle-maintenance-mode]
+verify_jwt = false
