@@ -27,14 +27,13 @@ window.addEventListener("beforeinstallprompt", (e) => {
 function setupServiceWorkerUpdateRoutine() {
   if (!("serviceWorker" in navigator)) return;
 
-  const handleNewVersion = (registration: ServiceWorkerRegistration) => {
+  const handleNewVersion = (_registration: ServiceWorkerRegistration) => {
     console.log("[SW Update] Nova versão detectada!");
     window.__newVersionAvailable = true;
     window.dispatchEvent(new CustomEvent("sw-update-available"));
-    const waiting = registration.waiting;
-    if (waiting) {
-      waiting.postMessage({ type: "SKIP_WAITING" });
-    }
+    // Do NOT call skipWaiting here — let the UpdateBanner handle it on user click.
+    // Calling it early causes the waiting SW to activate before the user clicks,
+    // leaving updateServiceWorker(true) with nothing to do.
   };
 
   const observeRegistration = (registration: ServiceWorkerRegistration | undefined) => {
