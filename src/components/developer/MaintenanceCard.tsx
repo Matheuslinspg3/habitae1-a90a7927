@@ -190,6 +190,20 @@ function PropagationStatus({ result }: { result: PropagationResult | null }) {
             <CheckCircle2 className="h-3 w-3" /> Ativo
           </span>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Push notification</span>
+          {result.pushSent === true ? (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" /> {result.pushRecipients ?? 0} destinatários
+            </span>
+          ) : result.pushSent === false ? (
+            <span className="flex items-center gap-1 text-destructive">
+              <XCircle className="h-3 w-3" /> Falhou
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Desativado</span>
+          )}
+        </div>
       </div>
     </div>
   );
