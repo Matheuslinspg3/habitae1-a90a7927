@@ -170,6 +170,17 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
           {/* Section divider */}
           <hr className="section-divider" />
 
+          {/* Maintenance banner */}
+          {isMaintenanceMode && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <Construction className="h-5 w-5" />
+                <span className="font-semibold text-sm">Sistema em Manutenção</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{maintenanceMessage}</p>
+            </div>
+          )}
+
           {showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-5">
               <div className="space-y-2">
