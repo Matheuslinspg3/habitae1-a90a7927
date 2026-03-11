@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +13,139 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Construction, Power, PowerOff, Loader2, AlertTriangle, Clock, User } from "lucide-react";
+import {
+  Construction, Power, PowerOff, Loader2, AlertTriangle,
+  Clock, User, Plus, Trash2, ShieldCheck, Mail,
+} from "lucide-react";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+function AllowlistSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [newEmail, setNewEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const { data: allowlist = [], isLoading } = useQuery({
+    queryKey: ["admin-allowlist"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("admin_allowlist")
+        .select("id, email, created_at")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const handleAdd = async () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      toast({ variant: "destructive", title: "E-mail inválido" });
+      return;
+    }
+    setAdding(true);
+    try {
+      const { error } = await supabase.from("admin_allowlist").insert({ email });
+      if (error) {
+        if (error.code === "23505") {
+          toast({ variant: "destructive", title: "E-mail já existe na lista" });
+        } else {
+          throw error;
+        }
+      } else {
+        toast({ title: "E-mail adicionado à lista de acesso" });
+        setNewEmail("");
+        queryClient.invalidateQueries({ queryKey: ["admin-allowlist"] });
+      }
+    } catch (err: unknown) {
+      toast({ variant: "destructive", title: "Erro ao adicionar", description: String(err) });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async (id: string) => {
+    setRemovingId(id);
+    try {
+      const { error } = await supabase.from("admin_allowlist").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "E-mail removido da lista" });
+      queryClient.invalidateQueries({ queryKey: ["admin-allowlist"] });
+    } catch (err: unknown) {
+      toast({ variant: "destructive", title: "Erro ao remover", description: String(err) });
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium">Acesso durante manutenção</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        E-mails que podem acessar a plataforma durante a manutenção.
+      </p>
+
+      {/* Add email */}
+      <div className="flex gap-2">
+        <Input
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          placeholder="email@exemplo.com"
+          className="text-sm h-8"
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+        />
+        <Button size="sm" onClick={handleAdd} disabled={adding} className="h-8 gap-1 shrink-0">
+          {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+          Adicionar
+        </Button>
+      </div>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="flex justify-center py-3">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : allowlist.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-2">Nenhum e-mail na lista.</p>
+      ) : (
+        <div className="space-y-1 max-h-40 overflow-y-auto">
+          {allowlist.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 group"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span className="text-xs truncate">{item.email}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                onClick={() => handleRemove(item.id)}
+                disabled={removingId === item.id}
+              >
+                {removingId === item.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MaintenanceCard() {
   const { isMaintenanceMode, maintenanceMessage, maintenanceStartedAt, maintenanceStartedBy, isLoading, error } = useMaintenanceMode();
@@ -39,7 +166,6 @@ export function MaintenanceCard() {
   const handleToggle = async () => {
     const action = isMaintenanceMode ? "deactivate" : "activate";
 
-    // Require confirmation text only for activation
     if (action === "activate" && confirmation !== "MIGRACAO") {
       toast({ variant: "destructive", title: "Confirmação inválida", description: "Digite MIGRACAO para confirmar." });
       return;
@@ -142,7 +268,7 @@ export function MaintenanceCard() {
       </Card>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -151,11 +277,11 @@ export function MaintenanceCard() {
             <DialogDescription>
               {isMaintenanceMode
                 ? "A plataforma será liberada para todos os usuários."
-                : "Isso impedirá login e uso da plataforma para usuários comuns. Apenas admins autorizados poderão acessar."}
+                : "Isso impedirá login e uso da plataforma para usuários comuns. Apenas e-mails autorizados poderão acessar."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-5 py-2">
             {/* Message editing */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Mensagem de manutenção</label>
@@ -166,6 +292,9 @@ export function MaintenanceCard() {
                 className="text-sm"
               />
             </div>
+
+            {/* Allowlist management */}
+            <AllowlistSection />
 
             {/* Confirmation input (only for activation) */}
             {!isMaintenanceMode && (
