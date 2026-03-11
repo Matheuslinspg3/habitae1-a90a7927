@@ -220,6 +220,7 @@ export function MaintenanceCard() {
   const [toggling, setToggling] = useState(false);
   const [autoPurgeCache, setAutoPurgeCache] = useState(true);
   const [sendPush, setSendPush] = useState(true);
+  const [forceLogout, setForceLogout] = useState(true);
   const [pushTitle, setPushTitle] = useState("⚠️ Sistema em Manutenção");
   const [pushMessage, setPushMessage] = useState("O sistema entrará em manutenção em breve. Salve seu trabalho.");
   const [propagationResult, setPropagationResult] = useState<PropagationResult | null>(null);
