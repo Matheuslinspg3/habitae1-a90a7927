@@ -428,6 +428,24 @@ export function MaintenanceCard() {
                   />
                 </div>
 
+                {/* Push notification */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="send-push" className="text-xs font-medium flex items-center gap-1.5">
+                      <Bell className="h-3 w-3" />
+                      Notificação push para todos
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Envia push via OneSignal a todos os usuários inscritos
+                    </p>
+                  </div>
+                  <Switch
+                    id="send-push"
+                    checked={sendPush}
+                    onCheckedChange={setSendPush}
+                  />
+                </div>
+
                 {/* Polling fallback - always on */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -443,6 +461,39 @@ export function MaintenanceCard() {
                 </div>
               </div>
             </div>
+
+            {/* Push notification content - only shown when push is enabled */}
+            {sendPush && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Bell className="h-4 w-4 text-primary" />
+                  Conteúdo da notificação push
+                </p>
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="push-title" className="text-xs">Título do push</Label>
+                    <Input
+                      id="push-title"
+                      value={pushTitle}
+                      onChange={(e) => setPushTitle(e.target.value)}
+                      placeholder="⚠️ Sistema em Manutenção"
+                      className="text-sm h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="push-msg" className="text-xs">Mensagem do push</Label>
+                    <Textarea
+                      id="push-msg"
+                      value={pushMessage}
+                      onChange={(e) => setPushMessage(e.target.value)}
+                      rows={2}
+                      className="text-sm"
+                      placeholder="O sistema entrará em manutenção..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Propagation result */}
             <PropagationStatus result={propagationResult} />
