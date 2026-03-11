@@ -191,6 +191,7 @@ Deno.serve(async (req) => {
       success: true,
       config: finalConfig,
       cache_purge: cachePurgeResult,
+      push_notification: pushResult,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
