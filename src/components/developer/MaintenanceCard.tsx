@@ -18,7 +18,7 @@ import {
 import {
   Construction, Power, PowerOff, Loader2, AlertTriangle,
   Clock, User, Plus, Trash2, ShieldCheck, Mail,
-  RefreshCw, Wifi, CheckCircle2, XCircle, Radio, Bell,
+  RefreshCw, Wifi, CheckCircle2, XCircle, Radio, Bell, LogOut,
 } from "lucide-react";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { supabase } from "@/integrations/supabase/client";
