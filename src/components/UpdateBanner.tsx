@@ -43,7 +43,16 @@ export function UpdateBanner() {
 
   const handleUpdate = async () => {
     sessionStorage.setItem(SUPPRESS_KEY, "1");
-    await updateServiceWorker(true); // skipWaiting + reload
+    try {
+      await updateServiceWorker(true); // skipWaiting + reload
+    } catch (err) {
+      console.warn("[SW] updateServiceWorker failed, forcing reload", err);
+    }
+    // Fallback: if updateServiceWorker didn't trigger a reload (e.g., no waiting SW),
+    // force reload after a short delay to ensure the page refreshes.
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
   };
 
   return (
