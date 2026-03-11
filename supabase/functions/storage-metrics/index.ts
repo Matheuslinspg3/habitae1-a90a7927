@@ -28,6 +28,12 @@ async function signingKey(secret: string, date: string, region: string, service:
   return k;
 }
 
+// Sort query string parameters alphabetically (required for SigV4)
+function sortQueryString(query: string): string {
+  if (!query) return '';
+  return query.split('&').sort().join('&');
+}
+
 async function signedR2Request(method: string, path: string, query: string, endpoint: string, accessKey: string, secretKey: string): Promise<Response> {
   const host = new URL(endpoint).host;
   const now = new Date();
@@ -35,6 +41,7 @@ async function signedR2Request(method: string, path: string, query: string, endp
   const dateStamp = amzDate.slice(0, 8);
 
   const payloadHash = await sha256Hex(new Uint8Array(0));
+  const sortedQuery = sortQueryString(query);
 
   const canonicalHeaders =
     `host:${host}\n` +
@@ -43,7 +50,7 @@ async function signedR2Request(method: string, path: string, query: string, endp
   const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
 
   const canonicalRequest =
-    `${method}\n${path}\n${query}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
+    `${method}\n${path}\n${sortedQuery}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
 
   const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
   const canonicalRequestHash = await sha256Hex(new TextEncoder().encode(canonicalRequest));
@@ -54,7 +61,7 @@ async function signedR2Request(method: string, path: string, query: string, endp
 
   const authorization = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  const url = `${endpoint}${path}${query ? '?' + query : ''}`;
+  const url = `${endpoint}${path}${sortedQuery ? '?' + sortedQuery : ''}`;
   return fetch(url, {
     method,
     headers: {
