@@ -205,6 +205,16 @@ function PropagationStatus({ result }: { result: PropagationResult | null }) {
             <span className="text-muted-foreground">Desativado</span>
           )}
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Force logout</span>
+          {result.forceLogout === true ? (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" /> Sessões invalidadas
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Desativado</span>
+          )}
+        </div>
       </div>
     </div>
   );
