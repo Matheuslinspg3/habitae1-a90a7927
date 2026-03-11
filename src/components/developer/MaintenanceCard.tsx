@@ -258,6 +258,7 @@ export function MaintenanceCard() {
           action,
           message: message || undefined,
           auto_purge_cache: autoPurgeCache,
+          force_logout: forceLogout,
           send_push: sendPush,
           push_title: pushTitle || undefined,
           push_message: pushMessage || undefined,

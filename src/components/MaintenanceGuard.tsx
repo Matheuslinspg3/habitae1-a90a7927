@@ -42,12 +42,12 @@ export function MaintenanceGuard({ children }: { children: ReactNode }) {
     if (isAdmin) return; // admins bypass
 
     const forceAt = new Date(forceLogoutAt).getTime();
-    // Use session created_at or iat from access token
-    const sessionCreatedAt = session.created_at
-      ? new Date(session.created_at).getTime()
-      : (session.expires_at ? (session.expires_at - 3600) * 1000 : 0);
+    // Use token iat (issued at) - session.expires_at is expiry epoch in seconds
+    const tokenIssuedAt = session.expires_at
+      ? (session.expires_at - 3600) * 1000
+      : Date.now();
 
-    if (sessionCreatedAt < forceAt) {
+    if (tokenIssuedAt < forceAt) {
       logoutTriggered.current = true;
       console.log("[MaintenanceGuard] Force logout triggered");
       supabase.auth.signOut().then(() => {
