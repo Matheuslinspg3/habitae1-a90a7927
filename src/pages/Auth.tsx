@@ -37,6 +37,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isMaintenanceMode) return;
     setErrors({});
 
     const result = loginSchema.safeParse(loginForm);
