@@ -165,6 +165,21 @@ Deno.serve(async (req) => {
       cachePurgeResult = await purgeCloudflareCache();
     }
 
+    // Send push notification to all users
+    let pushResult = null;
+    if (sendPushNotification && pushTitle) {
+      try {
+        const ns = new NotificationService(req);
+        pushResult = await ns.sendToAll(
+          pushTitle,
+          pushMessage || pushTitle,
+          { type: "maintenance", action },
+        );
+      } catch (pushErr) {
+        pushResult = { ok: false, error: (pushErr as Error).message };
+      }
+    }
+
     // Return final state
     const { data: finalConfig } = await supabaseAdmin
       .from("app_runtime_config")
