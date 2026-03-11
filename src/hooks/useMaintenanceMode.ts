@@ -65,6 +65,7 @@ export function useMaintenanceMode() {
     maintenanceMessage,
     maintenanceStartedAt: data?.maintenance_started_at ?? null,
     maintenanceStartedBy: data?.maintenance_started_by ?? null,
+    forceLogoutAt: data?.force_logout_at ?? null,
     isLoading,
     error,
     refetch,

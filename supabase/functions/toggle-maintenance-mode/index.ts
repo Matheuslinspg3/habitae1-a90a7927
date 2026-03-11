@@ -125,10 +125,15 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
+    const forceLogout = body.force_logout === true;
+
     if (action === "activate") {
       updatePayload.maintenance_started_at = new Date().toISOString();
       updatePayload.maintenance_started_by = userId;
       if (message) updatePayload.maintenance_message = message;
+      if (forceLogout) {
+        updatePayload.force_logout_at = new Date().toISOString();
+      }
     } else {
       updatePayload.maintenance_started_at = null;
       updatePayload.maintenance_started_by = null;
