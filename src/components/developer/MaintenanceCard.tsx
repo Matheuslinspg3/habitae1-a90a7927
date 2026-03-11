@@ -150,6 +150,8 @@ function AllowlistSection() {
 
 interface PropagationResult {
   cachePurge: boolean | null;
+  pushSent: boolean | null;
+  pushRecipients: number | null;
 }
 
 function PropagationStatus({ result }: { result: PropagationResult | null }) {
