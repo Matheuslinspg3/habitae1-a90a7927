@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +18,7 @@ import {
 import {
   Construction, Power, PowerOff, Loader2, AlertTriangle,
   Clock, User, Plus, Trash2, ShieldCheck, Mail,
+  RefreshCw, Wifi, CheckCircle2, XCircle, Radio,
 } from "lucide-react";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,7 +96,6 @@ function AllowlistSection() {
         E-mails que podem acessar a plataforma durante a manutenção.
       </p>
 
-      {/* Add email */}
       <div className="flex gap-2">
         <Input
           value={newEmail}
@@ -108,7 +110,6 @@ function AllowlistSection() {
         </Button>
       </div>
 
-      {/* List */}
       {isLoading ? (
         <div className="flex justify-center py-3">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -147,6 +148,51 @@ function AllowlistSection() {
   );
 }
 
+interface PropagationResult {
+  cachePurge: boolean | null;
+}
+
+function PropagationStatus({ result }: { result: PropagationResult | null }) {
+  if (!result) return null;
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+      <p className="text-xs font-medium flex items-center gap-1.5">
+        <Radio className="h-3.5 w-3.5 text-primary" />
+        Status de propagação
+      </p>
+      <div className="space-y-1.5 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Realtime (instantâneo)</span>
+          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" /> Ativo
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Cache CDN (Cloudflare)</span>
+          {result.cachePurge === true ? (
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" /> Limpo
+            </span>
+          ) : result.cachePurge === false ? (
+            <span className="flex items-center gap-1 text-destructive">
+              <XCircle className="h-3 w-3" /> Falhou
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Desativado</span>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Polling fallback (30s)</span>
+          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" /> Ativo
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MaintenanceCard() {
   const { isMaintenanceMode, maintenanceMessage, maintenanceStartedAt, maintenanceStartedBy, isLoading, error } = useMaintenanceMode();
   const { toast } = useToast();
@@ -156,10 +202,14 @@ export function MaintenanceCard() {
   const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState("");
   const [toggling, setToggling] = useState(false);
+  const [autoPurgeCache, setAutoPurgeCache] = useState(true);
+  const [propagationResult, setPropagationResult] = useState<PropagationResult | null>(null);
 
   const openDialog = () => {
     setConfirmation("");
     setMessage(maintenanceMessage);
+    setPropagationResult(null);
+    setAutoPurgeCache(true);
     setShowDialog(true);
   };
 
@@ -172,26 +222,35 @@ export function MaintenanceCard() {
     }
 
     setToggling(true);
+    setPropagationResult(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada");
 
       const { data, error } = await supabase.functions.invoke("toggle-maintenance-mode", {
-        body: { action, message: message || undefined },
+        body: {
+          action,
+          message: message || undefined,
+          auto_purge_cache: autoPurgeCache,
+        },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Show propagation results
+      setPropagationResult({
+        cachePurge: data?.cache_purge?.success ?? null,
+      });
+
       toast({
         title: action === "activate" ? "Manutenção ativada" : "Manutenção desativada",
         description: action === "activate"
-          ? "Usuários comuns foram bloqueados."
+          ? "Todos os clientes serão notificados em tempo real."
           : "A plataforma está liberada para todos os usuários.",
       });
 
       queryClient.invalidateQueries({ queryKey: ["maintenance-mode"] });
-      setShowDialog(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
       toast({ variant: "destructive", title: "Erro", description: msg });
@@ -239,6 +298,10 @@ export function MaintenanceCard() {
                   <span className="truncate max-w-[140px]">{maintenanceStartedBy}</span>
                 </div>
               )}
+              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <Wifi className="h-3 w-3" />
+                Realtime ativo
+              </div>
             </div>
           )}
 
@@ -292,6 +355,68 @@ export function MaintenanceCard() {
                 className="text-sm"
               />
             </div>
+
+            {/* Propagation options */}
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+              <p className="text-sm font-medium flex items-center gap-1.5">
+                <RefreshCw className="h-4 w-4 text-primary" />
+                Propagação para clientes
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Como os clientes serão atualizados sobre o estado de manutenção.
+              </p>
+
+              <div className="space-y-2.5">
+                {/* Realtime - always on */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium flex items-center gap-1.5">
+                      <Wifi className="h-3 w-3" />
+                      Realtime (instantâneo)
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Clientes online recebem a mudança em &lt;1s via WebSocket
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px]">Sempre ativo</Badge>
+                </div>
+
+                {/* CDN Cache purge */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="purge-cache" className="text-xs font-medium flex items-center gap-1.5">
+                      <RefreshCw className="h-3 w-3" />
+                      Limpar cache CDN (Cloudflare)
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Força clientes com PWA/cache a buscar recursos atualizados
+                    </p>
+                  </div>
+                  <Switch
+                    id="purge-cache"
+                    checked={autoPurgeCache}
+                    onCheckedChange={setAutoPurgeCache}
+                  />
+                </div>
+
+                {/* Polling fallback - always on */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-medium flex items-center gap-1.5">
+                      <Radio className="h-3 w-3" />
+                      Polling fallback (30s)
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Clientes offline/desconectados checam a cada 30 segundos
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px]">Sempre ativo</Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Propagation result */}
+            <PropagationStatus result={propagationResult} />
 
             {/* Allowlist management */}
             <AllowlistSection />

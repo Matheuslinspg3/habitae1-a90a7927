@@ -1,7 +1,7 @@
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { Button } from "@/components/ui/button";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
-import { Construction, RefreshCw } from "lucide-react";
+import { Construction, RefreshCw, Wifi } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -10,12 +10,20 @@ export default function Maintenance() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
 
-  // If maintenance is no longer active, redirect to dashboard
+  // If maintenance is no longer active, redirect to dashboard (works via realtime too)
   useEffect(() => {
     if (!isLoading && !isMaintenanceMode) {
       navigate("/dashboard", { replace: true });
     }
   }, [isMaintenanceMode, isLoading, navigate]);
+
+  // More aggressive polling on the maintenance page itself (every 10s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   const handleRetry = async () => {
     setChecking(true);
@@ -59,6 +67,12 @@ export default function Maintenance() {
           <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
           {checking ? "Verificando..." : "Tentar novamente"}
         </Button>
+
+        {/* Auto-check indicator */}
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
+          <Wifi className="h-3 w-3" />
+          <span>Verificação automática ativa — você será redirecionado assim que a manutenção terminar</span>
+        </div>
 
         {/* Footer */}
         <p className="text-xs text-muted-foreground/50 tracking-widest uppercase">

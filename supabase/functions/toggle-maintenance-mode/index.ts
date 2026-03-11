@@ -6,6 +6,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function purgeCloudflareCache(): Promise<{ success: boolean; error?: string }> {
+  const zoneId = Deno.env.get("CLOUDFLARE_ZONE_ID");
+  const apiToken = Deno.env.get("CLOUDFLARE_API_TOKEN");
+
+  if (!zoneId || !apiToken) {
+    return { success: false, error: "Cloudflare credentials not configured" };
+  }
+
+  try {
+    const cfResponse = await fetch(
+      `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ purge_everything: true }),
+      }
+    );
+    const cfData = await cfResponse.json();
+    return cfData.success ? { success: true } : { success: false, error: JSON.stringify(cfData.errors) };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -69,6 +96,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as "activate" | "deactivate";
     const message = body.message as string | undefined;
+    const autoPurgeCache = body.auto_purge_cache !== false; // default true
 
     if (!action || !["activate", "deactivate"].includes(action)) {
       return new Response(JSON.stringify({ error: "Invalid action" }), {
@@ -127,6 +155,12 @@ Deno.serve(async (req) => {
       user_agent: userAgent,
     });
 
+    // Auto-purge Cloudflare cache on activation to force clients to fetch fresh resources
+    let cachePurgeResult = null;
+    if (autoPurgeCache) {
+      cachePurgeResult = await purgeCloudflareCache();
+    }
+
     // Return final state
     const { data: finalConfig } = await supabaseAdmin
       .from("app_runtime_config")
@@ -134,7 +168,11 @@ Deno.serve(async (req) => {
       .eq("id", "singleton")
       .single();
 
-    return new Response(JSON.stringify({ success: true, config: finalConfig }), {
+    return new Response(JSON.stringify({
+      success: true,
+      config: finalConfig,
+      cache_purge: cachePurgeResult,
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
