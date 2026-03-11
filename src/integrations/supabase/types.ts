@@ -345,6 +345,33 @@ export type Database = {
         }
         Relationships: []
       }
+      app_runtime_config: {
+        Row: {
+          id: string
+          maintenance_message: string
+          maintenance_mode: boolean
+          maintenance_started_at: string | null
+          maintenance_started_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          maintenance_message?: string
+          maintenance_mode?: boolean
+          maintenance_started_at?: string | null
+          maintenance_started_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          maintenance_message?: string
+          maintenance_mode?: boolean
+          maintenance_started_at?: string | null
+          maintenance_started_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           assigned_to: string | null
@@ -1541,6 +1568,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      maintenance_audit_log: {
+        Row: {
+          action: string
+          id: string
+          ip_address: string | null
+          maintenance_message: string | null
+          new_value: boolean
+          performed_at: string
+          performed_by: string
+          previous_value: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          id?: string
+          ip_address?: string | null
+          maintenance_message?: string | null
+          new_value: boolean
+          performed_at?: string
+          performed_by: string
+          previous_value: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          id?: string
+          ip_address?: string | null
+          maintenance_message?: string | null
+          new_value?: boolean
+          performed_at?: string
+          performed_by?: string
+          previous_value?: boolean
+          user_agent?: string | null
+        }
+        Relationships: []
       }
       marketplace_contact_access: {
         Row: {
@@ -4077,6 +4140,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_maintenance_blocked: { Args: never; Returns: boolean }
       is_member_of_org: { Args: { _org_id: string }; Returns: boolean }
       is_org_admin: { Args: { _user_id: string }; Returns: boolean }
       is_org_manager: { Args: { _user_id: string }; Returns: boolean }

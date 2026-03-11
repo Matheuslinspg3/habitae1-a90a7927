@@ -5,10 +5,11 @@ import { trackLoginSuccess } from "@/components/ClarityProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowRight, ArrowLeft, Construction } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { supabase } from "@/integrations/supabase/client";
+import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -20,6 +21,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const navigate = useNavigate();
   const { signIn, user, loading } = useAuth();
   const { toast } = useToast();
+  const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,6 +37,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isMaintenanceMode) return;
     setErrors({});
 
     const result = loginSchema.safeParse(loginForm);
@@ -168,6 +171,17 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
           {/* Section divider */}
           <hr className="section-divider" />
 
+          {/* Maintenance banner */}
+          {isMaintenanceMode && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <Construction className="h-5 w-5" />
+                <span className="font-semibold text-sm">Sistema em Manutenção</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{maintenanceMessage}</p>
+            </div>
+          )}
+
           {showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-5">
               <div className="space-y-2">
@@ -264,10 +278,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   size="lg"
                   variant="gold"
                   className="w-full h-14 text-base group glow-primary-hover"
-                  disabled={isLoading}
+                  disabled={isLoading || isMaintenanceMode}
                 >
                   {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isMaintenanceMode ? (
+                    "Login indisponível durante manutenção"
                   ) : (
                     <>
                       Entrar na plataforma

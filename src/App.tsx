@@ -18,6 +18,7 @@ import { FloatingImportProgress } from "@/components/integrations/FloatingImport
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { ClarityProvider } from "@/components/ClarityProvider";
+import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages
@@ -53,6 +54,7 @@ const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Maintenance = lazy(() => import("./pages/Maintenance"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
 const AppHome = lazy(() => import("./pages/app/Home"));
@@ -91,7 +93,9 @@ const App = () => (
                   <ClarityProvider />
                   <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
+                    <MaintenanceGuard>
                     <Routes>
+                      <Route path="/manutencao" element={<Maintenance />} />
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/convite/:id" element={<AcceptInvite />} />
                       <Route path="/cadastro/:id" element={<PlatformSignup />} />
@@ -165,6 +169,7 @@ const App = () => (
 
                       <Route path="*" element={<NotFound />} />
                     </Routes>
+                    </MaintenanceGuard>
                   </Suspense>
                 </TooltipProvider>
               </DemoProvider>
