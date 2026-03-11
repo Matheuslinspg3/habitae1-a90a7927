@@ -7,6 +7,7 @@ interface MaintenanceConfig {
   maintenance_message: string;
   maintenance_started_at: string | null;
   maintenance_started_by: string | null;
+  force_logout_at: string | null;
   updated_at: string;
 }
 
