@@ -21,6 +21,7 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
   const navigate = useNavigate();
   const { signIn, user, loading } = useAuth();
   const { toast } = useToast();
+  const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
   const [isLoading, setIsLoading] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});

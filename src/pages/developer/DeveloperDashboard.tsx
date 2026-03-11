@@ -53,11 +53,12 @@ export default function DeveloperDashboard() {
       </div>
 
       {/* System Health + Push + Cache + PWA */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <SystemHealthCard />
         <SendPushCard />
         <PurgeCacheCard />
         <PwaDiagnosticsCard />
+        <MaintenanceCard />
       </div>
 
       {/* Tabs */}
