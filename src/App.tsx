@@ -18,6 +18,7 @@ import { FloatingImportProgress } from "@/components/integrations/FloatingImport
 import { AppMobileLayout } from "@/components/app/AppMobileLayout";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { ClarityProvider } from "@/components/ClarityProvider";
+import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { Loader2 } from "lucide-react";
 
 // Lazy-loaded pages
