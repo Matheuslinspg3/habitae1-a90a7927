@@ -284,6 +284,7 @@ export function MaintenanceCard() {
         cachePurge: data?.cache_purge?.success ?? null,
         pushSent: data?.push_notification?.ok ?? null,
         pushRecipients: data?.push_notification?.recipientsCount ?? null,
+        forceLogout: forceLogout && action === "activate" ? true : null,
       });
 
       toast({
