@@ -98,6 +98,9 @@ Deno.serve(async (req) => {
     const action = body.action as "activate" | "deactivate";
     const message = body.message as string | undefined;
     const autoPurgeCache = body.auto_purge_cache !== false; // default true
+    const sendPushNotification = body.send_push === true;
+    const pushTitle = body.push_title as string | undefined;
+    const pushMessage = body.push_message as string | undefined;
 
     if (!action || !["activate", "deactivate"].includes(action)) {
       return new Response(JSON.stringify({ error: "Invalid action" }), {
