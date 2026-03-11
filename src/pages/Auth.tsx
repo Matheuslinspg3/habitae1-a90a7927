@@ -277,10 +277,12 @@ const Auth = React.forwardRef<HTMLDivElement, object>(function Auth(_props, _ref
                   size="lg"
                   variant="gold"
                   className="w-full h-14 text-base group glow-primary-hover"
-                  disabled={isLoading}
+                  disabled={isLoading || isMaintenanceMode}
                 >
                   {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isMaintenanceMode ? (
+                    "Login indisponível durante manutenção"
                   ) : (
                     <>
                       Entrar na plataforma
