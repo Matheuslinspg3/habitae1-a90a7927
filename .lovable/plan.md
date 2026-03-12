@@ -1,53 +1,68 @@
 
 
-## Diagnóstico: RD Station nao puxa leads via API
+## Plano: Verificação CRECI via ImobiSec
 
-Após análise completa do código, identifiquei o problema:
+### Problema
+A API BuscaCRECI retorna erros 502 constantemente. O site CRECI-SP tem reCAPTCHA. Precisamos de uma fonte confiavel.
 
-**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
+### Solucao
 
-1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
-2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
+Usar o **ImobiSec** (imobisec.com.br) com a seguinte estrategia em 2 etapas:
 
-Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
+**Etapa 1 - Busca**: Usar o **Firecrawl** (conector ja disponivel) para fazer uma web search `site:imobisec.com.br CRECI {numero} {estado}` e encontrar a URL da pagina de detalhe do corretor/imobiliaria.
 
----
+**Etapa 2 - Scraping do status**: Fazer um `fetch` direto na URL de detalhe do ImobiSec (paginas SSR, sem captcha) e parsear o HTML para extrair nome, tipo (PF/PJ) e status (Ativo/Inativo/Cancelado/Suspenso).
 
-### Plano: Criar sincronização ativa de leads via API do RD Station
+### Mudancas
 
-**1. Nova Edge Function `rd-station-sync-leads`**
-- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
-- Chamar `GET https://api.rd.services/platform/contacts` com paginação
-- Para cada contato retornado, verificar duplicata por email na tabela `leads`
-- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
-- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
-- Retornar resumo (criados, duplicados, erros)
+**1. Conectar Firecrawl** (conector)
+- Vincular o conector Firecrawl ao projeto para ter a `FIRECRAWL_API_KEY` disponivel nas edge functions.
 
-**2. Botão "Sincronizar Leads" na interface**
-- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
-- Ao clicar, invocar a nova edge function
-- Mostrar progresso e resultado (quantos leads importados/duplicados)
+**2. Reescrever `supabase/functions/verify-creci/index.ts`**
+- Remover toda logica BuscaCRECI (submit, poll, getDetails).
+- Nova funcao `searchImobiSec(creci, state, type)`: usa Firecrawl search API com query `site:imobisec.com.br {creci}-{F|J} {state}`.
+- Nova funcao `scrapeImobiSecDetail(url)`: fetch direto no HTML da pagina de detalhe, regex/parse para extrair status do registro.
+- Logica de selecao: se o CRECI no perfil contiver letra (F/J/E), usar para filtrar PF/PJ nos resultados; caso contrario, inferir de contexto.
+- Manter a comparacao de nome por similaridade (Dice coefficient).
+- Manter a atualizacao do profile (creci_verified, creci_verified_name, creci_verified_at).
 
-**3. Validações**
-- Exigir que `api_private_key` esteja configurada
-- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
-- Respeitar deduplicação por email
+**3. Atualizar `src/components/settings/VerificationSection.tsx`**
+- Adicionar campo opcional para **letra do registro** (F/J/E) via Select, ao lado do estado.
+- Enviar `creci_type` no body da chamada (`F`, `J` ou `E`).
+- Atualizar mensagens de progresso.
 
-### Detalhes Técnicos
+### Fluxo tecnico
 
 ```text
-Fluxo:
-  Botão "Sincronizar" 
-    → supabase.functions.invoke("rd-station-sync-leads")
-      → GET api.rd.services/platform/contacts?limit=100
-      → Para cada contato:
-         ├─ email existe em leads? → skip (duplicate)
-         └─ não existe → INSERT leads + log em rd_station_webhook_logs
-      → Retorna { created: N, duplicates: N, errors: N }
+Frontend                    Edge Function                   Firecrawl        ImobiSec
+   |                             |                              |               |
+   |-- invoke verify-creci ----->|                              |               |
+   |   {creci, state, type}      |                              |               |
+   |                             |-- POST /v1/search ---------->|               |
+   |                             |   "site:imobisec.com.br      |               |
+   |                             |    50975-J SP"               |               |
+   |                             |<-- URLs encontradas ---------|               |
+   |                             |                              |               |
+   |                             |-- fetch detail page ---------|-------------->|
+   |                             |<-- HTML (SSR, sem captcha) --|---------------|
+   |                             |                              |               |
+   |                             |   parse: nome, status        |               |
+   |                             |   compare nome (similarity)  |               |
+   |                             |   update profile se ok       |               |
+   |<-- resultado ---------------|                              |               |
 ```
 
-Arquivos a criar/modificar:
-- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
-- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
-- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+### Parsing do HTML de detalhe
+
+As paginas de detalhe do ImobiSec retornam HTML MUI com chips contendo:
+- Nome: tag `<h1>` dentro de `MuiCardHeader`
+- Status: chip com texto "Ativo", "Inativo", "Cancelado" ou "Suspenso"
+- Tipo: chip "Pessoa Física" ou "Pessoa Jurídica"
+- Estado: chip com nome do estado
+
+Regex simples no HTML para extrair esses valores.
+
+### Custos
+- Firecrawl search: ~1 credito por verificacao (apenas search, sem scrape completo).
+- Edge function: consumo minimo de Cloud (uma execucao rapida).
 
