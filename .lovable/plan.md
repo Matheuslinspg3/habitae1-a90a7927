@@ -1,73 +1,53 @@
 
 
-# Plano: Gerador de Anúncios com IA (Ollama)
+## Diagnóstico: RD Station nao puxa leads via API
 
-## Resumo
-Criar uma nova página `/gerador-anuncios` com formulário de dados do imóvel, que gera 3 versões de texto (Portal, Instagram, WhatsApp) via chamadas diretas ao Ollama na VPS do usuário, e salva os resultados no banco.
+Após análise completa do código, identifiquei o problema:
 
-## Etapas
+**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
 
-### 1. Criar tabela `anuncios_gerados`
-Migração SQL:
-```sql
-CREATE TABLE public.anuncios_gerados (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
-  corretor_id UUID NOT NULL,
-  texto_portal TEXT,
-  texto_instagram TEXT,
-  texto_whatsapp TEXT,
-  dados_formulario JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
+2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
 
-ALTER TABLE public.anuncios_gerados ENABLE ROW LEVEL SECURITY;
+Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
 
-CREATE POLICY "Users can insert own org anuncios"
-  ON public.anuncios_gerados FOR INSERT TO authenticated
-  WITH CHECK (organization_id = (SELECT organization_id FROM profiles WHERE user_id = auth.uid()));
+---
 
-CREATE POLICY "Users can view own org anuncios"
-  ON public.anuncios_gerados FOR SELECT TO authenticated
-  USING (organization_id = (SELECT organization_id FROM profiles WHERE user_id = auth.uid()));
+### Plano: Criar sincronização ativa de leads via API do RD Station
+
+**1. Nova Edge Function `rd-station-sync-leads`**
+- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
+- Chamar `GET https://api.rd.services/platform/contacts` com paginação
+- Para cada contato retornado, verificar duplicata por email na tabela `leads`
+- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
+- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
+- Retornar resumo (criados, duplicados, erros)
+
+**2. Botão "Sincronizar Leads" na interface**
+- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
+- Ao clicar, invocar a nova edge function
+- Mostrar progresso e resultado (quantos leads importados/duplicados)
+
+**3. Validações**
+- Exigir que `api_private_key` esteja configurada
+- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
+- Respeitar deduplicação por email
+
+### Detalhes Técnicos
+
+```text
+Fluxo:
+  Botão "Sincronizar" 
+    → supabase.functions.invoke("rd-station-sync-leads")
+      → GET api.rd.services/platform/contacts?limit=100
+      → Para cada contato:
+         ├─ email existe em leads? → skip (duplicate)
+         └─ não existe → INSERT leads + log em rd_station_webhook_logs
+      → Retorna { created: N, duplicates: N, errors: N }
 ```
 
-### 2. Criar página `src/pages/GeradorAnuncios.tsx`
-- Formulário com os campos solicitados (tipo imóvel, finalidade, bairro/cidade, valor, metragem, quartos/suítes/vagas, diferenciais)
-- Botão "Gerar Anúncios" que dispara `Promise.all` com 3 fetches para `VITE_OLLAMA_URL + "/api/generate"`
-- Cada fetch usa prompt diferente (Portal, Instagram, WhatsApp)
-- Skeleton loading nos cards de resultado
-- Cards com `<Textarea>` editável + botão "Copiar" (clipboard API)
-- Ao receber respostas, salva na tabela `anuncios_gerados` via Supabase client
-
-### 3. Registrar rota e navegação
-- **`src/App.tsx`**: Adicionar rota `/gerador-anuncios` dentro do layout protegido
-- **`src/components/AppSidebar.tsx`**: Adicionar item no menu (ícone `Sparkles` ou `Wand2`)
-- **`src/components/MobileBottomNav.tsx`**: Avaliar se cabe, ou acessar pelo sidebar
-
-### 4. Variável de ambiente
-- `VITE_OLLAMA_URL` referenciada via `import.meta.env.VITE_OLLAMA_URL`
-- Valor padrão no `.env.example` com comentário explicativo
-
-## Detalhes dos prompts Ollama
-
-Cada chamada terá body:
-```json
-{
-  "model": "llama3",
-  "stream": false,
-  "prompt": "<prompt específico com dados do formulário>"
-}
-```
-
-Os 3 prompts serão montados dinamicamente com os dados do formulário, instruindo o modelo sobre formato, tom e limite de palavras de cada versão.
-
-## Arquivos afetados
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/GeradorAnuncios.tsx` | Criar |
-| `src/App.tsx` | Adicionar rota lazy |
-| `src/components/AppSidebar.tsx` | Adicionar item menu |
-| `.env.example` | Adicionar `VITE_OLLAMA_URL` |
-| Migração SQL | Criar tabela + RLS |
+Arquivos a criar/modificar:
+- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
+- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
+- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
 

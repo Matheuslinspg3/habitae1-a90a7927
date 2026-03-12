@@ -52,6 +52,7 @@ const Anuncios = lazy(() => import("./pages/Anuncios"));
 const RDStation = lazy(() => import("./pages/RDStation"));
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
+const GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios"));
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
@@ -151,6 +152,7 @@ const App = () => (
                         <Route path="/anuncios" element={<Anuncios />} />
                         <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
                         <Route path="/rdstation" element={<RDStation />} />
+                        <Route path="/gerador-anuncios" element={<GeradorAnuncios />} />
                         
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={

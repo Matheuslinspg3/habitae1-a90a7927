@@ -345,6 +345,47 @@ export type Database = {
         }
         Relationships: []
       }
+      anuncios_gerados: {
+        Row: {
+          corretor_id: string
+          created_at: string | null
+          dados_formulario: Json
+          id: string
+          organization_id: string
+          texto_instagram: string | null
+          texto_portal: string | null
+          texto_whatsapp: string | null
+        }
+        Insert: {
+          corretor_id: string
+          created_at?: string | null
+          dados_formulario?: Json
+          id?: string
+          organization_id: string
+          texto_instagram?: string | null
+          texto_portal?: string | null
+          texto_whatsapp?: string | null
+        }
+        Update: {
+          corretor_id?: string
+          created_at?: string | null
+          dados_formulario?: Json
+          id?: string
+          organization_id?: string
+          texto_instagram?: string | null
+          texto_portal?: string | null
+          texto_whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anuncios_gerados_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_runtime_config: {
         Row: {
           force_logout_at: string | null

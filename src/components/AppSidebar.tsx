@@ -17,6 +17,7 @@ import {
   UserCog,
   Megaphone,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -180,6 +181,23 @@ export function AppSidebar() {
                   >
                     <BarChart3 className="h-4 w-4" />
                     <span>RD Station</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Gerador de Anúncios */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive("/gerador-anuncios")}
+                  tooltip="Gerador de Anúncios"
+                >
+                  <NavLink 
+                    to="/gerador-anuncios" 
+                    className="flex items-center gap-3"
+                    activeClassName="text-primary font-medium"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>Gerador IA</span>
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
