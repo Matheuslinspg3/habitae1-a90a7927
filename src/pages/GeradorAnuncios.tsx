@@ -74,6 +74,7 @@ export default function GeradorAnuncios() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Record<ResultKey, string> | null>(null);
   const [copied, setCopied] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
