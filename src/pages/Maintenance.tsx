@@ -201,6 +201,58 @@ export default function Maintenance() {
   const [exportStats, setExportStats] = useState<ExportStats | null>(null);
   const [copied, setCopied] = useState(false);
   const [showFullSQL, setShowFullSQL] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [disabling, setDisabling] = useState(false);
+
+  // Check if current user is a system admin
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) return;
+      const { data } = await supabase
+        .from("admin_allowlist")
+        .select("id")
+        .ilike("email", session.user.email)
+        .maybeSingle();
+      setIsAdmin(!!data);
+    })();
+  }, []);
+
+  const handleDisableMaintenance = async () => {
+    setDisabling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sem sessão");
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/toggle-maintenance-mode`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: anonKey,
+          },
+          body: JSON.stringify({ action: "deactivate" }),
+        }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+
+      toast({ title: "Manutenção desativada!", description: "Redirecionando..." });
+      await refetch();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setDisabling(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !isMaintenanceMode) {
@@ -390,10 +442,25 @@ export default function Maintenance() {
           <p className="text-muted-foreground text-base leading-relaxed">{maintenanceMessage}</p>
         </div>
 
-        <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-          {checking ? "Verificando..." : "Tentar novamente"}
-        </Button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+            {checking ? "Verificando..." : "Tentar novamente"}
+          </Button>
+
+          {isAdmin && (
+            <Button
+              onClick={handleDisableMaintenance}
+              variant="destructive"
+              size="lg"
+              disabled={disabling}
+              className="gap-2"
+            >
+              {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+              {disabling ? "Desativando..." : "Remover Manutenção"}
+            </Button>
+          )}
+        </div>
 
         {/* SQL Preview Card */}
         {generatedSQL && exportStats && (
