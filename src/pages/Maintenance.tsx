@@ -226,26 +226,27 @@ export default function Maintenance() {
     setExporting(true);
     setGeneratedSQL(null);
     setExportStats(null);
-    setExportProgress("Verificando sessão...");
+    setExportProgress("Exportando todas as tabelas (pode levar 30s)...");
 
     try {
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+
+      // Try to get session token, fall back to anon key
+      let authToken = anonKey;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({ title: "Erro", description: "Você precisa estar logado.", variant: "destructive" });
-        return;
+      if (session?.access_token) {
+        authToken = session.access_token;
       }
 
-      setExportProgress("Exportando todas as tabelas (pode levar 30s)...");
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/export-database`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${authToken}`,
+            apikey: anonKey,
           },
           body: JSON.stringify({}),
         }
