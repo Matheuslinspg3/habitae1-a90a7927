@@ -333,7 +333,7 @@ export default function Maintenance() {
 
       toast({
         title: "SQL completo gerado!",
-        description: `${migrationCount} migrations + ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros.`,
+        description: `${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros exportados.`,
       });
 
       if (result.errors?.length > 0) {
