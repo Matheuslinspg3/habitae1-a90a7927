@@ -115,8 +115,8 @@ export default function GeradorAnuncios() {
     if (!prop) return;
 
     const typeName = (prop as any).property_types?.name || "";
-    const transType = prop.transaction_type === "sale" ? "Venda" : prop.transaction_type === "rent" ? "Aluguel" : "";
-    const valor = prop.transaction_type === "sale" ? prop.sale_price : prop.rent_price;
+    const transType = prop.transaction_type === "venda" ? "Venda" : prop.transaction_type === "aluguel" ? "Aluguel" : "";
+    const valor = prop.transaction_type === "venda" ? prop.sale_price : prop.rent_price;
     const location = [prop.address_neighborhood, prop.address_city, prop.address_state].filter(Boolean).join(", ");
     const amenities = Array.isArray(prop.amenities) ? (prop.amenities as string[]).join(", ") : "";
 
