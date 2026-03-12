@@ -351,6 +351,7 @@ export type Database = {
           created_at: string | null
           dados_formulario: Json
           id: string
+          imagem_url: string | null
           organization_id: string
           texto_instagram: string | null
           texto_portal: string | null
@@ -361,6 +362,7 @@ export type Database = {
           created_at?: string | null
           dados_formulario?: Json
           id?: string
+          imagem_url?: string | null
           organization_id: string
           texto_instagram?: string | null
           texto_portal?: string | null
@@ -371,6 +373,7 @@ export type Database = {
           created_at?: string | null
           dados_formulario?: Json
           id?: string
+          imagem_url?: string | null
           organization_id?: string
           texto_instagram?: string | null
           texto_portal?: string | null

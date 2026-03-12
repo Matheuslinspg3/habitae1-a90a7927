@@ -1,0 +1,1 @@
+ALTER TABLE public.anuncios_gerados ADD COLUMN IF NOT EXISTS imagem_url TEXT;
