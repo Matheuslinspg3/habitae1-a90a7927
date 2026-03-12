@@ -71,3 +71,9 @@ verify_jwt = false
 
 [functions.export-database]
 verify_jwt = false
+
+[functions.generate-ad-content]
+verify_jwt = false
+
+[functions.generate-ad-image]
+verify_jwt = false

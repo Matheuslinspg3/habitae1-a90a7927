@@ -11,11 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Users } from "lucide-react";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
-
-const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434";
 
 interface FormData {
   property_id: string;
@@ -30,29 +27,6 @@ interface FormData {
   vagas: number | null;
   diferenciais: string;
 }
-
-const buildPrompt = (data: FormData, leadName: string | null, version: "portal" | "instagram" | "whatsapp") => {
-  const base = `Imóvel: ${data.tipo}, ${data.finalidade}. Localização: ${data.bairro_cidade}. Valor: R$ ${data.valor?.toLocaleString("pt-BR") ?? "N/I"}. Metragem: ${data.metragem ?? "N/I"} m². Quartos: ${data.quartos ?? 0}, Suítes: ${data.suites ?? 0}, Vagas: ${data.vagas ?? 0}. Diferenciais: ${data.diferenciais || "Nenhum informado"}.`;
-
-  if (version === "portal") {
-    return `Você é um copywriter imobiliário profissional. Crie uma descrição técnica e completa para portais como OLX e ZAP Imóveis. Seja detalhista, use linguagem profissional, inclua todas as informações relevantes. Não use emojis. Escreva em português do Brasil.\n\nDados do imóvel:\n${base}\n\nDescrição para portal:`;
-  }
-  if (version === "instagram") {
-    return `Você é um social media especializado em imóveis. Crie um texto envolvente para Instagram com emojis estratégicos. Máximo 150 palavras. Use hashtags relevantes no final. Escreva em português do Brasil.\n\nDados do imóvel:\n${base}\n\nTexto para Instagram:`;
-  }
-  return `Você é um corretor de imóveis experiente. Crie uma mensagem curta e direta para WhatsApp${leadName ? ` direcionada ao cliente ${leadName}` : ""}. Máximo 80 palavras. Use no máximo 3 emojis. Seja objetivo e inclua chamada para ação. Escreva em português do Brasil.\n\nDados do imóvel:\n${base}\n\nMensagem para WhatsApp:`;
-};
-
-const fetchOllama = async (prompt: string) => {
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "llama3", stream: false, prompt }),
-  });
-  if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
-  const json = await res.json();
-  return json.response as string;
-};
 
 type ResultKey = "portal" | "instagram" | "whatsapp";
 
@@ -74,7 +48,9 @@ export default function GeradorAnuncios() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Record<ResultKey, string> | null>(null);
   const [copied, setCopied] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imagePrompts, setImagePrompts] = useState<string[]>([]);
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
@@ -91,22 +67,6 @@ export default function GeradorAnuncios() {
       return data || [];
     },
     enabled: !!profile?.organization_id,
-  });
-
-  // Fetch property images for selected property
-  const { data: propertyImages = [] } = useQuery({
-    queryKey: ["property-images-for-ad-gen", form.property_id],
-    queryFn: async () => {
-      if (!form.property_id) return [];
-      const { data } = await supabase
-        .from("property_images")
-        .select("id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url")
-        .eq("property_id", form.property_id)
-        .order("display_order", { ascending: true })
-        .limit(20);
-      return data || [];
-    },
-    enabled: !!form.property_id,
   });
 
   // Fetch leads
@@ -162,40 +122,84 @@ export default function GeradorAnuncios() {
 
     setLoading(true);
     setResults(null);
+    setImagePrompts([]);
 
     try {
-      const leadName = selectedLead?.name || null;
-      const [portal, instagram, whatsapp] = await Promise.all([
-        fetchOllama(buildPrompt(form, leadName, "portal")),
-        fetchOllama(buildPrompt(form, leadName, "instagram")),
-        fetchOllama(buildPrompt(form, leadName, "whatsapp")),
-      ]);
+      const { data, error } = await supabase.functions.invoke("generate-ad-content", {
+        body: {
+          formData: form,
+          leadName: selectedLead?.name || null,
+        },
+      });
 
-      const newResults = { portal, instagram, whatsapp };
-      setResults(newResults);
+      if (error) throw new Error(error.message || "Erro ao gerar anúncios");
+      if (data?.error) throw new Error(data.error);
+
+      setResults({
+        portal: data.portal,
+        instagram: data.instagram,
+        whatsapp: data.whatsapp,
+      });
+
+      if (data.image_prompts?.length) {
+        setImagePrompts(data.image_prompts);
+      }
 
       // Save to DB
       if (user && profile?.organization_id) {
         await supabase.from("anuncios_gerados").insert({
           organization_id: profile.organization_id,
           corretor_id: user.id,
-          texto_portal: portal,
-          texto_instagram: instagram,
-          texto_whatsapp: whatsapp,
+          texto_portal: data.portal,
+          texto_instagram: data.instagram,
+          texto_whatsapp: data.whatsapp,
           dados_formulario: { ...form, lead_name: selectedLead?.name } as any,
-          imagem_url: generatedImage || null,
         });
       }
 
       toast.success("Anúncios gerados com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar anúncios:", err);
-      toast.error(err?.message?.includes("Failed to fetch")
-        ? "Não foi possível conectar ao Ollama. Verifique se a URL está correta e o CORS está habilitado."
-        : `Erro ao gerar: ${err.message}`
-      );
+      toast.error(err.message || "Erro ao gerar anúncios");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateImages = async () => {
+    if (imagePrompts.length === 0) {
+      toast.error("Gere os textos primeiro para obter os prompts de imagem.");
+      return;
+    }
+
+    setImageLoading(true);
+    setGeneratedImages([]);
+
+    try {
+      const results = await Promise.allSettled(
+        imagePrompts.slice(0, 3).map((prompt) =>
+          supabase.functions.invoke("generate-ad-image", { body: { prompt } })
+        )
+      );
+
+      const images: string[] = [];
+      for (const result of results) {
+        if (result.status === "fulfilled" && result.value.data?.imageUrl) {
+          images.push(result.value.data.imageUrl);
+        }
+      }
+
+      if (images.length === 0) {
+        throw new Error("Nenhuma imagem foi gerada. Tente novamente.");
+      }
+
+      setGeneratedImages(images);
+      toast.success(`${images.length} imagem(ns) gerada(s)!`);
+    } catch (err: any) {
+      console.error("Erro ao gerar imagens:", err);
+      toast.error(err.message || "Erro ao gerar imagens");
+    } finally {
+      setImageLoading(false);
     }
   };
 
@@ -212,15 +216,22 @@ export default function GeradorAnuncios() {
     setResults({ ...results, [key]: value });
   };
 
+  const handleDownloadImage = (imageUrl: string, index: number) => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `anuncio-imagem-${index + 1}-${Date.now()}.png`;
+    link.click();
+  };
+
   const resultCards: { key: ResultKey; title: string; icon: React.ReactNode; color: string }[] = [
     { key: "portal", title: "Portal (OLX / ZAP)", icon: <Globe className="h-5 w-5" />, color: "text-blue-500" },
-    { key: "instagram", title: "Instagram", icon: <Instagram className="h-5 w-5" />, color: "text-pink-500" },
+    { key: "instagram", title: "Instagram / Facebook Ads", icon: <Instagram className="h-5 w-5" />, color: "text-pink-500" },
     { key: "whatsapp", title: "WhatsApp", icon: <MessageCircle className="h-5 w-5" />, color: "text-green-500" },
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Gerador de Anúncios" description="Gere textos otimizados para diferentes plataformas com IA" />
+      <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />
 
       {/* Property & Lead Selection */}
       <Card>
@@ -367,23 +378,10 @@ export default function GeradorAnuncios() {
 
           <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto gap-2">
             <Sparkles className="h-4 w-4" />
-            {loading ? "Gerando..." : "Gerar Anúncios"}
+            {loading ? "Gerando textos..." : "Gerar Anúncios"}
           </Button>
         </CardContent>
       </Card>
-
-      {/* Image Generation */}
-      <AdImageGenerator
-        propertyImages={propertyImages}
-        formData={{
-          tipo: form.tipo,
-          finalidade: form.finalidade,
-          bairro_cidade: form.bairro_cidade,
-          diferenciais: form.diferenciais,
-        }}
-        generatedImage={generatedImage}
-        onImageGenerated={setGeneratedImage}
-      />
 
       {/* Results */}
       {(loading || results) && (
@@ -428,6 +426,67 @@ export default function GeradorAnuncios() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Image Generation */}
+      {imagePrompts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <ImagePlus className="h-5 w-5 text-primary" />
+              Imagens do Anúncio
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              A IA sugeriu {imagePrompts.length} imagens para o seu anúncio. Clique para gerar.
+            </p>
+
+            <Button
+              onClick={handleGenerateImages}
+              disabled={imageLoading}
+              className="gap-2"
+            >
+              {imageLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImagePlus className="h-4 w-4" />
+              )}
+              {imageLoading ? "Gerando imagens..." : `Gerar ${imagePrompts.length} Imagens`}
+            </Button>
+
+            {imageLoading && generatedImages.length === 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {imagePrompts.map((_, i) => (
+                  <Skeleton key={i} className="aspect-square rounded-lg" />
+                ))}
+              </div>
+            )}
+
+            {generatedImages.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {generatedImages.map((img, i) => (
+                  <div key={i} className="space-y-2">
+                    <img
+                      src={img}
+                      alt={`Imagem gerada ${i + 1}`}
+                      className="w-full aspect-square object-cover rounded-lg border shadow-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => handleDownloadImage(img, i)}
+                    >
+                      <Download className="h-4 w-4" />
+                      Baixar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
