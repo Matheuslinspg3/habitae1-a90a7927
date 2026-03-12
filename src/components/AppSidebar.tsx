@@ -184,6 +184,23 @@ export function AppSidebar() {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {/* Gerador de Anúncios */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  asChild 
+                  isActive={isActive("/gerador-anuncios")}
+                  tooltip="Gerador de Anúncios"
+                >
+                  <NavLink 
+                    to="/gerador-anuncios" 
+                    className="flex items-center gap-3"
+                    activeClassName="text-primary font-medium"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>Gerador IA</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {/* Google Ads - disabled */}
               <SidebarMenuItem>
                 <SidebarMenuButton disabled tooltip="Google Ads (Em desenvolvimento)" className="opacity-50 cursor-not-allowed">

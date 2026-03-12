@@ -152,6 +152,7 @@ const App = () => (
                         <Route path="/anuncios" element={<Anuncios />} />
                         <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
                         <Route path="/rdstation" element={<RDStation />} />
+                        <Route path="/gerador-anuncios" element={<GeradorAnuncios />} />
                         
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
