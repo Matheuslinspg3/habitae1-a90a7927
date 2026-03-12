@@ -206,11 +206,14 @@ export default function Maintenance() {
   const handleDisableMaintenance = async () => {
     setDisabling(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Sem sessão");
-
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      let authToken = anonKey;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        authToken = session.access_token;
+      }
 
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/toggle-maintenance-mode`,
@@ -218,7 +221,7 @@ export default function Maintenance() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${authToken}`,
             apikey: anonKey,
           },
           body: JSON.stringify({ action: "deactivate" }),

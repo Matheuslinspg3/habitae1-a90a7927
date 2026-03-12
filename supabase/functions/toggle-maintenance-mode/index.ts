@@ -40,58 +40,58 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = await req.json();
+    const action = body.action as "activate" | "deactivate";
 
-    // Validate JWT
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userId = claimsData.claims.sub as string;
-
-    // Use service_role to check admin and perform mutations
+    // Use service_role for all admin operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user is system admin
-    const { data: isAdmin } = await supabaseAdmin.rpc("is_system_admin").setHeader("Authorization", authHeader);
+    let userId: string | null = null;
 
-    // Fallback: check admin_allowlist directly
-    let adminAllowed = isAdmin === true;
-    if (!adminAllowed) {
-      const userEmail = claimsData.claims.email as string;
-      const { data: allowlistRow } = await supabaseAdmin
-        .from("admin_allowlist")
-        .select("id")
-        .ilike("email", userEmail)
-        .maybeSingle();
-      adminAllowed = !!allowlistRow;
+    const authHeader = req.headers.get("Authorization");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const hasValidAuth = authHeader?.startsWith("Bearer ") && !authHeader.includes(anonKey);
+
+    if (hasValidAuth) {
+      const supabaseUser = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        anonKey,
+        { global: { headers: { Authorization: authHeader! } } }
+      );
+
+      const token = authHeader!.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+      if (!claimsError && claimsData?.claims) {
+        userId = claimsData.claims.sub as string;
+
+        const userEmail = claimsData.claims.email as string;
+        const { data: allowlistRow } = await supabaseAdmin
+          .from("admin_allowlist")
+          .select("id")
+          .ilike("email", userEmail)
+          .maybeSingle();
+
+        if (!allowlistRow) {
+          return new Response(JSON.stringify({ error: "Forbidden: not a system admin" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
     }
 
-    if (!adminAllowed) {
-      return new Response(JSON.stringify({ error: "Forbidden: not a system admin" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Allow unauthenticated DEACTIVATE only (session may be force-logged-out)
+    if (!userId) {
+      if (action !== "deactivate") {
+        return new Response(JSON.stringify({ error: "Unauthorized: session required for activation" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = "anonymous-deactivate";
     }
 
     const body = await req.json();
