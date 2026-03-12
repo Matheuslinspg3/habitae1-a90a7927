@@ -177,6 +177,23 @@ serve(async (req) => {
     }
     const user = { id: authUser.id };
 
+    // Fetch profile + organization info
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, organization_id")
+      .eq("user_id", user.id)
+      .single();
+
+    let orgName = "";
+    if (profile?.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", profile.organization_id)
+        .single();
+      orgName = org?.name || "";
+    }
+
     const { action, creci_number, user_name, creci_state } = await req.json();
 
     if (action === "verify-creci") {
@@ -195,6 +212,12 @@ serve(async (req) => {
 
       const formatted = formatCreciForApi(creci_number, creci_state || "SP");
       console.log("Querying BuscaCRECI for:", formatted);
+      console.log("Payload context:", {
+        user_id: user.id,
+        user_name: profile?.full_name || user_name,
+        organization_id: profile?.organization_id,
+        organization_name: orgName,
+      });
 
       // Step 1: Submit
       const codigoSolicitacao = await submitCreciLookup(formatted);
