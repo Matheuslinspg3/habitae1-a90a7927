@@ -1,53 +1,77 @@
 
 
-## Diagnóstico: RD Station nao puxa leads via API
+# Plano: Geração de Imagem para Anúncios via Stable Diffusion (VPS)
 
-Após análise completa do código, identifiquei o problema:
+## Resumo
 
-**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
+Adicionar ao Gerador de Anúncios a capacidade de gerar **uma imagem** de anúncio imobiliário usando Stable Diffusion rodando na VPS do usuário. O fluxo: puxar imagens do imóvel selecionado (ou permitir upload manual), enviar como referência para a API do Stable Diffusion, e exibir a imagem gerada junto aos textos.
 
-1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
-2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
+## Sobre Stable Diffusion na VPS
 
-Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
+Para geração de imagens local, as melhores opções são:
 
----
+- **ComfyUI** — Interface node-based, muito flexível, API REST nativa. Ideal para workflows customizados.
+- **Automatic1111 (AUTOMATIC1111/stable-diffusion-webui)** — Interface web clássica, API REST simples (`/sdapi/v1/txt2img`, `/sdapi/v1/img2img`). Mais fácil de configurar.
+- **Forge (lllyasviel/stable-diffusion-webui-forge)** — Fork otimizado do A1111, melhor performance em GPUs com menos VRAM.
 
-### Plano: Criar sincronização ativa de leads via API do RD Station
+**Requisitos da VPS**: GPU com mín. 8GB VRAM (ex: RTX 3060/4060), CUDA, Python 3.10+. Para rodar sem GPU: modelos menores como SDXL Turbo, mas qualidade inferior.
 
-**1. Nova Edge Function `rd-station-sync-leads`**
-- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
-- Chamar `GET https://api.rd.services/platform/contacts` com paginação
-- Para cada contato retornado, verificar duplicata por email na tabela `leads`
-- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
-- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
-- Retornar resumo (criados, duplicados, erros)
+**Recomendação**: Automatic1111 com flag `--api --listen --cors-allow-origins=*` é o setup mais simples.
 
-**2. Botão "Sincronizar Leads" na interface**
-- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
-- Ao clicar, invocar a nova edge function
-- Mostrar progresso e resultado (quantos leads importados/duplicados)
+## Etapas de Implementação
 
-**3. Validações**
-- Exigir que `api_private_key` esteja configurada
-- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
-- Respeitar deduplicação por email
+### 1. Adicionar variável de ambiente
+- `VITE_SD_URL` no `.env.example` (ex: `http://YOUR-VPS-IP:7860`)
 
-### Detalhes Técnicos
+### 2. Buscar imagens do imóvel selecionado
+- Quando o usuário seleciona um imóvel, carregar as `property_images` associadas
+- Exibir as imagens em um seletor horizontal para o usuário escolher qual usar como base
+- Adicionar também opção de upload manual de imagem
 
-```text
-Fluxo:
-  Botão "Sincronizar" 
-    → supabase.functions.invoke("rd-station-sync-leads")
-      → GET api.rd.services/platform/contacts?limit=100
-      → Para cada contato:
-         ├─ email existe em leads? → skip (duplicate)
-         └─ não existe → INSERT leads + log em rd_station_webhook_logs
-      → Retorna { created: N, duplicates: N, errors: N }
+### 3. Seção de geração de imagem na página
+- Novo card "Imagem do Anúncio" com:
+  - Seletor de imagem do imóvel (thumbnails clicáveis) ou botão upload
+  - Botão "Gerar Imagem"
+  - Preview da imagem gerada
+  - Botão "Baixar" para salvar
+
+### 4. Integração com API do Stable Diffusion
+- Usar endpoint `POST /sdapi/v1/img2img` (se imagem base) ou `/sdapi/v1/txt2img` (sem imagem)
+- Prompt automático baseado nos dados do imóvel (ex: "professional real estate photo, modern apartment, bright living room...")
+- A imagem base é enviada como base64
+- Resposta retorna imagem em base64
+
+### 5. Atualizar tabela `anuncios_gerados`
+- Migração: adicionar coluna `imagem_url TEXT` na tabela
+- Salvar imagem gerada (base64 ou upload para R2)
+
+## Arquivos afetados
+
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/GeradorAnuncios.tsx` | Adicionar seletor de imagem + geração |
+| `.env.example` | Adicionar `VITE_SD_URL` |
+| Migração SQL | Adicionar coluna `imagem_url` |
+
+## Detalhes Técnicos
+
+A chamada para Stable Diffusion (Automatic1111 API):
+
+```typescript
+const response = await fetch(`${SD_URL}/sdapi/v1/img2img`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    init_images: [base64Image],
+    prompt: "professional real estate advertisement...",
+    steps: 20,
+    cfg_scale: 7,
+    denoising_strength: 0.5,
+    width: 1024,
+    height: 1024,
+  }),
+});
+const data = await response.json();
+const generatedImage = `data:image/png;base64,${data.images[0]}`;
 ```
-
-Arquivos a criar/modificar:
-- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
-- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
-- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
 
