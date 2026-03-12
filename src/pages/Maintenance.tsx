@@ -177,7 +177,7 @@ interface ExportStats {
   tablesExported: number;
   totalRecords: number;
   authUsers: number;
-  migrations: number;
+  hasSchema: boolean;
   errors: string[];
 }
 
@@ -261,14 +261,15 @@ export default function Maintenance() {
       if (result.error) throw new Error(result.error);
 
       const tables = result.tables as Record<string, { count: number; csv: string }>;
+      const schemaDDL = result.schema_ddl as string || "";
 
       setExportProgress("Gerando SQL de importação...");
 
       let sql = `-- ============================================================\n`;
       sql += `-- EXPORTAÇÃO COMPLETA: Porta do Corretor\n`;
       sql += `-- Gerado em: ${new Date().toISOString()}\n`;
-      sql += `-- Inclui: Schema (migrations) + Dados (INSERTs) + Auth Users\n`;
-      sql += `-- Destino: Supabase novo/externo (executar no SQL Editor)\n`;
+      sql += `-- Inclui: Schema (DDL) + Dados (INSERTs) + Auth Users\n`;
+      sql += `-- Destino: Supabase novo (executar no SQL Editor com service_role)\n`;
       sql += `-- ============================================================\n\n`;
       sql += `-- INSTRUÇÕES:\n`;
       sql += `-- 1. Crie um projeto Supabase novo\n`;
@@ -277,9 +278,14 @@ export default function Maintenance() {
       sql += `-- 4. Após importar, envie redefinição de senha aos usuários\n`;
       sql += `-- 5. Senha temporária padrão: PortaMigra2026!\n\n`;
 
-      // Schema is applied separately via CLI: supabase db push
-      sql += `-- NOTA: O schema (tabelas, funções, RLS) deve ser aplicado antes\n`;
-      sql += `-- via CLI: supabase link && supabase db push\n\n`;
+      // ---- PART 1: Schema DDL ----
+      if (schemaDDL) {
+        sql += `-- ============================================================\n`;
+        sql += `-- PARTE 1: SCHEMA (Enums, Tabelas, Funções, Triggers, RLS)\n`;
+        sql += `-- ============================================================\n\n`;
+        sql += schemaDDL;
+        sql += `\n`;
+      }
 
       // ---- PART 2: Data ----
       sql += `\n-- ============================================================\n`;
@@ -328,7 +334,7 @@ export default function Maintenance() {
         tablesExported,
         totalRecords,
         authUsers: authUsersCount,
-        migrations: 0,
+        hasSchema: !!schemaDDL,
         errors: result.errors || [],
       });
 
@@ -391,7 +397,7 @@ export default function Maintenance() {
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">SQL de Migração</h3>
                   <p className="text-xs text-muted-foreground">
-                    {exportStats.migrations} migrations · {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
+                    {exportStats.hasSchema ? "Schema ✓ · " : ""}{exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
                   </p>
                 </div>
               </div>
