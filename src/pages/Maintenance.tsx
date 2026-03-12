@@ -358,8 +358,8 @@ export default function Maintenance() {
       });
 
       toast({
-        title: "SQL gerado com sucesso!",
-        description: `${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros.`,
+        title: "SQL completo gerado!",
+        description: `${migrationCount} migrations + ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros.`,
       });
 
       if (result.errors?.length > 0) {
