@@ -64,6 +64,9 @@ export default function DeveloperDashboard() {
         <MaintenanceCard />
       </div>
 
+      {/* AI Provider Config */}
+      <AIProviderCard />
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         {isMobile ? (
