@@ -13,6 +13,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { toast } from "sonner";
 import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 
 const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434";
 
@@ -73,6 +74,7 @@ export default function GeradorAnuncios() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Record<ResultKey, string> | null>(null);
   const [copied, setCopied] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
@@ -89,6 +91,22 @@ export default function GeradorAnuncios() {
       return data || [];
     },
     enabled: !!profile?.organization_id,
+  });
+
+  // Fetch property images for selected property
+  const { data: propertyImages = [] } = useQuery({
+    queryKey: ["property-images-for-ad-gen", form.property_id],
+    queryFn: async () => {
+      if (!form.property_id) return [];
+      const { data } = await supabase
+        .from("property_images")
+        .select("id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url")
+        .eq("property_id", form.property_id)
+        .order("display_order", { ascending: true })
+        .limit(20);
+      return data || [];
+    },
+    enabled: !!form.property_id,
   });
 
   // Fetch leads
@@ -165,6 +183,7 @@ export default function GeradorAnuncios() {
           texto_instagram: instagram,
           texto_whatsapp: whatsapp,
           dados_formulario: { ...form, lead_name: selectedLead?.name } as any,
+          imagem_url: generatedImage || null,
         });
       }
 
@@ -352,6 +371,19 @@ export default function GeradorAnuncios() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Image Generation */}
+      <AdImageGenerator
+        propertyImages={propertyImages}
+        formData={{
+          tipo: form.tipo,
+          finalidade: form.finalidade,
+          bairro_cidade: form.bairro_cidade,
+          diferenciais: form.diferenciais,
+        }}
+        generatedImage={generatedImage}
+        onImageGenerated={setGeneratedImage}
+      />
 
       {/* Results */}
       {(loading || results) && (
