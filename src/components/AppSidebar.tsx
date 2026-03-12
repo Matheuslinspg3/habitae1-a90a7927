@@ -17,6 +17,7 @@ import {
   UserCog,
   Megaphone,
   BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
