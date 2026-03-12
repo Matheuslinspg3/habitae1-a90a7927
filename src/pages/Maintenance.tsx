@@ -201,6 +201,7 @@ interface ExportStats {
   tablesExported: number;
   totalRecords: number;
   authUsers: number;
+  migrations: number;
   errors: string[];
 }
 
