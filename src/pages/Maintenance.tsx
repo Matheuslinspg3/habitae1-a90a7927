@@ -201,22 +201,7 @@ export default function Maintenance() {
   const [exportStats, setExportStats] = useState<ExportStats | null>(null);
   const [copied, setCopied] = useState(false);
   const [showFullSQL, setShowFullSQL] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [disabling, setDisabling] = useState(false);
-
-  // Check if current user is a system admin
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) return;
-      const { data } = await supabase
-        .from("admin_allowlist")
-        .select("id")
-        .ilike("email", session.user.email)
-        .maybeSingle();
-      setIsAdmin(!!data);
-    })();
-  }, []);
 
   const handleDisableMaintenance = async () => {
     setDisabling(true);
