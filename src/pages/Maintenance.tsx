@@ -289,12 +289,26 @@ export default function Maintenance() {
       let sql = `-- ============================================================\n`;
       sql += `-- EXPORTAÇÃO COMPLETA: Porta do Corretor\n`;
       sql += `-- Gerado em: ${new Date().toISOString()}\n`;
-      sql += `-- Destino: Supabase externo (executar no SQL Editor)\n`;
+      sql += `-- Inclui: Schema (migrations) + Dados (INSERTs) + Auth Users\n`;
+      sql += `-- Destino: Supabase novo/externo (executar no SQL Editor)\n`;
       sql += `-- ============================================================\n\n`;
       sql += `-- INSTRUÇÕES:\n`;
-      sql += `-- 1. Aplique TODAS as migrations ANTES (supabase db push)\n`;
-      sql += `-- 2. Execute este SQL no SQL Editor com role 'service_role'\n`;
-      sql += `-- 3. Após importar, envie redefinição de senha aos usuários\n\n`;
+      sql += `-- 1. Crie um projeto Supabase novo\n`;
+      sql += `-- 2. Abra o SQL Editor com role 'service_role'\n`;
+      sql += `-- 3. Cole/carregue este arquivo e execute\n`;
+      sql += `-- 4. Após importar, envie redefinição de senha aos usuários\n`;
+      sql += `-- 5. Senha temporária padrão: PortaMigra2026!\n\n`;
+
+      // ---- PART 1: Migrations (Schema) ----
+      setExportProgress("Incluindo migrations (schema)...");
+      const migrationSQL = getMigrationSQL();
+      const migrationCount = Object.keys(migrationFiles).length;
+      sql += migrationSQL;
+
+      // ---- PART 2: Data ----
+      sql += `\n-- ============================================================\n`;
+      sql += `-- PARTE 2: DADOS (INSERTs)\n`;
+      sql += `-- ============================================================\n\n`;
       sql += `BEGIN;\n\n`;
       sql += `SET session_replication_role = 'replica';\n\n`;
 
