@@ -442,10 +442,25 @@ export default function Maintenance() {
           <p className="text-muted-foreground text-base leading-relaxed">{maintenanceMessage}</p>
         </div>
 
-        <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-          {checking ? "Verificando..." : "Tentar novamente"}
-        </Button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+            {checking ? "Verificando..." : "Tentar novamente"}
+          </Button>
+
+          {isAdmin && (
+            <Button
+              onClick={handleDisableMaintenance}
+              variant="destructive"
+              size="lg"
+              disabled={disabling}
+              className="gap-2"
+            >
+              {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+              {disabling ? "Desativando..." : "Remover Manutenção"}
+            </Button>
+          )}
+        </div>
 
         {/* SQL Preview Card */}
         {generatedSQL && exportStats && (
