@@ -103,6 +103,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
     // Use service role to bypass RLS for full export
     const adminClient = createClient(supabaseUrl, serviceKey);
 
