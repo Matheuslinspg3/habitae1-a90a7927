@@ -372,6 +372,19 @@ export default function GeradorAnuncios() {
         </CardContent>
       </Card>
 
+      {/* Image Generation */}
+      <AdImageGenerator
+        propertyImages={propertyImages}
+        formData={{
+          tipo: form.tipo,
+          finalidade: form.finalidade,
+          bairro_cidade: form.bairro_cidade,
+          diferenciais: form.diferenciais,
+        }}
+        generatedImage={generatedImage}
+        onImageGenerated={setGeneratedImage}
+      />
+
       {/* Results */}
       {(loading || results) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
