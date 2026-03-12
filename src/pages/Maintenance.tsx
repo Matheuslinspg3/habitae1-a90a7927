@@ -276,11 +276,9 @@ export default function Maintenance() {
       sql += `-- 4. Após importar, envie redefinição de senha aos usuários\n`;
       sql += `-- 5. Senha temporária padrão: PortaMigra2026!\n\n`;
 
-      // ---- PART 1: Migrations (Schema) ----
-      setExportProgress("Incluindo migrations (schema)...");
-      const migrationSQL = getMigrationSQL();
-      const migrationCount = Object.keys(migrationFiles).length;
-      sql += migrationSQL;
+      // Schema is applied separately via CLI: supabase db push
+      sql += `-- NOTA: O schema (tabelas, funções, RLS) deve ser aplicado antes\n`;
+      sql += `-- via CLI: supabase link && supabase db push\n\n`;
 
       // ---- PART 2: Data ----
       sql += `\n-- ============================================================\n`;
