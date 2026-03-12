@@ -18,6 +18,7 @@ import { SendPushCard } from "@/components/developer/SendPushCard";
 import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
 import { PwaDiagnosticsCard } from "@/components/developer/PwaDiagnosticsCard";
 import { MaintenanceCard } from "@/components/developer/MaintenanceCard";
+import { AIProviderCard } from "@/components/developer/AIProviderCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
