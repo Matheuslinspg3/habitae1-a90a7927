@@ -416,7 +416,7 @@ export default function Maintenance() {
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">SQL de Migração</h3>
                   <p className="text-xs text-muted-foreground">
-                    {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
+                    {exportStats.migrations} migrations · {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
                   </p>
                 </div>
               </div>
