@@ -4107,6 +4107,52 @@ export type Database = {
           stored_url: string
         }[]
       }
+      get_schema_enums: {
+        Args: never
+        Returns: {
+          enum_name: string
+          enum_values: string[]
+        }[]
+      }
+      get_schema_functions: {
+        Args: never
+        Returns: {
+          func_def: string
+          func_name: string
+        }[]
+      }
+      get_schema_indexes: {
+        Args: never
+        Returns: {
+          index_def: string
+        }[]
+      }
+      get_schema_policies: {
+        Args: never
+        Returns: {
+          policy_def: string
+        }[]
+      }
+      get_schema_rls_tables: {
+        Args: never
+        Returns: {
+          rls_enabled: boolean
+          table_name: string
+        }[]
+      }
+      get_schema_tables_ddl: {
+        Args: never
+        Returns: {
+          ddl: string
+          table_name: string
+        }[]
+      }
+      get_schema_triggers: {
+        Args: never
+        Returns: {
+          trigger_def: string
+        }[]
+      }
       get_subscription_plan_id: { Args: { org_id: string }; Returns: string }
       get_subscription_plan_slug: { Args: { org_id: string }; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
