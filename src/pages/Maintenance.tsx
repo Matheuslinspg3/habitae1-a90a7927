@@ -177,7 +177,7 @@ interface ExportStats {
   tablesExported: number;
   totalRecords: number;
   authUsers: number;
-  migrations: number;
+  hasSchema: boolean;
   errors: string[];
 }
 
