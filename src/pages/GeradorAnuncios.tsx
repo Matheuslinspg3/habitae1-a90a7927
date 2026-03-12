@@ -183,6 +183,7 @@ export default function GeradorAnuncios() {
           texto_instagram: instagram,
           texto_whatsapp: whatsapp,
           dados_formulario: { ...form, lead_name: selectedLead?.name } as any,
+          imagem_url: generatedImage || null,
         });
       }
 
