@@ -118,8 +118,11 @@ serve(async (req) => {
         body: JSON.stringify(n8nPayload),
       });
 
-      if (!n8nRes.ok) {
-        console.error("n8n webhook error:", n8nRes.status, await n8nRes.text());
+      const n8nText = await n8nRes.text();
+      console.log("n8n raw response:", n8nRes.status, n8nText);
+
+      if (!n8nRes.ok || !n8nText) {
+        console.error("n8n webhook error:", n8nRes.status);
         return new Response(
           JSON.stringify({
             verified: false,
@@ -129,8 +132,19 @@ serve(async (req) => {
         );
       }
 
-      const n8nData = await n8nRes.json();
-      console.log("n8n response:", JSON.stringify(n8nData));
+      let n8nData: any;
+      try {
+        n8nData = JSON.parse(n8nText);
+      } catch {
+        console.error("n8n returned invalid JSON:", n8nText);
+        return new Response(
+          JSON.stringify({
+            verified: false,
+            message: "Resposta inválida do serviço de verificação. Configure o webhook n8n para retornar JSON.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       // n8n returns: { found, nomeCompleto, situacao, cidade, estado, creciCompleto }
       if (!n8nData.found || !n8nData.nomeCompleto) {
