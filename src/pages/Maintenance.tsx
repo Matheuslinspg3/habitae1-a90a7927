@@ -10,7 +10,12 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Load all migration files at build time (sorted by filename = chronological order)
-const migrationFiles = import.meta.glob('/supabase/migrations/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+let migrationFiles: Record<string, string> = {};
+try {
+  migrationFiles = import.meta.glob('/supabase/migrations/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+} catch (e) {
+  console.warn('Could not load migration files:', e);
+}
 
 function getMigrationSQL(): string {
   const entries = Object.entries(migrationFiles).sort(([a], [b]) => a.localeCompare(b));
