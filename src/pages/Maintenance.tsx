@@ -9,38 +9,9 @@ import { toast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Load all migration files at build time (sorted by filename = chronological order)
-let migrationFiles: Record<string, string> = {};
-try {
-  migrationFiles = import.meta.glob('/supabase/migrations/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
-} catch (e) {
-  console.warn('Could not load migration files:', e);
-}
+// NOTE: Migrations are applied separately via CLI (supabase db push)
+// This page only handles DATA export (INSERTs + auth.users)
 
-function getMigrationSQL(): string {
-  const entries = Object.entries(migrationFiles).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) return "-- Nenhuma migration encontrada\n";
-
-  const lines: string[] = [];
-  lines.push(`-- ============================================================`);
-  lines.push(`-- PARTE 1: MIGRATIONS (Schema — ${entries.length} arquivos)`);
-  lines.push(`-- Cria todas as tabelas, funções, triggers, RLS e extensões`);
-  lines.push(`-- ============================================================\n`);
-
-  for (const [path, content] of entries) {
-    const filename = path.split("/").pop() || path;
-    lines.push(`-- Migration: ${filename}`);
-    lines.push(`-- --------------------------------------------------------`);
-    lines.push(content.trim());
-    lines.push("");
-  }
-
-  lines.push(`-- ============================================================`);
-  lines.push(`-- FIM DAS MIGRATIONS`);
-  lines.push(`-- ============================================================\n`);
-
-  return lines.join("\n");
-}
 
 // Order respects foreign key dependencies
 const TABLE_ORDER = [
