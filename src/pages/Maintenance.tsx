@@ -201,22 +201,7 @@ export default function Maintenance() {
   const [exportStats, setExportStats] = useState<ExportStats | null>(null);
   const [copied, setCopied] = useState(false);
   const [showFullSQL, setShowFullSQL] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [disabling, setDisabling] = useState(false);
-
-  // Check if current user is a system admin
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) return;
-      const { data } = await supabase
-        .from("admin_allowlist")
-        .select("id")
-        .ilike("email", session.user.email)
-        .maybeSingle();
-      setIsAdmin(!!data);
-    })();
-  }, []);
 
   const handleDisableMaintenance = async () => {
     setDisabling(true);
@@ -448,18 +433,16 @@ export default function Maintenance() {
             {checking ? "Verificando..." : "Tentar novamente"}
           </Button>
 
-          {isAdmin && (
-            <Button
-              onClick={handleDisableMaintenance}
-              variant="destructive"
-              size="lg"
-              disabled={disabling}
-              className="gap-2"
-            >
-              {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-              {disabling ? "Desativando..." : "Remover Manutenção"}
-            </Button>
-          )}
+          <Button
+            onClick={handleDisableMaintenance}
+            variant="destructive"
+            size="lg"
+            disabled={disabling}
+            className="gap-2"
+          >
+            {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            {disabling ? "Desativando..." : "Remover Manutenção"}
+          </Button>
         </div>
 
         {/* SQL Preview Card */}
