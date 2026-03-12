@@ -433,18 +433,16 @@ export default function Maintenance() {
             {checking ? "Verificando..." : "Tentar novamente"}
           </Button>
 
-          {isAdmin && (
-            <Button
-              onClick={handleDisableMaintenance}
-              variant="destructive"
-              size="lg"
-              disabled={disabling}
-              className="gap-2"
-            >
-              {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-              {disabling ? "Desativando..." : "Remover Manutenção"}
-            </Button>
-          )}
+          <Button
+            onClick={handleDisableMaintenance}
+            variant="destructive"
+            size="lg"
+            disabled={disabling}
+            className="gap-2"
+          >
+            {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+            {disabling ? "Desativando..." : "Remover Manutenção"}
+          </Button>
         </div>
 
         {/* SQL Preview Card */}
