@@ -133,7 +133,7 @@ export default function GeradorAnuncios() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Gerador de Anúncios" subtitle="Gere textos otimizados para diferentes plataformas com IA" />
+      <PageHeader title="Gerador de Anúncios" description="Gere textos otimizados para diferentes plataformas com IA" />
 
       <Card>
         <CardHeader>
