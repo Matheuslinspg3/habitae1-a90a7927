@@ -1,11 +1,13 @@
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { Button } from "@/components/ui/button";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
-import { Construction, RefreshCw, Wifi, Loader2 } from "lucide-react";
+import { Construction, RefreshCw, Wifi, Loader2, Download, Copy, Check, X, Database, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Order respects foreign key dependencies
 const TABLE_ORDER = [
@@ -74,7 +76,6 @@ function escapeSQL(value: unknown): string {
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") return String(value);
   if (Array.isArray(value)) {
-    // PostgreSQL array literal
     const items = value.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",");
     return `'{${items}}'`;
   }
@@ -88,17 +89,13 @@ function escapeSQL(value: unknown): string {
 
 function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
   if (!rows || rows.length === 0) return `-- ${tableName}: 0 registros\n`;
-
   const columns = Object.keys(rows[0]);
   const colList = columns.map((c) => `"${c}"`).join(", ");
   const lines: string[] = [];
-
   lines.push(`-- ============================================================`);
   lines.push(`-- TABELA: ${tableName} (${rows.length} registros)`);
   lines.push(`-- ============================================================`);
   lines.push("");
-
-  // Batch inserts (100 rows per statement for performance)
   const BATCH = 100;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
@@ -112,13 +109,11 @@ function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
     lines.push(`ON CONFLICT DO NOTHING;`);
     lines.push("");
   }
-
   return lines.join("\n");
 }
 
 function authUsersToSQL(users: Record<string, unknown>[]): string {
   if (!users || users.length === 0) return "-- auth.users: 0 registros\n";
-
   const lines: string[] = [];
   lines.push(`-- ============================================================`);
   lines.push(`-- AUTH.USERS (${users.length} usuários)`);
@@ -126,13 +121,11 @@ function authUsersToSQL(users: Record<string, unknown>[]): string {
   lines.push(`-- As senhas NÃO são exportáveis. Usuários precisarão redefinir.`);
   lines.push(`-- ============================================================`);
   lines.push("");
-
   for (const u of users) {
     const metadata = u.user_metadata ? JSON.stringify(u.user_metadata).replace(/'/g, "''") : "{}";
     const appMeta = u.app_metadata ? JSON.stringify(u.app_metadata).replace(/'/g, "''") : "{}";
     const email = String(u.email || "").replace(/'/g, "''");
     const phone = u.phone ? `'${String(u.phone).replace(/'/g, "''")}'` : "NULL";
-
     lines.push(`-- Usuário: ${email}`);
     lines.push(`INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -159,14 +152,8 @@ function authUsersToSQL(users: Record<string, unknown>[]): string {
 ) ON CONFLICT (id) DO NOTHING;`);
     lines.push("");
   }
-
-  lines.push(`-- ============================================================`);
-  lines.push(`-- ATENÇÃO: Após importar, envie um email de redefinição de senha`);
-  lines.push(`-- para todos os usuários, ou altere a senha temporária acima.`);
   lines.push(`-- Senha temporária padrão: PortaMigra2026!`);
-  lines.push(`-- ============================================================`);
   lines.push("");
-
   return lines.join("\n");
 }
 
@@ -182,12 +169,23 @@ function downloadFile(content: string, filename: string, mimeType = "text/sql") 
   URL.revokeObjectURL(url);
 }
 
+interface ExportStats {
+  tablesExported: number;
+  totalRecords: number;
+  authUsers: number;
+  errors: string[];
+}
+
 export default function Maintenance() {
   const { isMaintenanceMode, maintenanceMessage, refetch, isLoading } = useMaintenanceMode();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState("");
+  const [generatedSQL, setGeneratedSQL] = useState<string | null>(null);
+  const [exportStats, setExportStats] = useState<ExportStats | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [showFullSQL, setShowFullSQL] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isMaintenanceMode) {
@@ -196,9 +194,7 @@ export default function Maintenance() {
   }, [isMaintenanceMode, isLoading, navigate]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 10_000);
+    const interval = setInterval(() => { refetch(); }, 10_000);
     return () => clearInterval(interval);
   }, [refetch]);
 
@@ -208,8 +204,23 @@ export default function Maintenance() {
     setTimeout(() => setChecking(false), 1000);
   };
 
+  const handleCopySQL = async () => {
+    if (!generatedSQL) return;
+    await navigator.clipboard.writeText(generatedSQL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: "Copiado!", description: "SQL copiado para a área de transferência." });
+  };
+
+  const handleDownloadSQL = () => {
+    if (!generatedSQL) return;
+    downloadFile(generatedSQL, `porta-migration-${new Date().toISOString().slice(0, 10)}.sql`);
+  };
+
   const handleExportDatabase = async () => {
     setExporting(true);
+    setGeneratedSQL(null);
+    setExportStats(null);
     setExportProgress("Verificando sessão...");
 
     try {
@@ -245,7 +256,6 @@ export default function Maintenance() {
 
       const tables = result.tables as Record<string, { count: number; csv: string }>;
 
-      // ---- Generate SQL ----
       setExportProgress("Gerando SQL de importação...");
 
       let sql = `-- ============================================================\n`;
@@ -253,22 +263,20 @@ export default function Maintenance() {
       sql += `-- Gerado em: ${new Date().toISOString()}\n`;
       sql += `-- Destino: Supabase externo (executar no SQL Editor)\n`;
       sql += `-- ============================================================\n\n`;
-      sql += `-- IMPORTANTE:\n`;
-      sql += `-- 1. Aplique TODAS as migrations ANTES de rodar este arquivo\n`;
-      sql += `-- 2. Execute com role 'service_role' (não 'anon')\n`;
-      sql += `-- 3. Desabilite triggers temporariamente se houver conflitos\n\n`;
+      sql += `-- INSTRUÇÕES:\n`;
+      sql += `-- 1. Aplique TODAS as migrations ANTES (supabase db push)\n`;
+      sql += `-- 2. Execute este SQL no SQL Editor com role 'service_role'\n`;
+      sql += `-- 3. Após importar, envie redefinição de senha aos usuários\n\n`;
       sql += `BEGIN;\n\n`;
-      sql += `-- Desabilitar triggers temporariamente para evitar efeitos colaterais\n`;
       sql += `SET session_replication_role = 'replica';\n\n`;
 
-      // Auth users first (if available)
+      let authUsersCount = 0;
       if (tables["_auth_users"] && tables["_auth_users"].count > 0) {
-        // Parse CSV back to rows
         const authRows = csvToRows(tables["_auth_users"].csv);
+        authUsersCount = authRows.length;
         sql += authUsersToSQL(authRows);
       }
 
-      // Public tables in dependency order
       let totalRecords = 0;
       let tablesExported = 0;
       for (const tableName of TABLE_ORDER) {
@@ -280,7 +288,6 @@ export default function Maintenance() {
         }
       }
 
-      // Any remaining tables not in our ordered list
       for (const tableName of Object.keys(tables)) {
         if (tableName === "_auth_users") continue;
         if (TABLE_ORDER.includes(tableName)) continue;
@@ -292,41 +299,25 @@ export default function Maintenance() {
         }
       }
 
-      sql += `\n-- Reabilitar triggers\n`;
-      sql += `SET session_replication_role = 'origin';\n\n`;
+      sql += `\nSET session_replication_role = 'origin';\n\n`;
       sql += `COMMIT;\n\n`;
-      sql += `-- ============================================================\n`;
-      sql += `-- FIM DA IMPORTAÇÃO\n`;
-      sql += `-- ${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros\n`;
-      sql += `-- ============================================================\n`;
+      sql += `-- FIM: ${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros\n`;
 
-      setExportProgress("Baixando arquivos...");
-
-      // Download SQL file
-      downloadFile(sql, `porta-migration-${new Date().toISOString().slice(0, 10)}.sql`);
-
-      // Also download individual CSVs
-      await new Promise((r) => setTimeout(r, 500));
-      const tableNames = Object.keys(tables).filter((t) => tables[t].count > 0);
-      for (const tableName of tableNames) {
-        if (tables[tableName].csv) {
-          downloadFile(tables[tableName].csv, `${tableName}.csv`, "text/csv");
-          await new Promise((r) => setTimeout(r, 150));
-        }
-      }
+      setGeneratedSQL(sql);
+      setExportStats({
+        tablesExported,
+        totalRecords,
+        authUsers: authUsersCount,
+        errors: result.errors || [],
+      });
 
       toast({
-        title: "Exportação SQL concluída!",
-        description: `${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros. Arquivo SQL pronto para importar.`,
+        title: "SQL gerado com sucesso!",
+        description: `${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros.`,
       });
 
       if (result.errors?.length > 0) {
         console.warn("Erros:", result.errors);
-        toast({
-          title: "Algumas tabelas falharam",
-          description: result.errors.join(", "),
-          variant: "destructive",
-        });
       }
     } catch (err: any) {
       console.error("Export error:", err);
@@ -341,9 +332,12 @@ export default function Maintenance() {
     }
   };
 
+  const sqlLines = generatedSQL?.split("\n").length ?? 0;
+  const sqlSizeKB = generatedSQL ? Math.round(new Blob([generatedSQL]).size / 1024) : 0;
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6">
-      <div className="max-w-md w-full text-center space-y-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8">
+      <div className="max-w-2xl w-full text-center space-y-6">
         <div className="flex justify-center">
           <HabitaeLogo variant="icon" size="lg" />
         </div>
@@ -355,25 +349,88 @@ export default function Maintenance() {
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-2xl font-bold text-foreground">
-            Sistema em Manutenção
-          </h1>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            {maintenanceMessage}
-          </p>
+          <h1 className="text-2xl font-bold text-foreground">Sistema em Manutenção</h1>
+          <p className="text-muted-foreground text-base leading-relaxed">{maintenanceMessage}</p>
         </div>
 
-        <Button
-          onClick={handleRetry}
-          variant="outline"
-          size="lg"
-          disabled={checking}
-          className="gap-2"
-        >
+        <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
           <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
           {checking ? "Verificando..." : "Tentar novamente"}
         </Button>
 
+        {/* SQL Preview Card */}
+        {generatedSQL && exportStats && (
+          <Card className="text-left border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-border/30 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Database className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">SQL de Migração</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setGeneratedSQL(null); setExportStats(null); }}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* SQL Preview */}
+            <div className="relative">
+              <ScrollArea className={showFullSQL ? "h-[400px]" : "h-[200px]"}>
+                <pre className="p-4 text-[11px] leading-relaxed font-mono text-muted-foreground whitespace-pre overflow-x-auto">
+                  {showFullSQL ? generatedSQL : generatedSQL.slice(0, 3000) + (generatedSQL.length > 3000 ? "\n\n... (clique para ver tudo)" : "")}
+                </pre>
+              </ScrollArea>
+
+              {/* Fade overlay when collapsed */}
+              {!showFullSQL && generatedSQL.length > 3000 && (
+                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+              )}
+            </div>
+
+            {/* Toggle expand */}
+            {generatedSQL.length > 3000 && (
+              <button
+                onClick={() => setShowFullSQL(!showFullSQL)}
+                className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1 border-t border-border/20"
+              >
+                {showFullSQL ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {showFullSQL ? "Recolher" : `Ver tudo (${sqlLines.toLocaleString()} linhas)`}
+              </button>
+            )}
+
+            {/* Actions */}
+            <div className="p-3 border-t border-border/30 flex gap-2">
+              <Button onClick={handleCopySQL} variant="outline" size="sm" className="flex-1 gap-2 text-xs">
+                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied ? "Copiado!" : "Copiar SQL"}
+              </Button>
+              <Button onClick={handleDownloadSQL} size="sm" className="flex-1 gap-2 text-xs">
+                <Download className="h-3 w-3" />
+                Baixar .sql
+              </Button>
+            </div>
+
+            {/* Errors */}
+            {exportStats.errors.length > 0 && (
+              <div className="px-4 pb-3">
+                <p className="text-xs text-destructive">
+                  ⚠️ Tabelas com erro: {exportStats.errors.join(", ")}
+                </p>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Auto-check + hidden export trigger */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
           <Wifi className="h-3 w-3" />
           <span>
@@ -395,7 +452,7 @@ export default function Maintenance() {
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground/50 tracking-widest uppercase">
+        <p className="text-xs text-muted-foreground/50 tracking-widths uppercase">
           Porta do Corretor
         </p>
       </div>
@@ -406,24 +463,19 @@ export default function Maintenance() {
 // ---- CSV Parser ----
 function csvToRows(csv: string): Record<string, unknown>[] {
   if (!csv || csv.trim() === "") return [];
-
   const lines = parseCSVLines(csv);
   if (lines.length < 2) return [];
-
   const headers = lines[0];
   const rows: Record<string, unknown>[] = [];
-
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i];
     if (values.length !== headers.length) continue;
-
     const row: Record<string, unknown> = {};
     for (let j = 0; j < headers.length; j++) {
       row[headers[j]] = parseCSVValue(values[j]);
     }
     rows.push(row);
   }
-
   return rows;
 }
 
@@ -432,43 +484,26 @@ function parseCSVLines(csv: string): string[][] {
   let current: string[] = [];
   let field = "";
   let inQuotes = false;
-
   for (let i = 0; i < csv.length; i++) {
     const ch = csv[i];
-
     if (inQuotes) {
       if (ch === '"') {
-        if (i + 1 < csv.length && csv[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += ch;
-      }
+        if (i + 1 < csv.length && csv[i + 1] === '"') { field += '"'; i++; }
+        else { inQuotes = false; }
+      } else { field += ch; }
     } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ",") {
-        current.push(field);
-        field = "";
-      } else if (ch === "\n" || (ch === "\r" && csv[i + 1] === "\n")) {
-        current.push(field);
-        field = "";
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ",") { current.push(field); field = ""; }
+      else if (ch === "\n" || (ch === "\r" && csv[i + 1] === "\n")) {
+        current.push(field); field = "";
         if (current.some((v) => v !== "")) result.push(current);
         current = [];
         if (ch === "\r") i++;
-      } else {
-        field += ch;
-      }
+      } else { field += ch; }
     }
   }
-
-  // Last field
   current.push(field);
   if (current.some((v) => v !== "")) result.push(current);
-
   return result;
 }
 
@@ -476,20 +511,11 @@ function parseCSVValue(val: string): unknown {
   if (val === "" || val === "null") return null;
   if (val === "true") return true;
   if (val === "false") return false;
-
-  // Try JSON (for objects/arrays)
   if ((val.startsWith("{") && val.endsWith("}")) || (val.startsWith("[") && val.endsWith("]"))) {
-    try {
-      return JSON.parse(val);
-    } catch {
-      return val;
-    }
+    try { return JSON.parse(val); } catch { return val; }
   }
-
-  // Numbers (but not UUIDs or dates)
   if (/^-?\d+(\.\d+)?$/.test(val) && val.length < 16 && !val.startsWith("0")) {
     return Number(val);
   }
-
   return val;
 }
