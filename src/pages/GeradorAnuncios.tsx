@@ -13,6 +13,7 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { toast } from "sonner";
 import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 
 const OLLAMA_URL = import.meta.env.VITE_OLLAMA_URL || "http://localhost:11434";
 
