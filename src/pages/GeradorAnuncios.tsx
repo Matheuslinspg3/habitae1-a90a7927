@@ -93,6 +93,22 @@ export default function GeradorAnuncios() {
     enabled: !!profile?.organization_id,
   });
 
+  // Fetch property images for selected property
+  const { data: propertyImages = [] } = useQuery({
+    queryKey: ["property-images-for-ad-gen", form.property_id],
+    queryFn: async () => {
+      if (!form.property_id) return [];
+      const { data } = await supabase
+        .from("property_images")
+        .select("id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url")
+        .eq("property_id", form.property_id)
+        .order("display_order", { ascending: true })
+        .limit(20);
+      return data || [];
+    },
+    enabled: !!form.property_id,
+  });
+
   // Fetch leads
   const { data: leads = [] } = useQuery({
     queryKey: ["leads-for-ad-gen", profile?.organization_id],
