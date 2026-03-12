@@ -345,6 +345,63 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_provider_config: {
+        Row: {
+          id: string
+          image_custom_key: string | null
+          image_custom_url: string | null
+          image_openai_key: string | null
+          image_provider: string
+          image_sd_url: string | null
+          text_custom_key: string | null
+          text_custom_model: string | null
+          text_custom_url: string | null
+          text_ollama_model: string | null
+          text_ollama_url: string | null
+          text_openai_key: string | null
+          text_openai_model: string | null
+          text_provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          image_custom_key?: string | null
+          image_custom_url?: string | null
+          image_openai_key?: string | null
+          image_provider?: string
+          image_sd_url?: string | null
+          text_custom_key?: string | null
+          text_custom_model?: string | null
+          text_custom_url?: string | null
+          text_ollama_model?: string | null
+          text_ollama_url?: string | null
+          text_openai_key?: string | null
+          text_openai_model?: string | null
+          text_provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          image_custom_key?: string | null
+          image_custom_url?: string | null
+          image_openai_key?: string | null
+          image_provider?: string
+          image_sd_url?: string | null
+          text_custom_key?: string | null
+          text_custom_model?: string | null
+          text_custom_url?: string | null
+          text_ollama_model?: string | null
+          text_ollama_url?: string | null
+          text_openai_key?: string | null
+          text_openai_model?: string | null
+          text_provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       anuncios_gerados: {
         Row: {
           corretor_id: string
