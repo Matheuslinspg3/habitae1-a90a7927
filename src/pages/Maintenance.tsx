@@ -9,6 +9,34 @@ import { toast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Load all migration files at build time (sorted by filename = chronological order)
+const migrationFiles = import.meta.glob('/supabase/migrations/*.sql', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+
+function getMigrationSQL(): string {
+  const entries = Object.entries(migrationFiles).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return "-- Nenhuma migration encontrada\n";
+
+  const lines: string[] = [];
+  lines.push(`-- ============================================================`);
+  lines.push(`-- PARTE 1: MIGRATIONS (Schema — ${entries.length} arquivos)`);
+  lines.push(`-- Cria todas as tabelas, funções, triggers, RLS e extensões`);
+  lines.push(`-- ============================================================\n`);
+
+  for (const [path, content] of entries) {
+    const filename = path.split("/").pop() || path;
+    lines.push(`-- Migration: ${filename}`);
+    lines.push(`-- --------------------------------------------------------`);
+    lines.push(content.trim());
+    lines.push("");
+  }
+
+  lines.push(`-- ============================================================`);
+  lines.push(`-- FIM DAS MIGRATIONS`);
+  lines.push(`-- ============================================================\n`);
+
+  return lines.join("\n");
+}
+
 // Order respects foreign key dependencies
 const TABLE_ORDER = [
   "subscription_plans",
@@ -173,6 +201,7 @@ interface ExportStats {
   tablesExported: number;
   totalRecords: number;
   authUsers: number;
+  migrations: number;
   errors: string[];
 }
 
@@ -261,12 +290,26 @@ export default function Maintenance() {
       let sql = `-- ============================================================\n`;
       sql += `-- EXPORTAÇÃO COMPLETA: Porta do Corretor\n`;
       sql += `-- Gerado em: ${new Date().toISOString()}\n`;
-      sql += `-- Destino: Supabase externo (executar no SQL Editor)\n`;
+      sql += `-- Inclui: Schema (migrations) + Dados (INSERTs) + Auth Users\n`;
+      sql += `-- Destino: Supabase novo/externo (executar no SQL Editor)\n`;
       sql += `-- ============================================================\n\n`;
       sql += `-- INSTRUÇÕES:\n`;
-      sql += `-- 1. Aplique TODAS as migrations ANTES (supabase db push)\n`;
-      sql += `-- 2. Execute este SQL no SQL Editor com role 'service_role'\n`;
-      sql += `-- 3. Após importar, envie redefinição de senha aos usuários\n\n`;
+      sql += `-- 1. Crie um projeto Supabase novo\n`;
+      sql += `-- 2. Abra o SQL Editor com role 'service_role'\n`;
+      sql += `-- 3. Cole/carregue este arquivo e execute\n`;
+      sql += `-- 4. Após importar, envie redefinição de senha aos usuários\n`;
+      sql += `-- 5. Senha temporária padrão: PortaMigra2026!\n\n`;
+
+      // ---- PART 1: Migrations (Schema) ----
+      setExportProgress("Incluindo migrations (schema)...");
+      const migrationSQL = getMigrationSQL();
+      const migrationCount = Object.keys(migrationFiles).length;
+      sql += migrationSQL;
+
+      // ---- PART 2: Data ----
+      sql += `\n-- ============================================================\n`;
+      sql += `-- PARTE 2: DADOS (INSERTs)\n`;
+      sql += `-- ============================================================\n\n`;
       sql += `BEGIN;\n\n`;
       sql += `SET session_replication_role = 'replica';\n\n`;
 
@@ -301,19 +344,22 @@ export default function Maintenance() {
 
       sql += `\nSET session_replication_role = 'origin';\n\n`;
       sql += `COMMIT;\n\n`;
-      sql += `-- FIM: ${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros\n`;
+      sql += `-- ============================================================\n`;
+      sql += `-- FIM: ${migrationCount} migrations + ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros\n`;
+      sql += `-- ============================================================\n`;
 
       setGeneratedSQL(sql);
       setExportStats({
         tablesExported,
         totalRecords,
         authUsers: authUsersCount,
+        migrations: migrationCount,
         errors: result.errors || [],
       });
 
       toast({
-        title: "SQL gerado com sucesso!",
-        description: `${tablesExported} tabelas, ${totalRecords.toLocaleString()} registros.`,
+        title: "SQL completo gerado!",
+        description: `${migrationCount} migrations + ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros.`,
       });
 
       if (result.errors?.length > 0) {
@@ -370,7 +416,7 @@ export default function Maintenance() {
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">SQL de Migração</h3>
                   <p className="text-xs text-muted-foreground">
-                    {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
+                    {exportStats.migrations} migrations · {exportStats.tablesExported} tabelas · {exportStats.totalRecords.toLocaleString()} registros · {exportStats.authUsers} usuários · {sqlSizeKB} KB
                   </p>
                 </div>
               </div>
