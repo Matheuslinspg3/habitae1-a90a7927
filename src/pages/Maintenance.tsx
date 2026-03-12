@@ -319,7 +319,7 @@ export default function Maintenance() {
       sql += `\nSET session_replication_role = 'origin';\n\n`;
       sql += `COMMIT;\n\n`;
       sql += `-- ============================================================\n`;
-      sql += `-- FIM: ${migrationCount} migrations + ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros\n`;
+      sql += `-- FIM: ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros\n`;
       sql += `-- ============================================================\n`;
 
       setGeneratedSQL(sql);
