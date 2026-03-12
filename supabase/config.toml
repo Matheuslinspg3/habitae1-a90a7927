@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.toggle-maintenance-mode]
 verify_jwt = false
+
+[functions.export-database]
+verify_jwt = false
