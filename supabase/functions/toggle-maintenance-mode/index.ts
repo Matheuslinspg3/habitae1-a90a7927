@@ -148,9 +148,11 @@ Deno.serve(async (req) => {
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || "unknown";
 
+    const auditUserId = userId ?? (currentConfig?.maintenance_started_by as string | null) ?? "00000000-0000-0000-0000-000000000000";
+
     await supabaseAdmin.from("maintenance_audit_log").insert({
       action: action,
-      performed_by: userId,
+      performed_by: auditUserId,
       previous_value: previousValue,
       new_value: newValue,
       maintenance_message: message || currentConfig?.maintenance_message,
