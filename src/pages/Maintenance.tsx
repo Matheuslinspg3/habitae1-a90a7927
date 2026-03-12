@@ -196,8 +196,7 @@ export default function Maintenance() {
             <button
               onClick={handleExportDatabase}
               disabled={exporting}
-              className="underline underline-offset-2 hover:text-foreground transition-colors cursor-pointer bg-transparent border-none p-0 text-inherit text-xs"
-              title="Exportar banco de dados"
+              className="hover:text-muted-foreground transition-colors cursor-default bg-transparent border-none p-0 text-inherit text-xs"
             >
               {exporting ? "Exportando..." : "Verificação"}
             </button>

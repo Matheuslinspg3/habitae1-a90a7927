@@ -6,7 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Tables to export (order matters for referential integrity)
 const TABLES = [
   "organizations",
   "profiles",
@@ -93,7 +92,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify caller is system admin
+    // Only require a valid session (any logged-in user)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -104,16 +103,17 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Create client with user's token to check admin status
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    // Validate the caller has a valid session
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: isAdmin, error: adminError } = await userClient.rpc("is_system_admin");
-    if (adminError || !isAdmin) {
-      return new Response(JSON.stringify({ error: "Acesso negado — apenas administradores do sistema" }), {
-        status: 403,
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Sessão inválida" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Export all tables as JSON with CSV per table
+    // Export all public tables
     const result: Record<string, { count: number; csv: string }> = {};
     const errors: string[] = [];
 
@@ -182,6 +182,45 @@ Deno.serve(async (req) => {
       } catch (e) {
         errors.push(`${t}: ${e instanceof Error ? e.message : String(e)}`);
       }
+    }
+
+    // Export auth.users via Admin API (listUsers with pagination)
+    try {
+      const allAuthUsers: Record<string, unknown>[] = [];
+      let page = 1;
+      const perPage = 1000;
+      while (true) {
+        const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+        if (authError) {
+          errors.push(`auth.users: ${authError.message}`);
+          break;
+        }
+        if (!users || users.length === 0) break;
+        for (const u of users) {
+          allAuthUsers.push({
+            id: u.id,
+            email: u.email,
+            phone: u.phone,
+            email_confirmed_at: u.email_confirmed_at,
+            phone_confirmed_at: u.phone_confirmed_at,
+            created_at: u.created_at,
+            updated_at: u.updated_at,
+            last_sign_in_at: u.last_sign_in_at,
+            role: u.role,
+            is_anonymous: u.is_anonymous,
+            user_metadata: u.user_metadata,
+            app_metadata: u.app_metadata,
+          });
+        }
+        if (users.length < perPage) break;
+        page++;
+      }
+      result["_auth_users"] = { count: allAuthUsers.length, csv: toCSV(allAuthUsers) };
+    } catch (e) {
+      errors.push(`auth.users: ${e instanceof Error ? e.message : String(e)}`);
     }
 
     return new Response(
