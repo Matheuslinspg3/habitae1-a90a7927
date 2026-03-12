@@ -40,8 +40,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const action = body.action as "activate" | "deactivate";
+    const message = body.message as string | undefined;
+    const autoPurgeCache = body.auto_purge_cache !== false; // default true
+    const sendPushNotification = body.send_push === true;
+    const pushTitle = body.push_title as string | undefined;
+    const pushMessage = body.push_message as string | undefined;
+
+    if (!action || !["activate", "deactivate"].includes(action)) {
+      return new Response(JSON.stringify({ error: "Invalid action" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Use service_role for all admin operations
     const supabaseAdmin = createClient(
@@ -84,27 +96,9 @@ Deno.serve(async (req) => {
     }
 
     // Allow unauthenticated DEACTIVATE only (session may be force-logged-out)
-    if (!userId) {
-      if (action !== "deactivate") {
-        return new Response(JSON.stringify({ error: "Unauthorized: session required for activation" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      userId = "anonymous-deactivate";
-    }
-
-    const body = await req.json();
-    const action = body.action as "activate" | "deactivate";
-    const message = body.message as string | undefined;
-    const autoPurgeCache = body.auto_purge_cache !== false; // default true
-    const sendPushNotification = body.send_push === true;
-    const pushTitle = body.push_title as string | undefined;
-    const pushMessage = body.push_message as string | undefined;
-
-    if (!action || !["activate", "deactivate"].includes(action)) {
-      return new Response(JSON.stringify({ error: "Invalid action" }), {
-        status: 400,
+    if (!userId && action !== "deactivate") {
+      return new Response(JSON.stringify({ error: "Unauthorized: session required for activation" }), {
+        status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
