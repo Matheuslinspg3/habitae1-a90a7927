@@ -334,7 +334,7 @@ export default function Maintenance() {
         tablesExported,
         totalRecords,
         authUsers: authUsersCount,
-        migrations: 0,
+        hasSchema: !!schemaDDL,
         errors: result.errors || [],
       });
 
