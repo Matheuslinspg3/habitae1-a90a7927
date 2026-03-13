@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 const BUSCA_CRECI_API = "https://api.buscacreci.com.br";
-const MAX_POLL_ATTEMPTS = 15;
+const N8N_WEBHOOK_URL = "https://n8n.costazul.shop/webhook/verify-creci";
+const MAX_POLL_ATTEMPTS = 12;
 const POLL_INTERVAL_MS = 3000;
 
 function normalizeName(name: string): string {
@@ -25,21 +26,15 @@ function similarityScore(a: string, b: string): number {
   const nb = normalizeName(b);
   if (na === nb) return 1;
   if (na.length < 2 || nb.length < 2) return 0;
-
   const bigrams = (s: string): Set<string> => {
     const set = new Set<string>();
-    for (let i = 0; i < s.length - 1; i++) {
-      set.add(s.substring(i, i + 2));
-    }
+    for (let i = 0; i < s.length - 1; i++) set.add(s.substring(i, i + 2));
     return set;
   };
-
   const setA = bigrams(na);
   const setB = bigrams(nb);
   let intersection = 0;
-  for (const b of setA) {
-    if (setB.has(b)) intersection++;
-  }
+  for (const b of setA) if (setB.has(b)) intersection++;
   return (2 * intersection) / (setA.size + setB.size);
 }
 
@@ -47,92 +42,147 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function consultarCRECI(creciNumber: string, state: string): Promise<any> {
-  const creciFormatted = `${state}${creciNumber}F`;
-  console.log(`[verify-creci] Consultando CRECI: ${creciFormatted}`);
+// Strategy 1: BuscaCRECI free API (async 3-step)
+async function consultarViaBuscaCRECI(creciNumber: string, state: string): Promise<any> {
+  // Try with F (pessoa física) suffix first
+  const suffixes = ["F", "J"];
+  for (const suffix of suffixes) {
+    const creciFormatted = `${state}${creciNumber}${suffix}`;
+    console.log(`[verify-creci] BuscaCRECI: tentando ${creciFormatted}`);
 
-  // Step 1: Submit query
-  const submitRes = await fetch(`${BUSCA_CRECI_API}/?creci=${encodeURIComponent(creciFormatted)}`);
-  const submitText = await submitRes.text();
-  console.log(`[verify-creci] Submit response: ${submitRes.status} ${submitText}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
-  if (!submitRes.ok || !submitText) {
-    throw new Error(`Falha ao enviar consulta: status ${submitRes.status}`);
-  }
-
-  let submitData: any;
-  try {
-    submitData = JSON.parse(submitText);
-  } catch {
-    throw new Error("Resposta inválida do serviço de consulta");
-  }
-
-  const codigoSolicitacao = submitData.codigo_solicitacao;
-  if (!codigoSolicitacao) {
-    throw new Error("Código de solicitação não retornado");
-  }
-
-  // Step 2: Poll for result
-  let creciId: string | null = null;
-  let creciCompleto = "";
-
-  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
-    await sleep(POLL_INTERVAL_MS);
-
-    const statusRes = await fetch(
-      `${BUSCA_CRECI_API}/status?codigo_solicitacao=${codigoSolicitacao}`
-    );
-    const statusText = await statusRes.text();
-    console.log(`[verify-creci] Poll ${i + 1}: ${statusText}`);
-
-    if (!statusRes.ok || !statusText) continue;
-
-    let statusData: any;
     try {
-      statusData = JSON.parse(statusText);
-    } catch {
-      continue;
-    }
+      const submitRes = await fetch(
+        `${BUSCA_CRECI_API}/?creci=${encodeURIComponent(creciFormatted)}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeout);
 
-    if (statusData.status === "FINALIZADO" && statusData.creciID) {
-      creciId = statusData.creciID;
-      creciCompleto = statusData.creciCompleto || "";
-      break;
-    }
+      if (!submitRes.ok) {
+        const body = await submitRes.text();
+        console.log(`[verify-creci] BuscaCRECI submit error: ${submitRes.status} ${body}`);
+        throw new Error(`BuscaCRECI indisponível (${submitRes.status})`);
+      }
 
-    if (statusData.status === "ERRO") {
-      throw new Error(statusData.mensagem || "Erro na consulta do CRECI");
+      const submitData = await submitRes.json();
+      const codigoSolicitacao = submitData.codigo_solicitacao;
+      if (!codigoSolicitacao) throw new Error("Código de solicitação não retornado");
+
+      // Poll for result
+      let creciId: string | null = null;
+      let creciCompleto = "";
+
+      for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+        await sleep(POLL_INTERVAL_MS);
+        try {
+          const statusRes = await fetch(
+            `${BUSCA_CRECI_API}/status?codigo_solicitacao=${codigoSolicitacao}`
+          );
+          if (!statusRes.ok) { await statusRes.text(); continue; }
+
+          const statusData = await statusRes.json();
+          console.log(`[verify-creci] Poll ${i + 1}: ${statusData.status}`);
+
+          if (statusData.status === "FINALIZADO" && statusData.creciID) {
+            creciId = statusData.creciID;
+            creciCompleto = statusData.creciCompleto || "";
+            break;
+          }
+          if (statusData.status === "ERRO") {
+            throw new Error(statusData.mensagem || "Erro na consulta");
+          }
+        } catch (pollErr: any) {
+          if (pollErr.message?.includes("Erro na consulta")) throw pollErr;
+          console.log(`[verify-creci] Poll error: ${pollErr.message}`);
+          continue;
+        }
+      }
+
+      if (!creciId) throw new Error("Tempo esgotado aguardando resultado");
+
+      // Get details
+      const detailRes = await fetch(`${BUSCA_CRECI_API}/creci?id=${creciId}`);
+      if (!detailRes.ok) { await detailRes.text(); throw new Error("Falha ao buscar detalhes"); }
+      const detailData = await detailRes.json();
+
+      if (detailData.nomeCompleto) {
+        return {
+          found: true,
+          nomeCompleto: detailData.nomeCompleto,
+          situacao: detailData.situacao || "",
+          cidade: detailData.cidade || "",
+          estado: detailData.estado || "",
+          creciCompleto: detailData.creciCompleto || creciCompleto,
+          source: "buscacreci",
+        };
+      }
+    } catch (err: any) {
+      clearTimeout(timeout);
+      console.log(`[verify-creci] BuscaCRECI falhou para ${suffix}: ${err.message}`);
+      // If API is down (not just wrong suffix), throw to trigger fallback
+      if (err.message?.includes("indisponível") || err.name === "AbortError") {
+        throw err;
+      }
+      continue; // Try next suffix
     }
   }
 
-  if (!creciId) {
-    throw new Error("Tempo esgotado aguardando resultado da consulta");
-  }
+  throw new Error("CRECI não encontrado via BuscaCRECI");
+}
 
-  // Step 3: Get details
-  const detailRes = await fetch(`${BUSCA_CRECI_API}/creci?id=${creciId}`);
-  const detailText = await detailRes.text();
-  console.log(`[verify-creci] Detail response: ${detailText}`);
+// Strategy 2: n8n webhook fallback
+async function consultarViaN8N(
+  creciNumber: string,
+  state: string,
+  userName: string,
+  userId: string,
+  orgId: string | null,
+  orgName: string,
+): Promise<any> {
+  console.log(`[verify-creci] Fallback n8n: ${creciNumber} ${state}`);
 
-  if (!detailRes.ok || !detailText) {
-    throw new Error("Falha ao buscar detalhes do CRECI");
-  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
-  let detailData: any;
   try {
-    detailData = JSON.parse(detailText);
-  } catch {
-    throw new Error("Resposta de detalhes inválida");
-  }
+    const n8nRes = await fetch(N8N_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        creci_number: creciNumber,
+        creci_state: state,
+        user_name: userName,
+        user_id: userId,
+        organization_id: orgId,
+        organization_name: orgName,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
 
-  return {
-    found: !!detailData.nomeCompleto,
-    nomeCompleto: detailData.nomeCompleto || "",
-    situacao: detailData.situacao || "",
-    cidade: detailData.cidade || "",
-    estado: detailData.estado || "",
-    creciCompleto: detailData.creciCompleto || creciCompleto,
-  };
+    const n8nText = await n8nRes.text();
+    console.log(`[verify-creci] n8n response: ${n8nRes.status} ${n8nText}`);
+
+    if (!n8nRes.ok || !n8nText) {
+      throw new Error(`n8n indisponível (${n8nRes.status})`);
+    }
+
+    const n8nData = JSON.parse(n8nText);
+    return {
+      found: !!n8nData.found && !!n8nData.nomeCompleto,
+      nomeCompleto: n8nData.nomeCompleto || "",
+      situacao: n8nData.situacao || "",
+      cidade: n8nData.cidade || "",
+      estado: n8nData.estado || "",
+      creciCompleto: n8nData.creciCompleto || "",
+      source: "n8n",
+    };
+  } catch (err: any) {
+    clearTimeout(timeout);
+    throw new Error(`Fallback n8n falhou: ${err.message}`);
+  }
 }
 
 serve(async (req) => {
@@ -168,6 +218,16 @@ serve(async (req) => {
       .eq("user_id", authUser.id)
       .single();
 
+    let orgName = "";
+    if (profile?.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("name")
+        .eq("id", profile.organization_id)
+        .single();
+      orgName = org?.name || "";
+    }
+
     const { action, creci_number, user_name, creci_state } = await req.json();
 
     if (action !== "verify-creci") {
@@ -176,16 +236,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    if (!creci_number) {
+    if (!creci_number || !user_name) {
       return new Response(
-        JSON.stringify({ error: "Número do CRECI é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!user_name) {
-      return new Response(
-        JSON.stringify({ error: "Nome do usuário é obrigatório" }),
+        JSON.stringify({ error: "Número do CRECI e nome são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -193,18 +246,27 @@ serve(async (req) => {
     const state = creci_state || "SP";
     const nameToCheck = profile?.full_name || user_name;
 
+    // Try BuscaCRECI first, fallback to n8n
     let creciData: any;
     try {
-      creciData = await consultarCRECI(creci_number, state);
-    } catch (err: any) {
-      console.error("[verify-creci] Consulta falhou:", err.message);
-      return new Response(
-        JSON.stringify({
-          verified: false,
-          message: err.message || "Não foi possível consultar o CRECI no momento. Tente novamente mais tarde.",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      creciData = await consultarViaBuscaCRECI(creci_number, state);
+    } catch (buscaErr: any) {
+      console.log(`[verify-creci] BuscaCRECI indisponível, tentando n8n: ${buscaErr.message}`);
+      try {
+        creciData = await consultarViaN8N(
+          creci_number, state, nameToCheck, authUser.id,
+          profile?.organization_id || null, orgName,
+        );
+      } catch (n8nErr: any) {
+        console.error(`[verify-creci] Ambos falharam: ${n8nErr.message}`);
+        return new Response(
+          JSON.stringify({
+            verified: false,
+            message: "Não foi possível consultar o CRECI no momento. Ambos os serviços estão indisponíveis. Tente novamente mais tarde.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (!creciData.found || !creciData.nomeCompleto) {
@@ -219,8 +281,9 @@ serve(async (req) => {
 
     const score = similarityScore(nameToCheck, creciData.nomeCompleto);
     const isMatch = score >= 0.6;
+    const isCancelled = ["Cancelado", "Inativo"].includes(creciData.situacao);
 
-    if (isMatch && creciData.situacao !== "Cancelado" && creciData.situacao !== "Inativo") {
+    if (isMatch && !isCancelled) {
       await supabase
         .from("profiles")
         .update({
@@ -241,7 +304,7 @@ serve(async (req) => {
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    } else if (creciData.situacao === "Cancelado" || creciData.situacao === "Inativo") {
+    } else if (isCancelled) {
       return new Response(
         JSON.stringify({
           verified: false,
