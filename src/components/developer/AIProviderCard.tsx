@@ -221,12 +221,19 @@ function TestConnectionButton({ url, type }: { url: string; type: "sd" | "ollama
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={test} disabled={testing} className="gap-1.5 text-xs h-7">
-      {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : 
-       status === "success" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> :
-       status === "error" ? <AlertTriangle className="h-3 w-3 text-destructive" /> : null}
-      Testar Conexão
-    </Button>
+    <div className="space-y-2">
+      <Button variant="outline" size="sm" onClick={test} disabled={testing} className="gap-1.5 text-xs h-7">
+        {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : 
+         status === "success" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> :
+         status === "error" ? <AlertTriangle className="h-3 w-3 text-destructive" /> : null}
+        Testar Conexão
+      </Button>
+      {models.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Modelos: {models.join(", ")}
+        </p>
+      )}
+    </div>
   );
 }
 
