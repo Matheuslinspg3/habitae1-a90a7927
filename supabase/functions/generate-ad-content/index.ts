@@ -24,11 +24,11 @@ interface AIConfig {
 async function getAIConfig(supabase: any): Promise<AIConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("text_provider, text_ollama_url, text_ollama_model, text_openai_key, text_openai_model, text_custom_url, text_custom_key, text_custom_model")
+    .select("text_provider, text_ollama_url, text_ollama_model, text_openai_key, text_openai_model, text_custom_url, text_custom_key, text_custom_model, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
 
-  return data || { text_provider: "lovable" } as AIConfig;
+  return data || { text_provider: "lovable", lovable_fallback_enabled: true } as AIConfig;
 }
 
 async function callOllama(config: AIConfig, messages: any[]): Promise<string> {
