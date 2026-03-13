@@ -1975,6 +1975,47 @@ export type Database = {
           },
         ]
       }
+      organization_custom_roles: {
+        Row: {
+          base_role: string
+          color: string | null
+          created_at: string
+          id: string
+          module_permissions: Json
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_role?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          module_permissions?: Json
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_role?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          module_permissions?: Json
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_custom_roles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_invites: {
         Row: {
           accepted_at: string | null
@@ -2012,6 +2053,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "organization_invites_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_member_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          performed_by: string | null
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          performed_by?: string | null
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          performed_by?: string | null
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_member_events_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -2329,6 +2411,7 @@ export type Database = {
           creci_verified: boolean
           creci_verified_at: string | null
           creci_verified_name: string | null
+          custom_role_id: string | null
           email_verified: boolean | null
           full_name: string
           id: string
@@ -2336,6 +2419,7 @@ export type Database = {
           organization_id: string | null
           phone: string | null
           phone_verified: boolean | null
+          removed_at: string | null
           updated_at: string
           user_id: string
         }
@@ -2346,6 +2430,7 @@ export type Database = {
           creci_verified?: boolean
           creci_verified_at?: string | null
           creci_verified_name?: string | null
+          custom_role_id?: string | null
           email_verified?: boolean | null
           full_name: string
           id?: string
@@ -2353,6 +2438,7 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           phone_verified?: boolean | null
+          removed_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -2363,6 +2449,7 @@ export type Database = {
           creci_verified?: boolean
           creci_verified_at?: string | null
           creci_verified_name?: string | null
+          custom_role_id?: string | null
           email_verified?: boolean | null
           full_name?: string
           id?: string
@@ -2370,10 +2457,18 @@ export type Database = {
           organization_id?: string | null
           phone?: string | null
           phone_verified?: boolean | null
+          removed_at?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_custom_role_id_fkey"
+            columns: ["custom_role_id"]
+            isOneToOne: false
+            referencedRelation: "organization_custom_roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_organization_id_fkey"
             columns: ["organization_id"]
