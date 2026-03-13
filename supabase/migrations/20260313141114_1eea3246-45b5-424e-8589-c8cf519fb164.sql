@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_provider_config ADD COLUMN IF NOT EXISTS lovable_fallback_enabled boolean NOT NULL DEFAULT true;

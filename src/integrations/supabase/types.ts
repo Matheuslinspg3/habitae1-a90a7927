@@ -353,6 +353,7 @@ export type Database = {
           image_openai_key: string | null
           image_provider: string
           image_sd_url: string | null
+          lovable_fallback_enabled: boolean
           text_custom_key: string | null
           text_custom_model: string | null
           text_custom_url: string | null
@@ -371,6 +372,7 @@ export type Database = {
           image_openai_key?: string | null
           image_provider?: string
           image_sd_url?: string | null
+          lovable_fallback_enabled?: boolean
           text_custom_key?: string | null
           text_custom_model?: string | null
           text_custom_url?: string | null
@@ -389,6 +391,7 @@ export type Database = {
           image_openai_key?: string | null
           image_provider?: string
           image_sd_url?: string | null
+          lovable_fallback_enabled?: boolean
           text_custom_key?: string | null
           text_custom_model?: string | null
           text_custom_url?: string | null

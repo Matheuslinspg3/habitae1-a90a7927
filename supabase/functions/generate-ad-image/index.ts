@@ -15,16 +15,17 @@ interface ImageConfig {
   image_openai_key: string | null;
   image_custom_url: string | null;
   image_custom_key: string | null;
+  lovable_fallback_enabled: boolean;
 }
 
 async function getImageConfig(supabase: any): Promise<ImageConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("image_provider, image_sd_url, image_openai_key, image_custom_url, image_custom_key")
+    .select("image_provider, image_sd_url, image_openai_key, image_custom_url, image_custom_key, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
 
-  return data || { image_provider: "lovable" } as ImageConfig;
+  return data || { image_provider: "lovable", lovable_fallback_enabled: true } as ImageConfig;
 }
 
 async function generateWithSD(sdUrl: string, prompt: string): Promise<string> {
@@ -186,8 +187,8 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Lovable AI
-    if (!imageUrl) {
+    // Fallback to Lovable AI (if enabled)
+    if (!imageUrl && imgConfig.lovable_fallback_enabled) {
       try {
         console.log("Falling back to Lovable AI for image...");
         imageUrl = await generateWithLovable(prompt);
@@ -195,6 +196,8 @@ serve(async (req) => {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI image also failed:", err.message);
       }
+    } else if (!imageUrl && !imgConfig.lovable_fallback_enabled) {
+      errors.push("Fallback Lovable AI desativado");
     }
 
     if (!imageUrl) {

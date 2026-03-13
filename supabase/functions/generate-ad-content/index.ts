@@ -18,16 +18,17 @@ interface AIConfig {
   text_custom_url: string | null;
   text_custom_key: string | null;
   text_custom_model: string | null;
+  lovable_fallback_enabled: boolean;
 }
 
 async function getAIConfig(supabase: any): Promise<AIConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("text_provider, text_ollama_url, text_ollama_model, text_openai_key, text_openai_model, text_custom_url, text_custom_key, text_custom_model")
+    .select("text_provider, text_ollama_url, text_ollama_model, text_openai_key, text_openai_model, text_custom_url, text_custom_key, text_custom_model, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
 
-  return data || { text_provider: "lovable" } as AIConfig;
+  return data || { text_provider: "lovable", lovable_fallback_enabled: true } as AIConfig;
 }
 
 async function callOllama(config: AIConfig, messages: any[]): Promise<string> {
@@ -253,8 +254,8 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Lovable AI if no result yet
-    if (!result) {
+    // Fallback to Lovable AI if no result yet (and fallback enabled)
+    if (!result && aiConfig.lovable_fallback_enabled) {
       try {
         console.log("Falling back to Lovable AI...");
         const aiData = await callLovable(messages, tools, toolChoice);
@@ -263,6 +264,8 @@ serve(async (req) => {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI also failed:", err.message);
       }
+    } else if (!result && !aiConfig.lovable_fallback_enabled) {
+      errors.push("Fallback Lovable AI desativado");
     }
 
     if (!result) {
