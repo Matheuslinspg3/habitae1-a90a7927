@@ -124,7 +124,7 @@ export function UsersTab() {
                         <p className="text-xs text-muted-foreground">{email}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm hidden sm:table-cell">{email}</TableCell>
+                    
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         {userRoles.map((r) => (
