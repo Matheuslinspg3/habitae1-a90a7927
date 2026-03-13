@@ -3,7 +3,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, ChevronRight, CreditCard, MessageSquare
+  Terminal, CreditCard, MessageSquare, Bot
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
@@ -20,6 +20,7 @@ import { PwaDiagnosticsCard } from "@/components/developer/PwaDiagnosticsCard";
 import { MaintenanceCard } from "@/components/developer/MaintenanceCard";
 import { AIProviderCard } from "@/components/developer/AIProviderCard";
 import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
+import { AILogsTable } from "@/components/developer/AILogsTable";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -32,6 +33,7 @@ const tabs = [
   { id: "users", label: "Usuários", icon: Users },
   { id: "subscriptions", label: "Assinaturas", icon: CreditCard },
   { id: "tickets", label: "Tickets", icon: MessageSquare },
+  { id: "ai", label: "IA", icon: Bot },
 ] as const;
 
 export default function DeveloperDashboard() {
@@ -63,12 +65,6 @@ export default function DeveloperDashboard() {
         <PurgeCacheCard />
         <PwaDiagnosticsCard />
         <MaintenanceCard />
-      </div>
-
-      {/* AI Provider Config + Usage Dashboard */}
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <AIProviderCard />
-        <AIUsageDashboard />
       </div>
 
       {/* Tabs */}
@@ -104,6 +100,13 @@ export default function DeveloperDashboard() {
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="subscriptions"><SubscriptionsTab /></TabsContent>
         <TabsContent value="tickets"><TicketsTab /></TabsContent>
+        <TabsContent value="ai">
+          <div className="space-y-4">
+            <AIProviderCard />
+            <AIUsageDashboard />
+            <AILogsTable />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );

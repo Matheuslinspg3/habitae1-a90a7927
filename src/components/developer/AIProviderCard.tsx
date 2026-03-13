@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, ShieldCheck, AlertTriangle, ExternalLink } from "lucide-react";
+import { Bot, Save, Loader2, ShieldCheck, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -17,6 +18,15 @@ interface AIConfig {
   text_openai_model: string;
   image_provider: string;
   lovable_fallback_enabled: boolean;
+  // Keys
+  text_openai_key: string;
+  text_gemini_key: string;
+  text_anthropic_key: string;
+  text_groq_key: string;
+  image_openai_key: string;
+  image_stability_key: string;
+  image_leonardo_key: string;
+  image_flux_key: string;
 }
 
 const DEFAULT_CONFIG: AIConfig = {
@@ -24,23 +34,56 @@ const DEFAULT_CONFIG: AIConfig = {
   text_openai_model: "gpt-4o",
   image_provider: "lovable",
   lovable_fallback_enabled: true,
+  text_openai_key: "",
+  text_gemini_key: "",
+  text_anthropic_key: "",
+  text_groq_key: "",
+  image_openai_key: "",
+  image_stability_key: "",
+  image_leonardo_key: "",
+  image_flux_key: "",
 };
 
 const TEXT_PROVIDERS = [
-  { value: "lovable", label: "Lovable AI (Gemini)", description: "Integrado, sem chave necessária", keyName: "" },
-  { value: "openai", label: "OpenAI (GPT-4o)", description: "Melhor qualidade geral", keyName: "AI_OPENAI_KEY", keyUrl: "https://platform.openai.com/api-keys" },
-  { value: "gemini", label: "Google Gemini", description: "Rápido e econômico", keyName: "AI_GEMINI_KEY", keyUrl: "https://aistudio.google.com/apikey" },
-  { value: "anthropic", label: "Anthropic (Claude)", description: "Tom persuasivo e natural", keyName: "AI_ANTHROPIC_KEY", keyUrl: "https://console.anthropic.com/settings/keys" },
-  { value: "groq", label: "Groq (Llama 3)", description: "Ultra rápido, tier gratuito", keyName: "AI_GROQ_KEY", keyUrl: "https://console.groq.com/keys" },
+  { value: "lovable", label: "Lovable AI (Gemini)", description: "Integrado, sem chave necessária", keyField: "" },
+  { value: "openai", label: "OpenAI (GPT-4o)", description: "Melhor qualidade geral", keyField: "text_openai_key" },
+  { value: "gemini", label: "Google Gemini", description: "Rápido e econômico", keyField: "text_gemini_key" },
+  { value: "anthropic", label: "Anthropic (Claude)", description: "Tom persuasivo e natural", keyField: "text_anthropic_key" },
+  { value: "groq", label: "Groq (Llama 3)", description: "Ultra rápido, tier gratuito", keyField: "text_groq_key" },
 ];
 
 const IMAGE_PROVIDERS = [
-  { value: "lovable", label: "Lovable AI (Gemini)", description: "Integrado, sem chave necessária", keyName: "" },
-  { value: "openai", label: "DALL-E 3 (OpenAI)", description: "Alta qualidade, fotorrealista", keyName: "AI_OPENAI_KEY", keyUrl: "https://platform.openai.com/api-keys" },
-  { value: "stability", label: "Stability AI (SDXL)", description: "Stable Diffusion via API", keyName: "AI_STABILITY_KEY", keyUrl: "https://platform.stability.ai/account/keys" },
-  { value: "leonardo", label: "Leonardo AI", description: "Especializado em produto", keyName: "AI_LEONARDO_KEY", keyUrl: "https://app.leonardo.ai/settings" },
-  { value: "flux", label: "Flux (BFL)", description: "Qualidade premium", keyName: "AI_FLUX_KEY", keyUrl: "https://api.bfl.ml/" },
+  { value: "lovable", label: "Lovable AI (Gemini)", description: "Integrado, sem chave necessária", keyField: "" },
+  { value: "openai", label: "DALL-E 3 (OpenAI)", description: "Alta qualidade, fotorrealista", keyField: "image_openai_key" },
+  { value: "stability", label: "Stability AI (SDXL)", description: "Stable Diffusion via API", keyField: "image_stability_key" },
+  { value: "leonardo", label: "Leonardo AI", description: "Especializado em produto", keyField: "image_leonardo_key" },
+  { value: "flux", label: "Flux (BFL)", description: "Qualidade premium", keyField: "image_flux_key" },
 ];
+
+function KeyInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <div className="relative">
+        <Input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="sk-..."
+          className="pr-10 font-mono text-xs h-9"
+        />
+        <button
+          type="button"
+          onClick={() => setShow(!show)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AIProviderCard() {
   const { user } = useAuth();
@@ -65,6 +108,14 @@ export function AIProviderCard() {
           text_openai_model: d.text_openai_model || "gpt-4o",
           image_provider: d.image_provider || "lovable",
           lovable_fallback_enabled: d.lovable_fallback_enabled ?? true,
+          text_openai_key: d.text_openai_key || "",
+          text_gemini_key: d.text_gemini_key || "",
+          text_anthropic_key: d.text_anthropic_key || "",
+          text_groq_key: d.text_groq_key || "",
+          image_openai_key: d.image_openai_key || "",
+          image_stability_key: d.image_stability_key || "",
+          image_leonardo_key: d.image_leonardo_key || "",
+          image_flux_key: d.image_flux_key || "",
         });
       }
     } catch (err) {
@@ -101,13 +152,6 @@ export function AIProviderCard() {
 
   const textProvider = TEXT_PROVIDERS.find(p => p.value === config.text_provider);
   const imageProvider = IMAGE_PROVIDERS.find(p => p.value === config.image_provider);
-
-  // Collect required secrets
-  const requiredSecrets = new Set<{ name: string; url: string; label: string }>();
-  if (textProvider?.keyName) requiredSecrets.add({ name: textProvider.keyName, url: textProvider.keyUrl!, label: textProvider.label });
-  if (imageProvider?.keyName && imageProvider.keyName !== textProvider?.keyName) {
-    requiredSecrets.add({ name: imageProvider.keyName, url: imageProvider.keyUrl!, label: imageProvider.label });
-  }
 
   if (loading) {
     return (
@@ -196,6 +240,15 @@ export function AIProviderCard() {
             </div>
           )}
 
+          {/* Text API Key Input */}
+          {textProvider?.keyField && (
+            <KeyInput
+              label={`Chave API — ${textProvider.label}`}
+              value={(config as any)[textProvider.keyField] || ""}
+              onChange={(v) => update(textProvider.keyField as keyof AIConfig, v)}
+            />
+          )}
+
           {config.text_provider === "lovable" && (
             <p className="text-xs text-muted-foreground">
               Lovable AI (Gemini) será usado diretamente. Nenhuma configuração necessária.
@@ -225,38 +278,21 @@ export function AIProviderCard() {
             </Select>
           </div>
 
+          {/* Image API Key Input */}
+          {imageProvider?.keyField && (
+            <KeyInput
+              label={`Chave API — ${imageProvider.label}`}
+              value={(config as any)[imageProvider.keyField] || ""}
+              onChange={(v) => update(imageProvider.keyField as keyof AIConfig, v)}
+            />
+          )}
+
           {config.image_provider === "lovable" && (
             <p className="text-xs text-muted-foreground">
               Lovable AI será usado para gerar imagens. Nenhuma configuração necessária.
             </p>
           )}
         </div>
-
-        {/* REQUIRED SECRETS INFO */}
-        {requiredSecrets.size > 0 && (
-          <>
-            <Separator />
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Chaves necessárias (Secrets)</h3>
-              <p className="text-xs text-muted-foreground">
-                As chaves de API são armazenadas como secrets no backend. Configure-as no painel de secrets.
-              </p>
-              <div className="space-y-1.5">
-                {Array.from(requiredSecrets).map((s) => (
-                  <div key={s.name} className="flex items-center justify-between rounded border p-2 text-xs">
-                    <div>
-                      <span className="font-mono font-medium">{s.name}</span>
-                      <span className="text-muted-foreground ml-2">— {s.label}</span>
-                    </div>
-                    <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                      Obter chave <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
 
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-muted-foreground">

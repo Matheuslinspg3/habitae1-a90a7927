@@ -348,8 +348,16 @@ export type Database = {
       ai_provider_config: {
         Row: {
           id: string
+          image_flux_key: string | null
+          image_leonardo_key: string | null
+          image_openai_key: string | null
           image_provider: string
+          image_stability_key: string | null
           lovable_fallback_enabled: boolean
+          text_anthropic_key: string | null
+          text_gemini_key: string | null
+          text_groq_key: string | null
+          text_openai_key: string | null
           text_openai_model: string | null
           text_provider: string
           updated_at: string
@@ -357,8 +365,16 @@ export type Database = {
         }
         Insert: {
           id?: string
+          image_flux_key?: string | null
+          image_leonardo_key?: string | null
+          image_openai_key?: string | null
           image_provider?: string
+          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
+          text_anthropic_key?: string | null
+          text_gemini_key?: string | null
+          text_groq_key?: string | null
+          text_openai_key?: string | null
           text_openai_model?: string | null
           text_provider?: string
           updated_at?: string
@@ -366,8 +382,16 @@ export type Database = {
         }
         Update: {
           id?: string
+          image_flux_key?: string | null
+          image_leonardo_key?: string | null
+          image_openai_key?: string | null
           image_provider?: string
+          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
+          text_anthropic_key?: string | null
+          text_gemini_key?: string | null
+          text_groq_key?: string | null
+          text_openai_key?: string | null
           text_openai_model?: string | null
           text_provider?: string
           updated_at?: string

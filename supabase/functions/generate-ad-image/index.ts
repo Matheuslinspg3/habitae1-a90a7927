@@ -21,25 +21,29 @@ const IMAGE_PRICING: Record<string, number> = {
 interface ImageConfig {
   image_provider: string;
   lovable_fallback_enabled: boolean;
+  image_openai_key: string | null;
+  image_stability_key: string | null;
+  image_leonardo_key: string | null;
+  image_flux_key: string | null;
 }
 
 async function getImageConfig(supabase: any): Promise<ImageConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("image_provider, lovable_fallback_enabled")
+    .select("image_provider, lovable_fallback_enabled, image_openai_key, image_stability_key, image_leonardo_key, image_flux_key")
     .eq("id", "singleton")
     .single();
-  return data || { image_provider: "lovable", lovable_fallback_enabled: true };
+  return data || { image_provider: "lovable", lovable_fallback_enabled: true, image_openai_key: null, image_stability_key: null, image_leonardo_key: null, image_flux_key: null };
 }
 
-function getImageKey(provider: string): string | null {
-  const map: Record<string, string> = {
-    openai: "AI_OPENAI_KEY",
-    stability: "AI_STABILITY_KEY",
-    leonardo: "AI_LEONARDO_KEY",
-    flux: "AI_FLUX_KEY",
+function getImageKey(provider: string, config: ImageConfig): string | null {
+  const map: Record<string, string | null> = {
+    openai: config.image_openai_key,
+    stability: config.image_stability_key,
+    leonardo: config.image_leonardo_key,
+    flux: config.image_flux_key,
   };
-  return Deno.env.get(map[provider] || "") || null;
+  return map[provider] || null;
 }
 
 async function generateWithDALLE(apiKey: string, prompt: string): Promise<string> {
@@ -193,7 +197,7 @@ serve(async (req) => {
 
     try {
       console.log(`Trying image provider: ${provider}`);
-      const apiKey = getImageKey(provider);
+      const apiKey = getImageKey(provider, imgConfig);
       if (provider === "openai" && apiKey) {
         imageUrl = await generateWithDALLE(apiKey, prompt);
         usedProvider = "openai";

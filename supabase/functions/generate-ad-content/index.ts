@@ -28,26 +28,29 @@ interface AIConfig {
   text_provider: string;
   text_openai_model: string | null;
   lovable_fallback_enabled: boolean;
+  text_openai_key: string | null;
+  text_gemini_key: string | null;
+  text_anthropic_key: string | null;
+  text_groq_key: string | null;
 }
 
 async function getAIConfig(supabase: any): Promise<AIConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("text_provider, text_openai_model, lovable_fallback_enabled")
+    .select("text_provider, text_openai_model, lovable_fallback_enabled, text_openai_key, text_gemini_key, text_anthropic_key, text_groq_key")
     .eq("id", "singleton")
     .single();
-  return data || { text_provider: "lovable", text_openai_model: "gpt-4o", lovable_fallback_enabled: true };
+  return data || { text_provider: "lovable", text_openai_model: "gpt-4o", lovable_fallback_enabled: true, text_openai_key: null, text_gemini_key: null, text_anthropic_key: null, text_groq_key: null };
 }
 
-// Keys are now in secrets (Deno.env)
-function getTextKey(provider: string): string | null {
-  const map: Record<string, string> = {
-    openai: "AI_OPENAI_KEY",
-    gemini: "AI_GEMINI_KEY",
-    anthropic: "AI_ANTHROPIC_KEY",
-    groq: "AI_GROQ_KEY",
+function getTextKey(provider: string, config: AIConfig): string | null {
+  const map: Record<string, string | null> = {
+    openai: config.text_openai_key,
+    gemini: config.text_gemini_key,
+    anthropic: config.text_anthropic_key,
+    groq: config.text_groq_key,
   };
-  return Deno.env.get(map[provider] || "") || null;
+  return map[provider] || null;
 }
 
 async function callOpenAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any) {
@@ -228,7 +231,7 @@ serve(async (req) => {
     // Try configured provider
     try {
       console.log(`Trying text provider: ${provider}`);
-      const apiKey = getTextKey(provider);
+      const apiKey = getTextKey(provider, aiConfig);
 
       if (provider === "openai" && apiKey) {
         usedModel = aiConfig.text_openai_model || "gpt-4o";
