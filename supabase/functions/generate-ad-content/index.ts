@@ -254,8 +254,8 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Lovable AI if no result yet
-    if (!result) {
+    // Fallback to Lovable AI if no result yet (and fallback enabled)
+    if (!result && aiConfig.lovable_fallback_enabled) {
       try {
         console.log("Falling back to Lovable AI...");
         const aiData = await callLovable(messages, tools, toolChoice);
@@ -264,6 +264,8 @@ serve(async (req) => {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI also failed:", err.message);
       }
+    } else if (!result && !aiConfig.lovable_fallback_enabled) {
+      errors.push("Fallback Lovable AI desativado");
     }
 
     if (!result) {
