@@ -53,7 +53,7 @@ export function VerificationSection() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada");
 
-      setVerifyStep("Consultando registro público (pode levar até 20s)...");
+      setVerifyStep("Consultando registro público (pode levar até 45s)...");
 
       const response = await supabase.functions.invoke("verify-creci", {
         body: {
