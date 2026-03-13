@@ -189,6 +189,7 @@ curl http://SEU-IP:7860/sdapi/v1/sd-models
 function TestConnectionButton({ url, type }: { url: string; type: "sd" | "ollama" }) {
   const [testing, setTesting] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [models, setModels] = useState<string[]>([]);
 
   const test = async () => {
     if (!url) {
@@ -197,14 +198,19 @@ function TestConnectionButton({ url, type }: { url: string; type: "sd" | "ollama
     }
     setTesting(true);
     setStatus("idle");
+    setModels([]);
     try {
-      const endpoint = type === "sd" ? `${url}/sdapi/v1/sd-models` : `${url}/api/tags`;
-      const res = await fetch(endpoint, { signal: AbortSignal.timeout(8000) });
-      if (res.ok) {
+      const { data, error } = await supabase.functions.invoke("test-ai-connection", {
+        body: { url: url.replace(/\/+$/, ""), type },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.ok) {
         setStatus("success");
-        toast.success(`Conexão com ${type === "sd" ? "Stable Diffusion" : "Ollama"} OK!`);
+        setModels(data.models || []);
+        const label = type === "sd" ? "Stable Diffusion" : "Ollama";
+        toast.success(`Conexão com ${label} OK! ${data.models?.length || 0} modelo(s) encontrado(s).`);
       } else {
-        throw new Error(`Status ${res.status}`);
+        throw new Error(data?.error || "Falha na conexão");
       }
     } catch (err: any) {
       setStatus("error");
