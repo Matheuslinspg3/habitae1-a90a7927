@@ -65,8 +65,11 @@ export default function DeveloperDashboard() {
         <MaintenanceCard />
       </div>
 
-      {/* AI Provider Config */}
-      <AIProviderCard />
+      {/* AI Provider Config + Usage Dashboard */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <AIProviderCard />
+        <AIUsageDashboard />
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
