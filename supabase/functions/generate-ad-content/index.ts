@@ -18,6 +18,7 @@ interface AIConfig {
   text_custom_url: string | null;
   text_custom_key: string | null;
   text_custom_model: string | null;
+  lovable_fallback_enabled: boolean;
 }
 
 async function getAIConfig(supabase: any): Promise<AIConfig> {
