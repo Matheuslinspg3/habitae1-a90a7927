@@ -15,6 +15,7 @@ interface ImageConfig {
   image_openai_key: string | null;
   image_custom_url: string | null;
   image_custom_key: string | null;
+  lovable_fallback_enabled: boolean;
 }
 
 async function getImageConfig(supabase: any): Promise<ImageConfig> {
