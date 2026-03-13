@@ -11,44 +11,22 @@ const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 interface AIConfig {
   text_provider: string;
-  text_ollama_url: string | null;
-  text_ollama_model: string | null;
   text_openai_key: string | null;
   text_openai_model: string | null;
-  text_custom_url: string | null;
-  text_custom_key: string | null;
-  text_custom_model: string | null;
+  text_gemini_key: string | null;
+  text_anthropic_key: string | null;
+  text_groq_key: string | null;
   lovable_fallback_enabled: boolean;
 }
 
 async function getAIConfig(supabase: any): Promise<AIConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("text_provider, text_ollama_url, text_ollama_model, text_openai_key, text_openai_model, text_custom_url, text_custom_key, text_custom_model, lovable_fallback_enabled")
+    .select("text_provider, text_openai_key, text_openai_model, text_gemini_key, text_anthropic_key, text_groq_key, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
 
   return data || { text_provider: "lovable", lovable_fallback_enabled: true } as AIConfig;
-}
-
-async function callOllama(config: AIConfig, messages: any[]): Promise<string> {
-  const url = config.text_ollama_url || "http://localhost:11434";
-  const model = config.text_ollama_model || "llama3";
-
-  // Convert messages to single prompt for Ollama generate API
-  const prompt = messages.map((m: any) => 
-    m.role === "system" ? m.content : `${m.role}: ${m.content}`
-  ).join("\n\n");
-
-  const res = await fetch(`${url}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, stream: false, prompt }),
-  });
-
-  if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
-  const json = await res.json();
-  return json.response;
 }
 
 async function callOpenAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any): Promise<any> {
@@ -58,32 +36,87 @@ async function callOpenAI(apiKey: string, model: string, messages: any[], tools?
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`);
   return await res.json();
 }
 
-async function callCustom(url: string, apiKey: string | null, model: string, messages: any[], tools?: any[], toolChoice?: any): Promise<any> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
-
-  const body: any = { model, messages, temperature: 0.8 };
+async function callGemini(apiKey: string, messages: any[], tools?: any[], toolChoice?: any): Promise<any> {
+  // Use Gemini via OpenAI-compatible endpoint
+  const body: any = { model: "gemini-2.0-flash", messages, temperature: 0.8 };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
 
-  const res = await fetch(url, {
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
     method: "POST",
-    headers,
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+  return await res.json();
+}
 
-  if (!res.ok) throw new Error(`Custom AI error: ${res.status}`);
+async function callAnthropic(apiKey: string, messages: any[], tools?: any[], toolChoice?: any): Promise<any> {
+  const systemMsg = messages.find((m: any) => m.role === "system");
+  const userMsgs = messages.filter((m: any) => m.role !== "system");
+
+  const anthropicTools = tools?.map((t: any) => ({
+    name: t.function.name,
+    description: t.function.description,
+    input_schema: t.function.parameters,
+  }));
+
+  const body: any = {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    messages: userMsgs,
+    ...(systemMsg ? { system: systemMsg.content } : {}),
+    ...(anthropicTools ? { tools: anthropicTools } : {}),
+    ...(toolChoice ? { tool_choice: { type: "tool", name: toolChoice.function.name } } : {}),
+  };
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Anthropic error: ${res.status}`);
+  const data = await res.json();
+
+  // Convert Anthropic response to OpenAI format
+  const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+  if (toolUse) {
+    return {
+      choices: [{
+        message: {
+          tool_calls: [{
+            function: { name: toolUse.name, arguments: JSON.stringify(toolUse.input) },
+          }],
+        },
+      }],
+    };
+  }
+  const textContent = data.content?.find((c: any) => c.type === "text");
+  return { choices: [{ message: { content: textContent?.text || "" } }] };
+}
+
+async function callGroq(apiKey: string, messages: any[], tools?: any[], toolChoice?: any): Promise<any> {
+  const body: any = { model: "llama-3.1-70b-versatile", messages, temperature: 0.8 };
+  if (tools) body.tools = tools;
+  if (toolChoice) body.tool_choice = toolChoice;
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Groq error: ${res.status}`);
   return await res.json();
 }
 
@@ -91,20 +124,13 @@ async function callLovable(messages: any[], tools?: any[], toolChoice?: any): Pr
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-  const body: any = {
-    model: "google/gemini-2.5-flash",
-    messages,
-    temperature: 0.8,
-  };
+  const body: any = { model: "google/gemini-2.5-flash", messages, temperature: 0.8 };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
 
   const res = await fetch(LOVABLE_GATEWAY, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
@@ -121,7 +147,6 @@ function extractToolResult(aiData: any): any {
   if (toolCall?.function?.arguments) {
     return JSON.parse(toolCall.function.arguments);
   }
-  // Fallback: try to parse content as JSON
   const content = aiData.choices?.[0]?.message?.content;
   if (content) {
     try { return JSON.parse(content); } catch { /* ignore */ }
@@ -138,23 +163,10 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          portal: {
-            type: "string",
-            description: "Texto completo para portal imobiliário (OLX/ZAP). Profissional, detalhado, sem emojis, 150-250 palavras. Inclua título, descrição e call-to-action.",
-          },
-          instagram: {
-            type: "string",
-            description: "Texto para Instagram/Facebook Ads. Envolvente, com emojis estratégicos, máximo 150 palavras. Inclua hashtags relevantes no final e CTA forte.",
-          },
-          whatsapp: {
-            type: "string",
-            description: "Mensagem curta para WhatsApp. Máximo 80 palavras, até 3 emojis, direta e com call-to-action.",
-          },
-          image_prompts: {
-            type: "array",
-            items: { type: "string" },
-            description: "3 prompts em inglês para gerar imagens profissionais do imóvel. Cada prompt deve descrever uma cena diferente. Devem ser detalhados para imagens fotorealistas.",
-          },
+          portal: { type: "string", description: "Texto completo para portal imobiliário (OLX/ZAP). Profissional, detalhado, sem emojis, 150-250 palavras." },
+          instagram: { type: "string", description: "Texto para Instagram/Facebook Ads. Envolvente, com emojis estratégicos, máximo 150 palavras. Inclua hashtags." },
+          whatsapp: { type: "string", description: "Mensagem curta para WhatsApp. Máximo 80 palavras, até 3 emojis, direta e com call-to-action." },
+          image_prompts: { type: "array", items: { type: "string" }, description: "3 prompts em inglês para gerar imagens profissionais do imóvel." },
         },
         required: ["portal", "instagram", "whatsapp", "image_prompts"],
       },
@@ -164,44 +176,29 @@ const tools = [
 const toolChoice = { type: "function", function: { name: "generate_ads" } };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: { user }, error: userError } = await authClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { formData, leadName } = await req.json();
     if (!formData?.tipo || !formData?.finalidade || !formData?.bairro_cidade) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load AI config
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
     const aiConfig = await getAIConfig(serviceClient);
 
@@ -215,57 +212,42 @@ serve(async (req) => {
 
     let result: any = null;
     const errors: string[] = [];
-
-    // Try configured provider first
     const provider = aiConfig.text_provider;
 
-    if (provider === "ollama") {
-      try {
-        console.log("Trying Ollama...");
-        const rawText = await callOllama(aiConfig, messages);
-        // Ollama doesn't support tools, try to parse JSON from response
-        try {
-          result = JSON.parse(rawText);
-        } catch {
-          // If not JSON, wrap it
-          result = { portal: rawText, instagram: rawText, whatsapp: rawText, image_prompts: [] };
-        }
-      } catch (err: any) {
-        errors.push(`Ollama: ${err.message}`);
-        console.warn("Ollama failed:", err.message);
-      }
-    } else if (provider === "openai" && aiConfig.text_openai_key) {
-      try {
-        console.log("Trying OpenAI...");
-        const aiData = await callOpenAI(aiConfig.text_openai_key, aiConfig.text_openai_model || "gpt-4o-mini", messages, tools, toolChoice);
+    // Try configured provider
+    try {
+      console.log(`Trying text provider: ${provider}`);
+      let aiData: any;
+
+      if (provider === "openai" && aiConfig.text_openai_key) {
+        aiData = await callOpenAI(aiConfig.text_openai_key, aiConfig.text_openai_model || "gpt-4o", messages, tools, toolChoice);
         result = extractToolResult(aiData);
-      } catch (err: any) {
-        errors.push(`OpenAI: ${err.message}`);
-        console.warn("OpenAI failed:", err.message);
-      }
-    } else if (provider === "custom" && aiConfig.text_custom_url) {
-      try {
-        console.log("Trying Custom API...");
-        const aiData = await callCustom(aiConfig.text_custom_url, aiConfig.text_custom_key, aiConfig.text_custom_model || "default", messages, tools, toolChoice);
+      } else if (provider === "gemini" && aiConfig.text_gemini_key) {
+        aiData = await callGemini(aiConfig.text_gemini_key, messages, tools, toolChoice);
         result = extractToolResult(aiData);
-      } catch (err: any) {
-        errors.push(`Custom: ${err.message}`);
-        console.warn("Custom API failed:", err.message);
+      } else if (provider === "anthropic" && aiConfig.text_anthropic_key) {
+        aiData = await callAnthropic(aiConfig.text_anthropic_key, messages, tools, toolChoice);
+        result = extractToolResult(aiData);
+      } else if (provider === "groq" && aiConfig.text_groq_key) {
+        aiData = await callGroq(aiConfig.text_groq_key, messages, tools, toolChoice);
+        result = extractToolResult(aiData);
       }
+      // lovable is handled in fallback below
+    } catch (err: any) {
+      errors.push(`${provider}: ${err.message}`);
+      console.warn(`${provider} failed:`, err.message);
     }
 
-    // Fallback to Lovable AI if no result yet (and fallback enabled)
-    if (!result && aiConfig.lovable_fallback_enabled) {
+    // Fallback to Lovable AI
+    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled)) {
       try {
-        console.log("Falling back to Lovable AI...");
+        console.log("Using Lovable AI...");
         const aiData = await callLovable(messages, tools, toolChoice);
         result = extractToolResult(aiData);
       } catch (err: any) {
         errors.push(`Lovable: ${err.message}`);
-        console.error("Lovable AI also failed:", err.message);
+        console.error("Lovable AI failed:", err.message);
       }
-    } else if (!result && !aiConfig.lovable_fallback_enabled) {
-      errors.push("Fallback Lovable AI desativado");
     }
 
     if (!result) {
@@ -275,14 +257,9 @@ serve(async (req) => {
       );
     }
 
-    // Ensure image_prompts exists
-    if (!result.image_prompts) {
-      result.image_prompts = [];
-    }
+    if (!result.image_prompts) result.image_prompts = [];
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("generate-ad-content error:", error);
     return new Response(

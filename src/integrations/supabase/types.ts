@@ -350,13 +350,19 @@ export type Database = {
           id: string
           image_custom_key: string | null
           image_custom_url: string | null
+          image_flux_key: string | null
+          image_leonardo_key: string | null
           image_openai_key: string | null
           image_provider: string
           image_sd_url: string | null
+          image_stability_key: string | null
           lovable_fallback_enabled: boolean
+          text_anthropic_key: string | null
           text_custom_key: string | null
           text_custom_model: string | null
           text_custom_url: string | null
+          text_gemini_key: string | null
+          text_groq_key: string | null
           text_ollama_model: string | null
           text_ollama_url: string | null
           text_openai_key: string | null
@@ -369,13 +375,19 @@ export type Database = {
           id?: string
           image_custom_key?: string | null
           image_custom_url?: string | null
+          image_flux_key?: string | null
+          image_leonardo_key?: string | null
           image_openai_key?: string | null
           image_provider?: string
           image_sd_url?: string | null
+          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
+          text_anthropic_key?: string | null
           text_custom_key?: string | null
           text_custom_model?: string | null
           text_custom_url?: string | null
+          text_gemini_key?: string | null
+          text_groq_key?: string | null
           text_ollama_model?: string | null
           text_ollama_url?: string | null
           text_openai_key?: string | null
@@ -388,13 +400,19 @@ export type Database = {
           id?: string
           image_custom_key?: string | null
           image_custom_url?: string | null
+          image_flux_key?: string | null
+          image_leonardo_key?: string | null
           image_openai_key?: string | null
           image_provider?: string
           image_sd_url?: string | null
+          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
+          text_anthropic_key?: string | null
           text_custom_key?: string | null
           text_custom_model?: string | null
           text_custom_url?: string | null
+          text_gemini_key?: string | null
+          text_groq_key?: string | null
           text_ollama_model?: string | null
           text_ollama_url?: string | null
           text_openai_key?: string | null
