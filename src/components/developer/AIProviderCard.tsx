@@ -6,8 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, Eye, EyeOff } from "lucide-react";
+import { Bot, Save, Loader2, Eye, EyeOff, ShieldCheck, Server, ChevronDown, Copy, CheckCircle2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -25,6 +28,7 @@ interface AIConfig {
   image_openai_key: string;
   image_custom_url: string;
   image_custom_key: string;
+  lovable_fallback_enabled: boolean;
 }
 
 const DEFAULT_CONFIG: AIConfig = {
@@ -41,20 +45,21 @@ const DEFAULT_CONFIG: AIConfig = {
   image_openai_key: "",
   image_custom_url: "",
   image_custom_key: "",
+  lovable_fallback_enabled: true,
 };
 
 const TEXT_PROVIDERS = [
   { value: "ollama", label: "Ollama (Local)", description: "Gratuito, roda local na VPS" },
   { value: "openai", label: "OpenAI", description: "API paga da OpenAI" },
   { value: "custom", label: "API Customizada", description: "Qualquer API compatível com OpenAI" },
-  { value: "lovable", label: "Lovable AI (Fallback)", description: "Usado apenas se nenhum outro estiver configurado" },
+  { value: "lovable", label: "Lovable AI (Direto)", description: "Usa Lovable AI como provedor principal" },
 ];
 
 const IMAGE_PROVIDERS = [
-  { value: "stable_diffusion", label: "Stable Diffusion (Local)", description: "Gratuito, roda na VPS" },
+  { value: "stable_diffusion", label: "Stable Diffusion (VPS)", description: "Gratuito, roda na sua VPS" },
   { value: "openai", label: "DALL-E (OpenAI)", description: "API paga da OpenAI" },
   { value: "custom", label: "API Customizada", description: "Qualquer API de geração de imagem" },
-  { value: "lovable", label: "Lovable AI (Fallback)", description: "Usado apenas se nenhum outro estiver configurado" },
+  { value: "lovable", label: "Lovable AI (Direto)", description: "Usa Lovable AI como provedor principal" },
 ];
 
 function MaskedInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -76,6 +81,146 @@ function MaskedInput({ value, onChange, placeholder }: { value: string; onChange
         {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
     </div>
+  );
+}
+
+function CopyBlock({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="relative group">
+      <pre className="bg-muted/50 border rounded-md p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all font-mono">
+        {text}
+      </pre>
+      <button
+        onClick={copy}
+        className="absolute top-2 right-2 p-1 rounded bg-background/80 border text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+function SDSetupGuide() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-2 text-xs w-full justify-between h-8">
+          <span className="flex items-center gap-1.5">
+            <Server className="h-3.5 w-3.5" />
+            Como configurar Stable Diffusion na VPS
+          </span>
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-3 pt-3">
+        <div className="space-y-3 text-xs text-muted-foreground">
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">1. Instale o Automatic1111 (SDXL WebUI)</p>
+            <CopyBlock text={`# Na sua VPS com GPU (Ubuntu/Debian)
+sudo apt update && sudo apt install -y git python3 python3-venv wget
+git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git
+cd stable-diffusion-webui`} />
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">2. Baixe um modelo SDXL (recomendado para imóveis)</p>
+            <CopyBlock text={`# Baixar modelo Juggernaut XL (ótimo para fotos realistas)
+wget -O models/Stable-diffusion/juggernautXL_v9.safetensors \\
+  "https://civitai.com/api/download/models/456194"
+
+# OU RealVisXL (alternativa)
+wget -O models/Stable-diffusion/realvisxl_v5.safetensors \\
+  "https://civitai.com/api/download/models/361593"`} />
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">3. Inicie com API habilitada e CORS</p>
+            <CopyBlock text={`# Iniciar com API + CORS habilitados
+./webui.sh --api --listen --cors-allow-origins="*" --port 7860
+
+# Para rodar em background:
+nohup ./webui.sh --api --listen --cors-allow-origins="*" --port 7860 &`} />
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">4. Configure o firewall</p>
+            <CopyBlock text={`# Abra a porta 7860 no firewall
+sudo ufw allow 7860/tcp
+
+# OU com iptables:
+sudo iptables -A INPUT -p tcp --dport 7860 -j ACCEPT`} />
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">5. Teste a API</p>
+            <CopyBlock text={`# Teste se a API está respondendo:
+curl http://SEU-IP:7860/sdapi/v1/sd-models
+
+# Deve retornar uma lista JSON dos modelos disponíveis`} />
+          </div>
+
+          <Alert className="border-yellow-500/30 bg-yellow-500/5">
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <AlertDescription className="text-xs">
+              <strong>Importante:</strong> Use HTTPS com proxy reverso (Nginx/Caddy) em produção. 
+              A flag <code className="bg-muted px-1 rounded">--cors-allow-origins="*"</code> é necessária 
+              para que a Edge Function consiga chamar a API. Se preferir restringir, 
+              use <code className="bg-muted px-1 rounded">--cors-allow-origins="https://aiflfkkjitvsyszwdfga.supabase.co"</code>.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">6. Cole a URL acima</p>
+            <p>Formato: <code className="bg-muted px-1 rounded">http://SEU-IP:7860</code> (sem barra no final)</p>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function TestConnectionButton({ url, type }: { url: string; type: "sd" | "ollama" }) {
+  const [testing, setTesting] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+
+  const test = async () => {
+    if (!url) {
+      toast.error("Preencha a URL primeiro");
+      return;
+    }
+    setTesting(true);
+    setStatus("idle");
+    try {
+      const endpoint = type === "sd" ? `${url}/sdapi/v1/sd-models` : `${url}/api/tags`;
+      const res = await fetch(endpoint, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        setStatus("success");
+        toast.success(`Conexão com ${type === "sd" ? "Stable Diffusion" : "Ollama"} OK!`);
+      } else {
+        throw new Error(`Status ${res.status}`);
+      }
+    } catch (err: any) {
+      setStatus("error");
+      toast.error(`Falha na conexão: ${err.message}`);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Button variant="outline" size="sm" onClick={test} disabled={testing} className="gap-1.5 text-xs h-7">
+      {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : 
+       status === "success" ? <CheckCircle2 className="h-3 w-3 text-green-500" /> :
+       status === "error" ? <AlertTriangle className="h-3 w-3 text-destructive" /> : null}
+      Testar Conexão
+    </Button>
   );
 }
 
@@ -113,6 +258,7 @@ export function AIProviderCard() {
           image_openai_key: data.image_openai_key || "",
           image_custom_url: data.image_custom_url || "",
           image_custom_key: data.image_custom_key || "",
+          lovable_fallback_enabled: (data as any).lovable_fallback_enabled ?? true,
         });
       }
     } catch (err) {
@@ -132,7 +278,7 @@ export function AIProviderCard() {
           ...config,
           updated_at: new Date().toISOString(),
           updated_by: user?.id,
-        });
+        } as any);
 
       if (error) throw error;
       toast.success("Configuração de IA salva com sucesso!");
@@ -144,7 +290,7 @@ export function AIProviderCard() {
     }
   };
 
-  const update = (field: keyof AIConfig, value: string) => {
+  const update = (field: keyof AIConfig, value: string | boolean) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -173,6 +319,34 @@ export function AIProviderCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* LOVABLE AI FALLBACK TOGGLE */}
+        <div className="flex items-center justify-between rounded-lg border p-3 bg-primary/5">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Lovable AI como Fallback</p>
+              <p className="text-xs text-muted-foreground">
+                Se o provedor principal falhar, usar Lovable AI automaticamente
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={config.lovable_fallback_enabled}
+            onCheckedChange={(v) => update("lovable_fallback_enabled", v)}
+          />
+        </div>
+
+        {!config.lovable_fallback_enabled && config.text_provider !== "lovable" && config.image_provider !== "lovable" && (
+          <Alert className="border-yellow-500/30 bg-yellow-500/5">
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <AlertDescription className="text-xs">
+              Sem fallback ativo. Se o provedor principal falhar, a geração de IA não funcionará.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Separator />
+
         {/* TEXT PROVIDER */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold">Geração de Texto</h3>
@@ -196,23 +370,26 @@ export function AIProviderCard() {
           </div>
 
           {config.text_provider === "ollama" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">URL do Ollama</Label>
-                <Input
-                  value={config.text_ollama_url}
-                  onChange={(e) => update("text_ollama_url", e.target.value)}
-                  placeholder="http://localhost:11434"
-                />
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">URL do Ollama</Label>
+                  <Input
+                    value={config.text_ollama_url}
+                    onChange={(e) => update("text_ollama_url", e.target.value)}
+                    placeholder="http://localhost:11434"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Modelo</Label>
+                  <Input
+                    value={config.text_ollama_model}
+                    onChange={(e) => update("text_ollama_model", e.target.value)}
+                    placeholder="llama3"
+                  />
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Modelo</Label>
-                <Input
-                  value={config.text_ollama_model}
-                  onChange={(e) => update("text_ollama_model", e.target.value)}
-                  placeholder="llama3"
-                />
-              </div>
+              <TestConnectionButton url={config.text_ollama_url} type="ollama" />
             </div>
           )}
 
@@ -300,13 +477,17 @@ export function AIProviderCard() {
           </div>
 
           {config.image_provider === "stable_diffusion" && (
-            <div className="space-y-1">
-              <Label className="text-xs">URL do Stable Diffusion (Automatic1111)</Label>
-              <Input
-                value={config.image_sd_url}
-                onChange={(e) => update("image_sd_url", e.target.value)}
-                placeholder="http://seu-ip:7860"
-              />
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">URL do Stable Diffusion (Automatic1111)</Label>
+                <Input
+                  value={config.image_sd_url}
+                  onChange={(e) => update("image_sd_url", e.target.value)}
+                  placeholder="http://seu-ip:7860"
+                />
+              </div>
+              <TestConnectionButton url={config.image_sd_url} type="sd" />
+              <SDSetupGuide />
             </div>
           )}
 
@@ -351,7 +532,9 @@ export function AIProviderCard() {
 
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-muted-foreground">
-            Se o provedor selecionado falhar, o sistema usa Lovable AI como fallback automático.
+            {config.lovable_fallback_enabled
+              ? "✅ Fallback Lovable AI ativo — se o provedor falhar, a IA continua funcionando."
+              : "⚠️ Fallback desativado — apenas o provedor selecionado será usado."}
           </p>
           <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
