@@ -64,6 +64,7 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
   const { properties } = useProperties();
   const { leads } = useLeads();
   const { brokers } = useBrokers();
+  const [isAIOpen, setIsAIOpen] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(contractSchema),
