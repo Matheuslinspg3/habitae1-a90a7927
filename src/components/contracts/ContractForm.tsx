@@ -28,10 +28,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { useProperties } from "@/hooks/useProperties";
 import { useLeads } from "@/hooks/useLeads";
 import { useBrokers } from "@/hooks/useBrokers";
+import { ContractAIFillDialog } from "./ContractAIFillDialog";
 import type { ContractWithDetails, ContractFormData, ContractStatus, ContractType } from "@/hooks/useContracts";
 
 const contractSchema = z.object({
