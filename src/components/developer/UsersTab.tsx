@@ -93,8 +93,8 @@ export function UsersTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
+                <TableHead>Nome / ID / Email</TableHead>
+                
                 <TableHead>Cargo</TableHead>
                 <TableHead className="w-[160px] hidden md:table-cell">Alterar</TableHead>
                 <TableHead className="w-12"></TableHead>
@@ -110,10 +110,21 @@ export function UsersTab() {
                     <TableCell>
                       <div>
                         <p className="font-medium text-sm">{p.full_name}</p>
-                        <p className="text-xs text-muted-foreground sm:hidden">{email}</p>
+                        <button
+                          type="button"
+                          className="text-[10px] text-muted-foreground font-mono hover:text-foreground transition-colors cursor-pointer"
+                          title="Copiar ID"
+                          onClick={() => {
+                            navigator.clipboard.writeText(p.user_id);
+                            toast({ title: "ID copiado!" });
+                          }}
+                        >
+                          {p.user_id.slice(0, 8)}…
+                        </button>
+                        <p className="text-xs text-muted-foreground">{email}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm hidden sm:table-cell">{email}</TableCell>
+                    
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
                         {userRoles.map((r) => (
