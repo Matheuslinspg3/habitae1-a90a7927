@@ -129,11 +129,45 @@ export function ContractForm({ open, onOpenChange, contract, onSubmit, isSubmitt
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{contract ? "Editar Contrato" : "Novo Contrato"}</DialogTitle>
-          <DialogDescription>
-            {contract ? "Atualize as informações do contrato" : "Preencha os dados do novo contrato"}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>{contract ? "Editar Contrato" : "Novo Contrato"}</DialogTitle>
+              <DialogDescription>
+                {contract ? "Atualize as informações do contrato" : "Preencha os dados do novo contrato"}
+              </DialogDescription>
+            </div>
+            {!contract && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={() => setIsAIOpen(true)}
+              >
+                <Sparkles className="h-4 w-4" />
+                Preencher com IA
+              </Button>
+            )}
+          </div>
         </DialogHeader>
+
+        <ContractAIFillDialog
+          open={isAIOpen}
+          onOpenChange={setIsAIOpen}
+          onFill={(data) => {
+            if (data.type) form.setValue("type", data.type);
+            if (data.property_id) form.setValue("property_id", data.property_id);
+            if (data.lead_id) form.setValue("lead_id", data.lead_id);
+            if (data.broker_id) form.setValue("broker_id", data.broker_id);
+            if (data.value) form.setValue("value", data.value);
+            if (data.commission_percentage !== undefined) form.setValue("commission_percentage", data.commission_percentage);
+            if (data.start_date) form.setValue("start_date", data.start_date);
+            if (data.end_date !== undefined) form.setValue("end_date", data.end_date);
+            if (data.payment_day !== undefined) form.setValue("payment_day", data.payment_day);
+            if (data.readjustment_index !== undefined) form.setValue("readjustment_index", data.readjustment_index);
+            if (data.notes) form.setValue("notes", data.notes);
+          }}
+        />
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
