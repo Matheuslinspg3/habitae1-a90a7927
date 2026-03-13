@@ -187,8 +187,8 @@ serve(async (req) => {
       }
     }
 
-    // Fallback to Lovable AI
-    if (!imageUrl) {
+    // Fallback to Lovable AI (if enabled)
+    if (!imageUrl && imgConfig.lovable_fallback_enabled) {
       try {
         console.log("Falling back to Lovable AI for image...");
         imageUrl = await generateWithLovable(prompt);
@@ -196,6 +196,8 @@ serve(async (req) => {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI image also failed:", err.message);
       }
+    } else if (!imageUrl && !imgConfig.lovable_fallback_enabled) {
+      errors.push("Fallback Lovable AI desativado");
     }
 
     if (!imageUrl) {
