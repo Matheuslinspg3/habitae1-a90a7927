@@ -94,7 +94,7 @@ export function UsersTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome / ID / Email</TableHead>
-                <TableHead className="hidden sm:table-cell">Email</TableHead>
+                
                 <TableHead>Cargo</TableHead>
                 <TableHead className="w-[160px] hidden md:table-cell">Alterar</TableHead>
                 <TableHead className="w-12"></TableHead>
