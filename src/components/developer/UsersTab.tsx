@@ -93,7 +93,7 @@ export function UsersTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Nome / ID / Email</TableHead>
                 <TableHead className="hidden sm:table-cell">Email</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead className="w-[160px] hidden md:table-cell">Alterar</TableHead>
