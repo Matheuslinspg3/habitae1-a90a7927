@@ -19,6 +19,7 @@ import { PurgeCacheCard } from "@/components/developer/PurgeCacheCard";
 import { PwaDiagnosticsCard } from "@/components/developer/PwaDiagnosticsCard";
 import { MaintenanceCard } from "@/components/developer/MaintenanceCard";
 import { AIProviderCard } from "@/components/developer/AIProviderCard";
+import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -64,8 +65,11 @@ export default function DeveloperDashboard() {
         <MaintenanceCard />
       </div>
 
-      {/* AI Provider Config */}
-      <AIProviderCard />
+      {/* AI Provider Config + Usage Dashboard */}
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <AIProviderCard />
+        <AIUsageDashboard />
+      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">

@@ -348,24 +348,8 @@ export type Database = {
       ai_provider_config: {
         Row: {
           id: string
-          image_custom_key: string | null
-          image_custom_url: string | null
-          image_flux_key: string | null
-          image_leonardo_key: string | null
-          image_openai_key: string | null
           image_provider: string
-          image_sd_url: string | null
-          image_stability_key: string | null
           lovable_fallback_enabled: boolean
-          text_anthropic_key: string | null
-          text_custom_key: string | null
-          text_custom_model: string | null
-          text_custom_url: string | null
-          text_gemini_key: string | null
-          text_groq_key: string | null
-          text_ollama_model: string | null
-          text_ollama_url: string | null
-          text_openai_key: string | null
           text_openai_model: string | null
           text_provider: string
           updated_at: string
@@ -373,24 +357,8 @@ export type Database = {
         }
         Insert: {
           id?: string
-          image_custom_key?: string | null
-          image_custom_url?: string | null
-          image_flux_key?: string | null
-          image_leonardo_key?: string | null
-          image_openai_key?: string | null
           image_provider?: string
-          image_sd_url?: string | null
-          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
-          text_anthropic_key?: string | null
-          text_custom_key?: string | null
-          text_custom_model?: string | null
-          text_custom_url?: string | null
-          text_gemini_key?: string | null
-          text_groq_key?: string | null
-          text_ollama_model?: string | null
-          text_ollama_url?: string | null
-          text_openai_key?: string | null
           text_openai_model?: string | null
           text_provider?: string
           updated_at?: string
@@ -398,30 +366,70 @@ export type Database = {
         }
         Update: {
           id?: string
-          image_custom_key?: string | null
-          image_custom_url?: string | null
-          image_flux_key?: string | null
-          image_leonardo_key?: string | null
-          image_openai_key?: string | null
           image_provider?: string
-          image_sd_url?: string | null
-          image_stability_key?: string | null
           lovable_fallback_enabled?: boolean
-          text_anthropic_key?: string | null
-          text_custom_key?: string | null
-          text_custom_model?: string | null
-          text_custom_url?: string | null
-          text_gemini_key?: string | null
-          text_groq_key?: string | null
-          text_ollama_model?: string | null
-          text_ollama_url?: string | null
-          text_openai_key?: string | null
           text_openai_model?: string | null
           text_provider?: string
           updated_at?: string
           updated_by?: string | null
         }
         Relationships: []
+      }
+      ai_usage_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          estimated_cost_usd: number | null
+          function_name: string
+          id: string
+          model: string | null
+          organization_id: string | null
+          provider: string
+          success: boolean | null
+          tokens_input: number | null
+          tokens_output: number | null
+          usage_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          function_name: string
+          id?: string
+          model?: string | null
+          organization_id?: string | null
+          provider: string
+          success?: boolean | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          usage_type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          function_name?: string
+          id?: string
+          model?: string | null
+          organization_id?: string | null
+          provider?: string
+          success?: boolean | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          usage_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       anuncios_gerados: {
         Row: {

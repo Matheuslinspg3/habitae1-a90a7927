@@ -9,23 +9,37 @@ const corsHeaders = {
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// Pricing per image (USD)
+const IMAGE_PRICING: Record<string, number> = {
+  "dall-e-3": 0.04,
+  "stability-sd3": 0.035,
+  "leonardo-kino-xl": 0.012,
+  "flux-pro-1.1": 0.05,
+  "lovable-gemini-image": 0,
+};
+
 interface ImageConfig {
   image_provider: string;
-  image_openai_key: string | null;
-  image_stability_key: string | null;
-  image_leonardo_key: string | null;
-  image_flux_key: string | null;
   lovable_fallback_enabled: boolean;
 }
 
 async function getImageConfig(supabase: any): Promise<ImageConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("image_provider, image_openai_key, image_stability_key, image_leonardo_key, image_flux_key, lovable_fallback_enabled")
+    .select("image_provider, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
+  return data || { image_provider: "lovable", lovable_fallback_enabled: true };
+}
 
-  return data || { image_provider: "lovable", lovable_fallback_enabled: true } as ImageConfig;
+function getImageKey(provider: string): string | null {
+  const map: Record<string, string> = {
+    openai: "AI_OPENAI_KEY",
+    stability: "AI_STABILITY_KEY",
+    leonardo: "AI_LEONARDO_KEY",
+    flux: "AI_FLUX_KEY",
+  };
+  return Deno.env.get(map[provider] || "") || null;
 }
 
 async function generateWithDALLE(apiKey: string, prompt: string): Promise<string> {
@@ -46,10 +60,7 @@ async function generateWithDALLE(apiKey: string, prompt: string): Promise<string
 async function generateWithStability(apiKey: string, prompt: string): Promise<string> {
   const res = await fetch("https://api.stability.ai/v2beta/stable-image/generate/sd3", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
     body: (() => {
       const fd = new FormData();
       fd.append("prompt", `Professional real estate photo: ${prompt}`);
@@ -64,13 +75,12 @@ async function generateWithStability(apiKey: string, prompt: string): Promise<st
 }
 
 async function generateWithLeonardo(apiKey: string, prompt: string): Promise<string> {
-  // Start generation
   const genRes = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt: `Professional real estate photo: ${prompt}`,
-      modelId: "aa77f04e-3eec-4034-9c07-d0f619684628", // Leonardo Kino XL
+      modelId: "aa77f04e-3eec-4034-9c07-d0f619684628",
       width: 1024, height: 1024, num_images: 1,
     }),
   });
@@ -79,7 +89,6 @@ async function generateWithLeonardo(apiKey: string, prompt: string): Promise<str
   const generationId = genData.sdGenerationJob?.generationId;
   if (!generationId) throw new Error("Leonardo: no generation ID");
 
-  // Poll for result (max 60s)
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 2000));
     const pollRes = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
@@ -97,27 +106,19 @@ async function generateWithFlux(apiKey: string, prompt: string): Promise<string>
   const res = await fetch("https://api.bfl.ml/v1/flux-pro-1.1", {
     method: "POST",
     headers: { "X-Key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: `Professional real estate photo: ${prompt}`,
-      width: 1024, height: 1024,
-    }),
+    body: JSON.stringify({ prompt: `Professional real estate photo: ${prompt}`, width: 1024, height: 1024 }),
   });
   if (!res.ok) throw new Error(`Flux error: ${res.status}`);
   const data = await res.json();
   const taskId = data.id;
   if (!taskId) throw new Error("Flux: no task ID");
 
-  // Poll for result
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 2000));
-    const pollRes = await fetch(`https://api.bfl.ml/v1/get_result?id=${taskId}`, {
-      headers: { "X-Key": apiKey },
-    });
+    const pollRes = await fetch(`https://api.bfl.ml/v1/get_result?id=${taskId}`, { headers: { "X-Key": apiKey } });
     if (!pollRes.ok) continue;
     const pollData = await pollRes.json();
-    if (pollData.status === "Ready" && pollData.result?.sample) {
-      return pollData.result.sample;
-    }
+    if (pollData.status === "Ready" && pollData.result?.sample) return pollData.result.sample;
   }
   throw new Error("Flux: timeout waiting for image");
 }
@@ -125,7 +126,6 @@ async function generateWithFlux(apiKey: string, prompt: string): Promise<string>
 async function generateWithLovable(prompt: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
   const res = await fetch(LOVABLE_GATEWAY, {
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -135,12 +135,22 @@ async function generateWithLovable(prompt: string): Promise<string> {
       modalities: ["image", "text"],
     }),
   });
-
   if (!res.ok) throw new Error(`Lovable AI image error: ${res.status}`);
   const data = await res.json();
   const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   if (!imageUrl) throw new Error("No image generated");
   return imageUrl;
+}
+
+function getModelForProvider(provider: string): string {
+  const map: Record<string, string> = {
+    openai: "dall-e-3",
+    stability: "stability-sd3",
+    leonardo: "leonardo-kino-xl",
+    flux: "flux-pro-1.1",
+    lovable: "lovable-gemini-image",
+  };
+  return map[provider] || "lovable-gemini-image";
 }
 
 serve(async (req) => {
@@ -170,37 +180,66 @@ serve(async (req) => {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
     const imgConfig = await getImageConfig(serviceClient);
 
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .single();
+
     let imageUrl: string | null = null;
+    let usedProvider = "lovable";
     const errors: string[] = [];
     const provider = imgConfig.image_provider;
 
-    // Try configured provider
     try {
       console.log(`Trying image provider: ${provider}`);
-      if (provider === "openai" && imgConfig.image_openai_key) {
-        imageUrl = await generateWithDALLE(imgConfig.image_openai_key, prompt);
-      } else if (provider === "stability" && imgConfig.image_stability_key) {
-        imageUrl = await generateWithStability(imgConfig.image_stability_key, prompt);
-      } else if (provider === "leonardo" && imgConfig.image_leonardo_key) {
-        imageUrl = await generateWithLeonardo(imgConfig.image_leonardo_key, prompt);
-      } else if (provider === "flux" && imgConfig.image_flux_key) {
-        imageUrl = await generateWithFlux(imgConfig.image_flux_key, prompt);
+      const apiKey = getImageKey(provider);
+      if (provider === "openai" && apiKey) {
+        imageUrl = await generateWithDALLE(apiKey, prompt);
+        usedProvider = "openai";
+      } else if (provider === "stability" && apiKey) {
+        imageUrl = await generateWithStability(apiKey, prompt);
+        usedProvider = "stability";
+      } else if (provider === "leonardo" && apiKey) {
+        imageUrl = await generateWithLeonardo(apiKey, prompt);
+        usedProvider = "leonardo";
+      } else if (provider === "flux" && apiKey) {
+        imageUrl = await generateWithFlux(apiKey, prompt);
+        usedProvider = "flux";
       }
     } catch (err: any) {
       errors.push(`${provider}: ${err.message}`);
       console.warn(`${provider} failed:`, err.message);
     }
 
-    // Fallback to Lovable AI
     if (!imageUrl && (provider === "lovable" || imgConfig.lovable_fallback_enabled)) {
       try {
         console.log("Using Lovable AI for image...");
         imageUrl = await generateWithLovable(prompt);
+        usedProvider = "lovable";
       } catch (err: any) {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI image failed:", err.message);
       }
     }
+
+    // Log usage
+    const model = getModelForProvider(usedProvider);
+    const cost = IMAGE_PRICING[model] || 0;
+
+    await serviceClient.from("ai_usage_logs").insert({
+      organization_id: profile?.organization_id || null,
+      user_id: user.id,
+      provider: usedProvider,
+      model,
+      function_name: "generate-ad-image",
+      usage_type: "image",
+      tokens_input: 0,
+      tokens_output: 0,
+      estimated_cost_usd: cost,
+      success: !!imageUrl,
+      error_message: imageUrl ? null : errors.join("; "),
+    });
 
     if (!imageUrl) {
       return new Response(
