@@ -21,11 +21,11 @@ interface ImageConfig {
 async function getImageConfig(supabase: any): Promise<ImageConfig> {
   const { data } = await supabase
     .from("ai_provider_config")
-    .select("image_provider, image_sd_url, image_openai_key, image_custom_url, image_custom_key")
+    .select("image_provider, image_sd_url, image_openai_key, image_custom_url, image_custom_key, lovable_fallback_enabled")
     .eq("id", "singleton")
     .single();
 
-  return data || { image_provider: "lovable" } as ImageConfig;
+  return data || { image_provider: "lovable", lovable_fallback_enabled: true } as ImageConfig;
 }
 
 async function generateWithSD(sdUrl: string, prompt: string): Promise<string> {
