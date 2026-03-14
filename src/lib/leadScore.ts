@@ -46,11 +46,6 @@ export async function registerLeadScoreEvent(
   eventType: string,
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  const scoreDelta = SCORE_WEIGHTS[eventType];
-  if (scoreDelta === undefined) {
-    console.warn(`[LeadScore] Unknown event type: "${eventType}" — will use delta 0`);
-  }
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
@@ -63,6 +58,9 @@ export async function registerLeadScoreEvent(
   if (!profile?.organization_id) return;
 
   const scoreDelta = SCORE_WEIGHTS[eventType] ?? 0;
+  if (!(eventType in SCORE_WEIGHTS)) {
+    console.warn(`[LeadScore] Unknown event type: "${eventType}" — using delta 0`);
+  }
 
   const { error } = await supabase.from("lead_score_events").insert({
     lead_id: leadId,
