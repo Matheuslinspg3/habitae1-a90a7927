@@ -87,6 +87,7 @@ export function usePropertyFilters() {
     if (filters.searchText) params.set('q', filters.searchText);
     if (filters.transactionType !== 'all') params.set('tipo', filters.transactionType);
     if (filters.status !== 'all') params.set('status', filters.status);
+    if (filters.availabilityStatus !== 'all') params.set('disponibilidade', filters.availabilityStatus);
     if (filters.propertyTypeId !== 'all') params.set('tipo_imovel', filters.propertyTypeId);
     if (filters.minPrice) params.set('min_preco', String(filters.minPrice));
     if (filters.maxPrice) params.set('max_preco', String(filters.maxPrice));
