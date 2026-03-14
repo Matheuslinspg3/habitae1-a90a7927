@@ -127,6 +127,11 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   const [images, setImages] = useState<PropertyImage[]>([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [publishToMarketplace, setPublishToMarketplace] = useState(false);
+  const formStartRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (open) formStartRef.current = Date.now();
+  }, [open]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(propertySchema),
