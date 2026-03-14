@@ -158,16 +158,19 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
                     <Textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="Informe o motivo da alteração..."
+                      placeholder="Informe o motivo da alteração (mínimo 10 caracteres)..."
                       rows={3}
                     />
+                    {reason.trim().length > 0 && reason.trim().length < 10 && (
+                      <p className="text-xs text-destructive">Mínimo 10 caracteres ({reason.trim().length}/10)</p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button
                     onClick={() => updateStatus.mutate()}
-                    disabled={!reason.trim() || newStatus === currentStatus || updateStatus.isPending}
+                    disabled={reason.trim().length < 10 || newStatus === currentStatus || updateStatus.isPending}
                   >
                     Confirmar
                   </Button>
