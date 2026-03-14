@@ -74,6 +74,9 @@ export function useLeadInteractions(leadId: string | null) {
 
       if (error) throw error;
 
+      // Register score event for interaction
+      registerLeadScoreEvent(leadId, `interaction_${input.type}`, { description: input.description });
+
       // 3. If addToSchedule, create linked appointment
       if (input.addToSchedule && interaction) {
         const typeLabel = INTERACTION_TYPES.find(t => t.id === input.type)?.label || input.type;
