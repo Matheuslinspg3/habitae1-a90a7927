@@ -148,11 +148,13 @@ const App = () => (
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         
-                        {/* Ads module - consolidated */}
-                        <Route path="/anuncios" element={<Anuncios />} />
-                        <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
-                        <Route path="/rdstation" element={<Navigate to="/anuncios?section=rdstation" replace />} />
-                        <Route path="/gerador-anuncios" element={<Navigate to="/anuncios?section=gerador" replace />} />
+                        {/* Marketing module - consolidated */}
+                        <Route path="/marketing" element={<Anuncios />} />
+                        <Route path="/marketing/ad/:externalId" element={<MetaAdDetail />} />
+                        <Route path="/anuncios" element={<Navigate to="/marketing" replace />} />
+                        <Route path="/anuncios/ad/:externalId" element={<Navigate to="/marketing" replace />} />
+                        <Route path="/rdstation" element={<Navigate to="/marketing?section=rdstation" replace />} />
+                        <Route path="/gerador-anuncios" element={<Navigate to="/marketing?section=gerador" replace />} />
                         
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
