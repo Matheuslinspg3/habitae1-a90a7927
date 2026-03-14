@@ -26,12 +26,12 @@ const OPTIONS: { value: PeriodKey; label: string }[] = [
 
 export function DashboardPeriodFilter({ periodKey, onPeriodChange, customRange, onCustomRangeChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
       <ToggleGroup
         type="single"
         value={periodKey}
         onValueChange={(v) => v && onPeriodChange(v as PeriodKey)}
-        className="bg-muted/50 rounded-lg p-1"
+        className="bg-muted/50 rounded-lg p-1 flex-nowrap"
       >
         {OPTIONS.map((opt) => (
           <ToggleGroupItem

@@ -3,6 +3,8 @@ import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { MobileDashboardSummary } from "@/components/dashboard/MobileDashboardSummary";
+import { useScreenTime, useTrackAction } from "@/hooks/useAnalytics";
 import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { TodayTasks } from "@/components/dashboard/TodayTasks";
 import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
@@ -99,6 +101,10 @@ export default function Dashboard() {
 
   const isLoading = loadingProperties || loadingLeads || loadingContracts || loadingTransactions;
 
+  // Analytics
+  useScreenTime("dashboard");
+  const trackAction = useTrackAction();
+
   const stats = isDemoMode
     ? {
         properties: { value: demoStats.activeProperties, subtitle: `${demoStats.totalProperties} imóveis em portfólio`, trend: { value: "+15%", positive: true } },
@@ -119,11 +125,18 @@ export default function Dashboard() {
       
       <div className="relative flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
         {/* Welcome + Quick Actions + Live */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <WelcomeHeader />
             <LiveIndicator />
           </div>
+          <div className="hidden sm:block">
+            <QuickActions />
+          </div>
+        </div>
+
+        {/* Mobile Quick Actions - horizontal scroll */}
+        <div className="sm:hidden -mx-4 px-4">
           <QuickActions />
         </div>
 
@@ -141,12 +154,15 @@ export default function Dashboard() {
         {/* Carnival Banner */}
         {new Date().getMonth() === 1 && <CarnivalBanner />}
 
-        {/* Stats Grid */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
-          <StatCard title="Imóveis Ativos" value={stats.properties.value} subtitle={stats.properties.subtitle} icon={Home} trend={stats.properties.trend} onClick={() => navigate('/imoveis')} isLoading={isLoading} />
-          <StatCard title="Leads no Funil" value={stats.leads.value} subtitle={stats.leads.subtitle} icon={Users} trend={stats.leads.trend} onClick={() => navigate('/crm')} isLoading={isLoading} />
-          <StatCard title="Contratos Ativos" value={stats.contracts.value} subtitle={stats.contracts.subtitle} icon={FileText} trend={stats.contracts.trend} onClick={() => navigate('/contratos')} isLoading={isLoading} />
-          <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => navigate('/financeiro')} isLoading={isLoading} />
+        {/* Mobile compact stats (horizontal scroll) */}
+        <MobileDashboardSummary stats={stats} isLoading={isLoading} />
+
+        {/* Desktop Stats Grid */}
+        <div className="hidden md:grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
+          <StatCard title="Imóveis Ativos" value={stats.properties.value} subtitle={stats.properties.subtitle} icon={Home} trend={stats.properties.trend} onClick={() => { trackAction('stat_click', { card: 'properties' }); navigate('/imoveis'); }} isLoading={isLoading} />
+          <StatCard title="Leads no Funil" value={stats.leads.value} subtitle={stats.leads.subtitle} icon={Users} trend={stats.leads.trend} onClick={() => { trackAction('stat_click', { card: 'leads' }); navigate('/crm'); }} isLoading={isLoading} />
+          <StatCard title="Contratos Ativos" value={stats.contracts.value} subtitle={stats.contracts.subtitle} icon={FileText} trend={stats.contracts.trend} onClick={() => { trackAction('stat_click', { card: 'contracts' }); navigate('/contratos'); }} isLoading={isLoading} />
+          <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => { trackAction('stat_click', { card: 'revenue' }); navigate('/financeiro'); }} isLoading={isLoading} />
         </div>
 
         {/* Advanced KPIs */}
