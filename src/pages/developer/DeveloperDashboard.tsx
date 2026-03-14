@@ -21,6 +21,7 @@ import { MaintenanceCard } from "@/components/developer/MaintenanceCard";
 import { AIProviderCard } from "@/components/developer/AIProviderCard";
 import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { AILogsTable } from "@/components/developer/AILogsTable";
+import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -102,6 +103,7 @@ export default function DeveloperDashboard() {
         <TabsContent value="tickets"><TicketsTab /></TabsContent>
         <TabsContent value="ai">
           <div className="space-y-4">
+            <SecurityAuditCard />
             <AIProviderCard />
             <AIUsageDashboard />
             <AILogsTable />
