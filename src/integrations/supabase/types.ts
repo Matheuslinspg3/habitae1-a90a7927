@@ -625,6 +625,104 @@ export type Database = {
           },
         ]
       }
+      audit_events: {
+        Row: {
+          acting_role: string | null
+          action: string
+          action_category: string
+          changed_fields: string[] | null
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string
+          id: string
+          ip_address: unknown
+          metadata: Json | null
+          module: string | null
+          new_values: Json | null
+          old_values: Json | null
+          organization_id: string | null
+          parent_entity_id: string | null
+          parent_entity_type: string | null
+          request_id: string | null
+          risk_level: string | null
+          route: string | null
+          session_id: string | null
+          source: string | null
+          status: string | null
+          target_user_id: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          acting_role?: string | null
+          action: string
+          action_category: string
+          changed_fields?: string[] | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          module?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          organization_id?: string | null
+          parent_entity_id?: string | null
+          parent_entity_type?: string | null
+          request_id?: string | null
+          risk_level?: string | null
+          route?: string | null
+          session_id?: string | null
+          source?: string | null
+          status?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          acting_role?: string | null
+          action?: string
+          action_category?: string
+          changed_fields?: string[] | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          module?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          organization_id?: string | null
+          parent_entity_id?: string | null
+          parent_entity_type?: string | null
+          request_id?: string | null
+          risk_level?: string | null
+          route?: string | null
+          session_id?: string | null
+          source?: string | null
+          status?: string | null
+          target_user_id?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -4733,6 +4831,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_current_user_role: { Args: never; Returns: string }
       get_marketplace_contact: {
         Args: { p_property_id: string }
         Returns: Json
@@ -4952,6 +5051,36 @@ export type Database = {
           p_images_processed?: number
           p_imported?: number
           p_run_id: string
+        }
+        Returns: undefined
+      }
+      insert_audit_event: {
+        Args: {
+          p_acting_role?: string
+          p_action?: string
+          p_action_category?: string
+          p_changed_fields?: string[]
+          p_description?: string
+          p_entity_id?: string
+          p_entity_name?: string
+          p_entity_type?: string
+          p_ip_address?: unknown
+          p_metadata?: Json
+          p_module?: string
+          p_new_values?: Json
+          p_old_values?: Json
+          p_organization_id?: string
+          p_parent_entity_id?: string
+          p_parent_entity_type?: string
+          p_request_id?: string
+          p_risk_level?: string
+          p_route?: string
+          p_session_id?: string
+          p_source?: string
+          p_status?: string
+          p_target_user_id?: string
+          p_user_agent?: string
+          p_user_id?: string
         }
         Returns: undefined
       }
