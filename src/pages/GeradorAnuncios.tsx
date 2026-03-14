@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus, RefreshCw, Save, History, ChevronDown, RotateCcw } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface FormData {
   property_id: string;
@@ -29,9 +31,24 @@ interface FormData {
 }
 
 type ResultKey = "portal" | "instagram" | "whatsapp";
+type Tone = "formal" | "emocional" | "direto" | "luxo";
+
+const TONE_OPTIONS: { value: Tone; label: string }[] = [
+  { value: "formal", label: "Formal e técnico" },
+  { value: "emocional", label: "Envolvente e emocional" },
+  { value: "direto", label: "Direto e objetivo" },
+  { value: "luxo", label: "Luxo e sofisticação" },
+];
+
+const CHAR_LIMITS: Record<ResultKey, { min: number; max: number; label: string }> = {
+  portal: { min: 600, max: 1500, label: "Portal" },
+  instagram: { min: 100, max: 800, label: "Instagram" },
+  whatsapp: { min: 50, max: 400, label: "WhatsApp" },
+};
 
 export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {}) {
   const { user, profile } = useAuth();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<FormData>({
     property_id: "",
     lead_id: "",
@@ -45,12 +62,16 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     vagas: null,
     diferenciais: "",
   });
+  const [tone, setTone] = useState<Tone>("formal");
   const [loading, setLoading] = useState(false);
+  const [regeneratingChannel, setRegeneratingChannel] = useState<ResultKey | null>(null);
   const [results, setResults] = useState<Record<ResultKey, string> | null>(null);
   const [copied, setCopied] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [imageLoading, setImageLoading] = useState(false);
   const [imagePrompts, setImagePrompts] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
@@ -86,6 +107,22 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     enabled: !!profile?.organization_id,
   });
 
+  // Fetch history
+  const { data: history = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["anuncios_gerados", profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      const { data } = await supabase
+        .from("anuncios_gerados")
+        .select("id, created_at, dados_formulario, texto_portal, texto_instagram, texto_whatsapp, property_id, tone")
+        .eq("organization_id", profile.organization_id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return data || [];
+    },
+    enabled: !!profile?.organization_id,
+  });
+
   // Auto-fill form when property is selected
   useEffect(() => {
     if (!form.property_id) return;
@@ -114,6 +151,31 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
   const selectedLead = leads.find((l: any) => l.id === form.lead_id);
 
+  const callGenerateContent = async (channel?: string) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-ad-content", {
+        body: {
+          formData: form,
+          leadName: selectedLead?.name || null,
+          tone,
+          channel: channel || "all",
+        },
+      });
+
+      clearTimeout(timeout);
+      if (error) throw new Error(error.message || "Erro ao gerar anúncios");
+      if (data?.error) throw new Error(data.error);
+      return data;
+    } catch (err: any) {
+      clearTimeout(timeout);
+      if (err.name === "AbortError") throw new Error("Tempo limite excedido (45s). Tente novamente.");
+      throw err;
+    }
+  };
+
   const handleGenerate = async () => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
       toast.error("Preencha tipo, finalidade e localização.");
@@ -125,15 +187,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     setImagePrompts([]);
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-ad-content", {
-        body: {
-          formData: form,
-          leadName: selectedLead?.name || null,
-        },
-      });
-
-      if (error) throw new Error(error.message || "Erro ao gerar anúncios");
-      if (data?.error) throw new Error(data.error);
+      const data = await callGenerateContent();
 
       setResults({
         portal: data.portal,
@@ -145,18 +199,6 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         setImagePrompts(data.image_prompts);
       }
 
-      // Save to DB
-      if (user && profile?.organization_id) {
-        await supabase.from("anuncios_gerados").insert({
-          organization_id: profile.organization_id,
-          corretor_id: user.id,
-          texto_portal: data.portal,
-          texto_instagram: data.instagram,
-          texto_whatsapp: data.whatsapp,
-          dados_formulario: { ...form, lead_name: selectedLead?.name } as any,
-        });
-      }
-
       toast.success("Anúncios gerados com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar anúncios:", err);
@@ -164,6 +206,82 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegenerateChannel = async (channel: ResultKey) => {
+    if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
+      toast.error("Preencha tipo, finalidade e localização.");
+      return;
+    }
+
+    setRegeneratingChannel(channel);
+
+    try {
+      const data = await callGenerateContent(channel);
+      if (data[channel]) {
+        setResults((prev) => prev ? { ...prev, [channel]: data[channel] } : null);
+        toast.success(`Texto de ${CHAR_LIMITS[channel].label} regenerado!`);
+      }
+    } catch (err: any) {
+      console.error(`Erro ao regenerar ${channel}:`, err);
+      toast.error(err.message || `Erro ao regenerar ${channel}`);
+    } finally {
+      setRegeneratingChannel(null);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!results || !user || !profile?.organization_id) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("anuncios_gerados").insert({
+        organization_id: profile.organization_id,
+        corretor_id: user.id,
+        texto_portal: results.portal,
+        texto_instagram: results.instagram,
+        texto_whatsapp: results.whatsapp,
+        dados_formulario: { ...form, lead_name: selectedLead?.name, tone } as any,
+        property_id: form.property_id || null,
+        tone,
+      } as any);
+
+      if (error) throw error;
+
+      toast.success("Geração salva com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["anuncios_gerados"] });
+    } catch (err: any) {
+      console.error("Erro ao salvar:", err);
+      toast.error("Erro ao salvar geração.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLoadHistory = (item: any) => {
+    const formData = item.dados_formulario as any;
+    if (formData) {
+      setForm({
+        property_id: formData.property_id || item.property_id || "",
+        lead_id: formData.lead_id || "",
+        tipo: formData.tipo || "",
+        finalidade: formData.finalidade || "",
+        bairro_cidade: formData.bairro_cidade || "",
+        valor: formData.valor ?? null,
+        metragem: formData.metragem ?? null,
+        quartos: formData.quartos ?? null,
+        suites: formData.suites ?? null,
+        vagas: formData.vagas ?? null,
+        diferenciais: formData.diferenciais || "",
+      });
+      if (formData.tone || item.tone) setTone(formData.tone || item.tone);
+    }
+    setResults({
+      portal: item.texto_portal || "",
+      instagram: item.texto_instagram || "",
+      whatsapp: item.texto_whatsapp || "",
+    });
+    toast.success("Geração carregada!");
   };
 
   const handleGenerateImages = async () => {
@@ -253,7 +371,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
                   <SelectItem value="__none__">Nenhum (preencher manual)</SelectItem>
                   {properties.map((p: any) => (
                     <SelectItem key={p.id} value={p.id}>
-                      #{p.property_code} — {p.title || "Sem título"}
+                      #{p.property_code} — {p.title || "Sem título"} — {p.address_neighborhood || ""}, {p.address_city || ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -296,6 +414,10 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
                   <SelectItem value="Apartamento">Apartamento</SelectItem>
                   <SelectItem value="Terreno">Terreno</SelectItem>
                   <SelectItem value="Sala Comercial">Sala Comercial</SelectItem>
+                  <SelectItem value="Cobertura">Cobertura</SelectItem>
+                  <SelectItem value="Kitnet">Kitnet</SelectItem>
+                  <SelectItem value="Sobrado">Sobrado</SelectItem>
+                  <SelectItem value="Galpão">Galpão</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -376,6 +498,21 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
             />
           </div>
 
+          {/* Tone selector */}
+          <div className="space-y-2">
+            <Label>Tom do anúncio</Label>
+            <Select value={tone} onValueChange={(v) => setTone(v as Tone)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TONE_OPTIONS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto gap-2">
             <Sparkles className="h-4 w-4" />
             {loading ? "Gerando textos..." : "Gerar Anúncios"}
@@ -385,47 +522,84 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
       {/* Results */}
       {(loading || results) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {resultCards.map(({ key, title, icon, color }) => (
-            <Card key={key}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <span className={color}>{icon}</span>
-                  {title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {loading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                    <Skeleton className="h-4 w-4/6" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/6" />
-                  </div>
-                ) : results ? (
-                  <>
-                    <Textarea
-                      value={results[key]}
-                      onChange={(e) => updateResult(key, e.target.value)}
-                      rows={10}
-                      className="text-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2"
-                      onClick={() => handleCopy(key)}
-                    >
-                      {copied[key] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copied[key] ? "Copiado!" : "Copiar"}
-                    </Button>
-                  </>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {resultCards.map(({ key, title, icon, color }) => {
+              const charCount = results?.[key]?.length || 0;
+              const limits = CHAR_LIMITS[key];
+              const isRegenerating = regeneratingChannel === key;
+
+              return (
+                <Card key={key}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className={color}>{icon}</span>
+                      {title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {loading || isRegenerating ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-4/6" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/6" />
+                      </div>
+                    ) : results ? (
+                      <>
+                        <Textarea
+                          value={results[key]}
+                          onChange={(e) => updateResult(key, e.target.value)}
+                          rows={10}
+                          className="text-sm"
+                        />
+                        {/* Character counter */}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{charCount} caracteres</span>
+                          <Badge variant={charCount >= limits.min && charCount <= limits.max ? "default" : "destructive"} className="text-[10px]">
+                            Ideal: {limits.min}–{limits.max}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 gap-1"
+                            onClick={() => handleCopy(key)}
+                          >
+                            {copied[key] ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copied[key] ? "Copiado!" : "Copiar"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => handleRegenerateChannel(key)}
+                            disabled={!!regeneratingChannel}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Regenerar
+                          </Button>
+                        </div>
+                      </>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Save button */}
+          {results && (
+            <div className="flex justify-end">
+              <Button onClick={handleSave} disabled={saving} className="gap-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? "Salvando..." : "💾 Salvar Geração"}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Image Generation */}
@@ -488,6 +662,75 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
           </CardContent>
         </Card>
       )}
+
+      {/* History */}
+      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Últimas gerações
+                  {history.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{history.length}</Badge>
+                  )}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${historyOpen ? "rotate-180" : ""}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {historyLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : history.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma geração salva ainda.</p>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((item: any) => {
+                    const formData = item.dados_formulario as any;
+                    const date = new Date(item.created_at);
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium truncate">
+                              {formData?.tipo || "—"} • {formData?.finalidade || "—"}
+                            </span>
+                            {item.tone && (
+                              <Badge variant="outline" className="text-[10px]">{item.tone}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {formData?.bairro_cidade || "—"} • {date.toLocaleDateString("pt-BR")} {date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 shrink-0"
+                          onClick={() => handleLoadHistory(item)}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Carregar
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   );
 }

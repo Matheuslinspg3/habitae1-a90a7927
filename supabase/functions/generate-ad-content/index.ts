@@ -17,6 +17,7 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-20250514": { input: 3, output: 15 },
   "llama-3.1-70b-versatile": { input: 0.59, output: 0.79 },
   "google/gemini-2.5-flash": { input: 0.15, output: 0.6 },
+  "google/gemini-3-flash-preview": { input: 0.15, output: 0.6 },
 };
 
 function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
@@ -53,82 +54,10 @@ function getTextKey(provider: string, config: AIConfig): string | null {
   return map[provider] || null;
 }
 
-async function callOpenAI(apiKey: string, model: string, messages: any[], tools?: any[], toolChoice?: any) {
-  const body: any = { model, messages, temperature: 0.8 };
-  if (tools) body.tools = tools;
-  if (toolChoice) body.tool_choice = toolChoice;
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`OpenAI error: ${res.status}`);
-  return await res.json();
-}
-
-async function callGemini(apiKey: string, messages: any[], tools?: any[], toolChoice?: any) {
-  const body: any = { model: "gemini-2.0-flash", messages, temperature: 0.8 };
-  if (tools) body.tools = tools;
-  if (toolChoice) body.tool_choice = toolChoice;
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
-  return await res.json();
-}
-
-async function callAnthropic(apiKey: string, messages: any[], tools?: any[], toolChoice?: any) {
-  const systemMsg = messages.find((m: any) => m.role === "system");
-  const userMsgs = messages.filter((m: any) => m.role !== "system");
-  const anthropicTools = tools?.map((t: any) => ({
-    name: t.function.name, description: t.function.description, input_schema: t.function.parameters,
-  }));
-  const body: any = {
-    model: "claude-sonnet-4-20250514", max_tokens: 4096, messages: userMsgs,
-    ...(systemMsg ? { system: systemMsg.content } : {}),
-    ...(anthropicTools ? { tools: anthropicTools } : {}),
-    ...(toolChoice ? { tool_choice: { type: "tool", name: toolChoice.function.name } } : {}),
-  };
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Anthropic error: ${res.status}`);
-  const data = await res.json();
-  const toolUse = data.content?.find((c: any) => c.type === "tool_use");
-  if (toolUse) {
-    return {
-      choices: [{ message: { tool_calls: [{ function: { name: toolUse.name, arguments: JSON.stringify(toolUse.input) } }] } }],
-      usage: data.usage ? { prompt_tokens: data.usage.input_tokens, completion_tokens: data.usage.output_tokens } : undefined,
-    };
-  }
-  const textContent = data.content?.find((c: any) => c.type === "text");
-  return {
-    choices: [{ message: { content: textContent?.text || "" } }],
-    usage: data.usage ? { prompt_tokens: data.usage.input_tokens, completion_tokens: data.usage.output_tokens } : undefined,
-  };
-}
-
-async function callGroq(apiKey: string, messages: any[], tools?: any[], toolChoice?: any) {
-  const body: any = { model: "llama-3.1-70b-versatile", messages, temperature: 0.8 };
-  if (tools) body.tools = tools;
-  if (toolChoice) body.tool_choice = toolChoice;
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Groq error: ${res.status}`);
-  return await res.json();
-}
-
 async function callLovable(messages: any[], tools?: any[], toolChoice?: any) {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-  const body: any = { model: "google/gemini-2.5-flash", messages, temperature: 0.8 };
+  const body: any = { model: "google/gemini-3-flash-preview", messages, temperature: 0.7 };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
   const res = await fetch(LOVABLE_GATEWAY, {
@@ -152,31 +81,50 @@ function extractToolResult(aiData: any) {
   return null;
 }
 
-function getModelForProvider(provider: string, config: AIConfig): string {
-  if (provider === "openai") return config.text_openai_model || "gpt-4o";
-  if (provider === "gemini") return "gemini-2.0-flash";
-  if (provider === "anthropic") return "claude-sonnet-4-20250514";
-  if (provider === "groq") return "llama-3.1-70b-versatile";
-  return "google/gemini-2.5-flash";
+const TONE_INSTRUCTIONS: Record<string, string> = {
+  formal: "Use linguagem formal, técnica e profissional. Sem gírias ou emojis no portal.",
+  emocional: "Use linguagem envolvente, emocional e inspiradora. Faça o leitor se imaginar morando lá.",
+  direto: "Seja extremamente direto e objetivo. Vá direto ao ponto sem rodeios.",
+  luxo: "Use linguagem sofisticada, elegante e exclusiva. Transmita luxo e exclusividade.",
+};
+
+function buildTools(channel?: string) {
+  // If regenerating a single channel, only require that channel
+  const allProps: Record<string, any> = {
+    portal: { type: "string", description: "Texto completo para portal imobiliário (OLX/ZAP). Profissional, detalhado, sem emojis, 600-1500 caracteres." },
+    instagram: { type: "string", description: "Texto para Instagram/Facebook Ads. Envolvente, com emojis estratégicos, máximo 150 palavras. Inclua hashtags." },
+    whatsapp: { type: "string", description: "Mensagem curta para WhatsApp. Máximo 80 palavras, até 3 emojis, direta e com call-to-action." },
+    image_prompts: { type: "array", items: { type: "string" }, description: "3 prompts em inglês para gerar imagens profissionais do imóvel." },
+  };
+
+  if (channel && channel !== "all") {
+    // Single channel regeneration
+    const props: Record<string, any> = {};
+    if (allProps[channel]) props[channel] = allProps[channel];
+    return [{
+      type: "function",
+      function: {
+        name: "generate_ads",
+        description: `Gera versão de anúncio imobiliário para ${channel}`,
+        parameters: { type: "object", properties: props, required: Object.keys(props) },
+      },
+    }];
+  }
+
+  return [{
+    type: "function",
+    function: {
+      name: "generate_ads",
+      description: "Gera 3 versões de anúncio imobiliário para diferentes plataformas",
+      parameters: {
+        type: "object",
+        properties: allProps,
+        required: ["portal", "instagram", "whatsapp", "image_prompts"],
+      },
+    },
+  }];
 }
 
-const tools = [{
-  type: "function",
-  function: {
-    name: "generate_ads",
-    description: "Gera 3 versões de anúncio imobiliário para diferentes plataformas",
-    parameters: {
-      type: "object",
-      properties: {
-        portal: { type: "string", description: "Texto completo para portal imobiliário (OLX/ZAP). Profissional, detalhado, sem emojis, 150-250 palavras." },
-        instagram: { type: "string", description: "Texto para Instagram/Facebook Ads. Envolvente, com emojis estratégicos, máximo 150 palavras. Inclua hashtags." },
-        whatsapp: { type: "string", description: "Mensagem curta para WhatsApp. Máximo 80 palavras, até 3 emojis, direta e com call-to-action." },
-        image_prompts: { type: "array", items: { type: "string" }, description: "3 prompts em inglês para gerar imagens profissionais do imóvel." },
-      },
-      required: ["portal", "instagram", "whatsapp", "image_prompts"],
-    },
-  },
-}];
 const toolChoice = { type: "function", function: { name: "generate_ads" } };
 
 serve(async (req) => {
@@ -198,7 +146,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { formData, leadName } = await req.json();
+    const { formData, leadName, tone, channel } = await req.json();
     if (!formData?.tipo || !formData?.finalidade || !formData?.bairro_cidade) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -207,8 +155,14 @@ serve(async (req) => {
     const aiConfig = await getAIConfig(serviceClient);
 
     const propertyDesc = buildPropertyDescription(formData);
-    const systemPrompt = `Você é um copywriter imobiliário profissional brasileiro com experiência em anúncios para Facebook Ads, portais imobiliários e WhatsApp. Gere textos prontos para publicar, persuasivos e que convertem.`;
-    const userPrompt = `Gere 3 versões de anúncio para este imóvel:\n\n${propertyDesc}\n\n${leadName ? `Cliente alvo: ${leadName}` : ""}\n\nRetorne usando a função generate_ads.`;
+    const toneInstruction = TONE_INSTRUCTIONS[tone || "formal"] || TONE_INSTRUCTIONS.formal;
+    
+    const channelInstruction = channel && channel !== "all"
+      ? `\n\nGere APENAS a versão para ${channel}. Retorne usando a função generate_ads com apenas o campo "${channel}".`
+      : `\n\nRetorne usando a função generate_ads.`;
+
+    const systemPrompt = `Você é um copywriter especializado em imóveis brasileiros. ${toneInstruction}`;
+    const userPrompt = `Gere ${channel && channel !== "all" ? `a versão ${channel} do` : "3 versões de"} anúncio para este imóvel:\n\n${propertyDesc}\n\n${leadName ? `Cliente alvo: ${leadName}` : ""}${channelInstruction}`;
     const messages = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
@@ -223,34 +177,80 @@ serve(async (req) => {
 
     let result: any = null;
     let usedProvider = "lovable";
-    let usedModel = "google/gemini-2.5-flash";
+    let usedModel = "google/gemini-3-flash-preview";
     let aiData: any = null;
     const errors: string[] = [];
     const provider = aiConfig.text_provider;
+    const tools = buildTools(channel);
 
-    // Try configured provider
+    // Try configured provider first
     try {
       console.log(`Trying text provider: ${provider}`);
       const apiKey = getTextKey(provider, aiConfig);
 
       if (provider === "openai" && apiKey) {
         usedModel = aiConfig.text_openai_model || "gpt-4o";
-        aiData = await callOpenAI(apiKey, usedModel, messages, tools, toolChoice);
+        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: toolChoice };
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`OpenAI error: ${res.status}`);
+        aiData = await res.json();
         result = extractToolResult(aiData);
         usedProvider = "openai";
       } else if (provider === "gemini" && apiKey) {
         usedModel = "gemini-2.0-flash";
-        aiData = await callGemini(apiKey, messages, tools, toolChoice);
+        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: toolChoice };
+        const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
+        aiData = await res.json();
         result = extractToolResult(aiData);
         usedProvider = "gemini";
       } else if (provider === "anthropic" && apiKey) {
         usedModel = "claude-sonnet-4-20250514";
-        aiData = await callAnthropic(apiKey, messages, tools, toolChoice);
+        const systemMsg = messages.find((m: any) => m.role === "system");
+        const userMsgs = messages.filter((m: any) => m.role !== "system");
+        const anthropicTools = tools.map((t: any) => ({
+          name: t.function.name, description: t.function.description, input_schema: t.function.parameters,
+        }));
+        const body: any = {
+          model: usedModel, max_tokens: 4096, messages: userMsgs,
+          ...(systemMsg ? { system: systemMsg.content } : {}),
+          tools: anthropicTools,
+          tool_choice: { type: "tool", name: "generate_ads" },
+        };
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Anthropic error: ${res.status}`);
+        const data = await res.json();
+        const toolUse = data.content?.find((c: any) => c.type === "tool_use");
+        if (toolUse) {
+          aiData = { choices: [{ message: { tool_calls: [{ function: { name: toolUse.name, arguments: JSON.stringify(toolUse.input) } }] } }], usage: data.usage ? { prompt_tokens: data.usage.input_tokens, completion_tokens: data.usage.output_tokens } : undefined };
+        } else {
+          const textContent = data.content?.find((c: any) => c.type === "text");
+          aiData = { choices: [{ message: { content: textContent?.text || "" } }], usage: data.usage ? { prompt_tokens: data.usage.input_tokens, completion_tokens: data.usage.output_tokens } : undefined };
+        }
         result = extractToolResult(aiData);
         usedProvider = "anthropic";
       } else if (provider === "groq" && apiKey) {
         usedModel = "llama-3.1-70b-versatile";
-        aiData = await callGroq(apiKey, messages, tools, toolChoice);
+        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: toolChoice };
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+        aiData = await res.json();
         result = extractToolResult(aiData);
         usedProvider = "groq";
       }
@@ -266,7 +266,7 @@ serve(async (req) => {
         aiData = await callLovable(messages, tools, toolChoice);
         result = extractToolResult(aiData);
         usedProvider = "lovable";
-        usedModel = "google/gemini-2.5-flash";
+        usedModel = "google/gemini-3-flash-preview";
       } catch (err: any) {
         errors.push(`Lovable: ${err.message}`);
         console.error("Lovable AI failed:", err.message);

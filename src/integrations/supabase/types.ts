@@ -463,9 +463,11 @@ export type Database = {
           id: string
           imagem_url: string | null
           organization_id: string
+          property_id: string | null
           texto_instagram: string | null
           texto_portal: string | null
           texto_whatsapp: string | null
+          tone: string | null
         }
         Insert: {
           corretor_id: string
@@ -474,9 +476,11 @@ export type Database = {
           id?: string
           imagem_url?: string | null
           organization_id: string
+          property_id?: string | null
           texto_instagram?: string | null
           texto_portal?: string | null
           texto_whatsapp?: string | null
+          tone?: string | null
         }
         Update: {
           corretor_id?: string
@@ -485,9 +489,11 @@ export type Database = {
           id?: string
           imagem_url?: string | null
           organization_id?: string
+          property_id?: string | null
           texto_instagram?: string | null
           texto_portal?: string | null
           texto_whatsapp?: string | null
+          tone?: string | null
         }
         Relationships: [
           {
@@ -495,6 +501,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anuncios_gerados_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
