@@ -122,6 +122,13 @@ export default function Anuncios() {
               <GeradorArtesContent />
             </Suspense>
           </TabsContent>
+
+          {/* ── Gerador de Vídeo ── */}
+          <TabsContent value="video" className="mt-4">
+            <Suspense fallback={<TabLoader />}>
+              <GeradorVideoContent />
+            </Suspense>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
