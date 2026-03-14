@@ -165,10 +165,12 @@ export default function Activities() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Atividades"
-        description="Acompanhe todas as atividades da equipe"
-      />
+      {!embedded && (
+        <PageHeader
+          title="Atividades"
+          description="Acompanhe todas as atividades da equipe"
+        />
+      )}
 
       {/* Filters */}
       <Card>

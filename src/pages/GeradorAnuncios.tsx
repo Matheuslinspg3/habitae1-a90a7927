@@ -231,7 +231,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />
+      {!embedded && <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />}
 
       {/* Property & Lead Selection */}
       <Card>
