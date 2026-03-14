@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Phone,
   Mail,
@@ -30,6 +31,7 @@ import {
   Sun,
   Zap,
   Thermometer,
+  FolderOpen,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -49,6 +51,7 @@ import {
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
 import { LeadScoreSection } from './LeadScoreSection';
+import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface LeadDetailsProps {
