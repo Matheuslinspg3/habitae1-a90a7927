@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
             throw new Error("No user found in organization");
           }
 
+          // Use upsert-style insert: if a race condition causes a duplicate email,
+          // the unique index will reject it and we treat it as duplicate
           const { data: newLead, error: insertError } = await supabase
             .from("leads")
             .insert({
@@ -150,7 +152,15 @@ Deno.serve(async (req) => {
             .select("id")
             .single();
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            // Unique constraint violation = race condition duplicate
+            if (insertError.code === "23505") {
+              status = "duplicate";
+              results.push({ name, email, status: "duplicate" });
+              continue;
+            }
+            throw insertError;
+          }
           leadId = newLead?.id || null;
           status = "created";
 
