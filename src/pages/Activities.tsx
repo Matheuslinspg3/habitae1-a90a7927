@@ -113,8 +113,9 @@ function useAuditEvents() {
       if (error) throw error;
       if (!data?.length) return { events: [] as AuditRow[], nameMap: new Map<string, string>() };
 
+      const typedData = data as unknown as AuditRow[];
       const userIds = [...new Set(
-        (data as AuditRow[])
+        typedData
           .map((a) => a.user_id)
           .filter(Boolean) as string[]
       )];
@@ -125,7 +126,7 @@ function useAuditEvents() {
         .in("user_id", userIds);
 
       const nameMap = new Map(profiles?.map((p) => [p.user_id, p.full_name]) || []);
-      return { events: data as AuditRow[], nameMap };
+      return { events: typedData, nameMap };
     },
     enabled: !!orgId,
   });
