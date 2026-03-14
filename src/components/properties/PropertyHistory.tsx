@@ -36,6 +36,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState(currentStatus);
   const [reason, setReason] = useState("");
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   // Fetch status history
   const { data: history = [], isLoading } = useQuery({
