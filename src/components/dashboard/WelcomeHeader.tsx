@@ -21,7 +21,7 @@ export function WelcomeHeader() {
       <p className="editorial-label-muted capitalize" style={{ animationDelay: "50ms" }}>
         {dateStr}
       </p>
-      <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold font-display leading-[1.05] tracking-tight text-foreground">
+      <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold font-display leading-[1.05] tracking-tight text-foreground">
         {isCarnival && "🎭 "}{greeting}
         {firstName && (
           <>

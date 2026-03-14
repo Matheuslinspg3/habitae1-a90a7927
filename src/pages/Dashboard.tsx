@@ -123,11 +123,18 @@ export default function Dashboard() {
       
       <div className="relative flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
         {/* Welcome + Quick Actions + Live */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
             <WelcomeHeader />
             <LiveIndicator />
           </div>
+          <div className="hidden sm:block">
+            <QuickActions />
+          </div>
+        </div>
+
+        {/* Mobile Quick Actions - horizontal scroll */}
+        <div className="sm:hidden -mx-4 px-4">
           <QuickActions />
         </div>
 
