@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo, lazy, Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, Shield, History, LayoutDashboard } from "lucide-react";
+import { Users, UserPlus, Shield, History, LayoutDashboard, BarChart3, Loader2 } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { TeamDashboard } from "@/components/admin/TeamDashboard";
 import { CustomRolesManager } from "@/components/admin/CustomRolesManager";
@@ -14,6 +14,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTabParam } from "@/hooks/useTabParam";
+
+const ActivitiesContent = lazy(() => import("./Activities"));
 
 function UnassignedLeads() {
   const { profile } = useAuth();
@@ -93,11 +96,12 @@ function UnassignedLeads() {
 
 export default function Administration() {
   const { isAdminOrAbove } = useUserRoles();
+  const [tab, setTab] = useTabParam("tab", "dashboard");
 
   if (!isAdminOrAbove) {
     return (
       <div className="flex flex-col min-h-screen">
-        <PageHeader title="Administração" description="Acesso restrito" />
+        <PageHeader title="Gestão" description="Acesso restrito" />
         <div className="flex-1 p-6 flex items-center justify-center">
           <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
         </div>
@@ -107,27 +111,33 @@ export default function Administration() {
 
   return (
     <div className="flex flex-col min-h-screen" data-clarity-mask="true">
-      <PageHeader title="Administração" description="Coordene sua equipe, gerencie cargos e permissões" />
+      <PageHeader title="Gestão" description="Equipe, permissões, atividades e integrações" />
       <div className="flex-1 p-4 sm:p-6">
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="dashboard" className="gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="leads" className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              Leads
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="gap-2">
-              <Shield className="h-4 w-4" />
-              Cargos
-            </TabsTrigger>
-            <TabsTrigger value="history" className="gap-2">
-              <History className="h-4 w-4" />
-              Histórico
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+            <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 h-auto flex-wrap sm:flex-nowrap gap-1 p-1">
+              <TabsTrigger value="dashboard" className="gap-2 min-h-[44px]">
+                <LayoutDashboard className="h-4 w-4" />
+                Equipe
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="gap-2 min-h-[44px]">
+                <UserPlus className="h-4 w-4" />
+                Leads
+              </TabsTrigger>
+              <TabsTrigger value="roles" className="gap-2 min-h-[44px]">
+                <Shield className="h-4 w-4" />
+                Cargos
+              </TabsTrigger>
+              <TabsTrigger value="activities" className="gap-2 min-h-[44px]">
+                <BarChart3 className="h-4 w-4" />
+                Atividades
+              </TabsTrigger>
+              <TabsTrigger value="history" className="gap-2 min-h-[44px]">
+                <History className="h-4 w-4" />
+                Histórico
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="dashboard">
             <TeamDashboard />
@@ -147,6 +157,16 @@ export default function Administration() {
 
           <TabsContent value="roles">
             <CustomRolesManager />
+          </TabsContent>
+
+          <TabsContent value="activities">
+            <Suspense fallback={
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            }>
+              <ActivitiesContent />
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="history">
