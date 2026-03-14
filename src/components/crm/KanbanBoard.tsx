@@ -107,9 +107,13 @@ export function KanbanBoard() {
   const { propertyTypes } = usePropertyTypes();
 
   const [search, setSearch] = useState('');
-  const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
+  const handleSearchChange = useCallback((val: string) => {
+    setSearch(val);
+    // Debounced tracking handled by the filter component; track on clear/empty
+    if (val.length >= 3) {
+      trackSearch('crm', true);
+    }
+  }, []);
     try {
       return localStorage.getItem('crm_temperature_filter') || null;
     } catch {
