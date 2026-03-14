@@ -294,9 +294,17 @@ export function LeadForm({
   const hasPhone = phoneValue && phoneValue.trim().length > 0;
   const hasEmail = emailValue && emailValue.trim().length > 0;
 
+  const trackAction = useTrackAction();
+  const formStartRef = useRef(Date.now());
+
+  // Reset form timer when dialog opens
+  useEffect(() => {
+    if (open) formStartRef.current = Date.now();
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto mx-2 sm:mx-0 p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
         </DialogHeader>
