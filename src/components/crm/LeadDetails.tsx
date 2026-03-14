@@ -32,6 +32,7 @@ import {
   Zap,
   Thermometer,
   FolderOpen,
+  CalendarPlus,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,6 +54,8 @@ import { LeadSuggestedProperties } from './LeadSuggestedProperties';
 import { LeadScoreSection } from './LeadScoreSection';
 import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
+import { LeadVisitsSection } from '@/components/visits/LeadVisitsSection';
 
 interface LeadDetailsProps {
   open: boolean;
@@ -95,6 +98,7 @@ export function LeadDetails({
 }: LeadDetailsProps) {
   const { logActivity } = useActivityLogger();
   const [activeTab, setActiveTab] = useState('info');
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open && lead) {
@@ -317,6 +321,25 @@ export function LeadDetails({
 
           <Separator />
 
+          {/* Visits Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Visitas</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setVisitDialogOpen(true)}
+                className="h-7 text-xs"
+              >
+                <CalendarPlus className="h-3 w-3 mr-1" />
+                Agendar visita
+              </Button>
+            </div>
+            <LeadVisitsSection leadId={lead.id} />
+          </div>
+
+          <Separator />
+
           {/* Actions */}
           <div className="flex flex-col gap-2 pb-safe">
             <div className="flex gap-2">
@@ -397,6 +420,12 @@ export function LeadDetails({
             <LeadDocumentsTab leadId={lead.id} />
           </TabsContent>
         </Tabs>
+
+        <ScheduleVisitDialog
+          open={visitDialogOpen}
+          onOpenChange={setVisitDialogOpen}
+          defaultLeadId={lead.id}
+        />
       </SheetContent>
     </Sheet>
   );

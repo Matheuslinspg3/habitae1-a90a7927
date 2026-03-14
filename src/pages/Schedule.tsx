@@ -22,6 +22,7 @@ import { downloadIcs } from "@/lib/icsExport";
 import { TaskForm } from "@/components/schedule/TaskForm";
 import { AppointmentCard } from "@/components/schedule/AppointmentCard";
 import { TaskCard } from "@/components/schedule/TaskCard";
+import { ScheduleVisits } from "@/components/schedule/ScheduleVisits";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -191,6 +192,9 @@ export default function Schedule() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Visits for selected date */}
+            <ScheduleVisits selectedDate={date} />
 
             {/* Tasks */}
             <Card className="border-t-4 border-t-accent/40">

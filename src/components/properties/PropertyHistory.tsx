@@ -15,9 +15,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { AvailabilityBadge, availabilityConfig } from "./AvailabilityBadge";
-import { History, RefreshCw, ArrowRight } from "lucide-react";
+import { History, RefreshCw, ArrowRight, CalendarPlus } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
+import { LeadVisitsSection } from "@/components/visits/LeadVisitsSection";
 
 interface Props {
   propertyId: string;
@@ -34,6 +36,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState(currentStatus);
   const [reason, setReason] = useState("");
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   // Fetch status history
   const { data: history = [], isLoading } = useQuery({
@@ -102,6 +105,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
   const getStatusLabel = (status: string) => availabilityConfig[status]?.label || status;
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -109,6 +113,11 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
             <History className="h-5 w-5" />
             Histórico de Disponibilidade
           </CardTitle>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setVisitDialogOpen(true)}>
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Agendar visita
+            </Button>
           {isAdminOrAbove && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -158,6 +167,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
               </DialogContent>
             </Dialog>
           )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -214,5 +224,12 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
         )}
       </CardContent>
     </Card>
+
+    <ScheduleVisitDialog
+      open={visitDialogOpen}
+      onOpenChange={setVisitDialogOpen}
+      defaultPropertyId={propertyId}
+    />
+    </>
   );
 }

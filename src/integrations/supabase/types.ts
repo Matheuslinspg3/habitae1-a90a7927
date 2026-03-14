@@ -3669,6 +3669,82 @@ export type Database = {
           },
         ]
       }
+      property_visits: {
+        Row: {
+          agent_id: string
+          cancelled_reason: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          feedback: string | null
+          id: string
+          lead_id: string
+          notes: string | null
+          organization_id: string
+          property_id: string
+          rating: number | null
+          scheduled_at: string
+          updated_at: string
+          visit_status: Database["public"]["Enums"]["visit_status"]
+        }
+        Insert: {
+          agent_id: string
+          cancelled_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          feedback?: string | null
+          id?: string
+          lead_id: string
+          notes?: string | null
+          organization_id: string
+          property_id: string
+          rating?: number | null
+          scheduled_at: string
+          updated_at?: string
+          visit_status?: Database["public"]["Enums"]["visit_status"]
+        }
+        Update: {
+          agent_id?: string
+          cancelled_reason?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          feedback?: string | null
+          id?: string
+          lead_id?: string
+          notes?: string | null
+          organization_id?: string
+          property_id?: string
+          rating?: number | null
+          scheduled_at?: string
+          updated_at?: string
+          visit_status?: Database["public"]["Enums"]["visit_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_visits_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visits_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_visits_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           created_at: string
@@ -5110,6 +5186,12 @@ export type Database = {
         | "overdue"
         | "pending"
       transaction_type: "venda" | "aluguel" | "ambos"
+      visit_status:
+        | "scheduled"
+        | "confirmed"
+        | "completed"
+        | "cancelled"
+        | "no_show"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5297,6 +5379,13 @@ export const Constants = {
         "pending",
       ],
       transaction_type: ["venda", "aluguel", "ambos"],
+      visit_status: [
+        "scheduled",
+        "confirmed",
+        "completed",
+        "cancelled",
+        "no_show",
+      ],
     },
   },
 } as const
