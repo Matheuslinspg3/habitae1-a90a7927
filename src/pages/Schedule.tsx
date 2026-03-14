@@ -22,6 +22,7 @@ import { downloadIcs } from "@/lib/icsExport";
 import { TaskForm } from "@/components/schedule/TaskForm";
 import { AppointmentCard } from "@/components/schedule/AppointmentCard";
 import { TaskCard } from "@/components/schedule/TaskCard";
+import { ScheduleVisits } from "@/components/schedule/ScheduleVisits";
 import {
   AlertDialog,
   AlertDialogAction,
