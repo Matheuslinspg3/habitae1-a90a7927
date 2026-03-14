@@ -18,9 +18,25 @@ export function TeamInviteSection() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
-  const canInvite = hasRole('admin') || hasRole('leader') || hasRole('developer');
+  const canInvite = hasRole('admin') || hasRole('sub_admin') || hasRole('leader') || hasRole('developer');
+  const isAdmin = hasRole('admin') || hasRole('developer');
+  const isSubAdmin = hasRole('sub_admin');
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"corretor" | "assistente">("corretor");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<string>("corretor");
+
+  const availableRoles = isAdmin
+    ? ["corretor", "assistente", "leader", "sub_admin"]
+    : isSubAdmin
+    ? ["corretor", "assistente", "leader"]
+    : ["corretor", "assistente"];
+
+  const ROLE_LABELS: Record<string, string> = {
+    corretor: "Corretor",
+    assistente: "Assistente (somente leitura)",
+    leader: "Leader",
+    sub_admin: "Sub-Dono",
+  };
 
   const { data: invites = [], isLoading } = useQuery({
     queryKey: ["organization-invites", profile?.organization_id],
@@ -196,7 +212,16 @@ export function TeamInviteSection() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">Nome</Label>
+              <Input
+                id="invite-name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Nome do membro"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="invite-email">Email *</Label>
               <Input
@@ -209,13 +234,14 @@ export function TeamInviteSection() {
             </div>
             <div className="space-y-2">
               <Label>Cargo</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "corretor" | "assistente")}>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="corretor">Corretor</SelectItem>
-                  <SelectItem value="assistente">Assistente (somente leitura)</SelectItem>
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role} value={role}>{ROLE_LABELS[role] || role}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
