@@ -177,6 +177,7 @@ export function usePropertyFilters() {
       filters.searchText !== '' ||
       filters.transactionType !== 'all' ||
       filters.status !== 'all' ||
+      filters.availabilityStatus !== 'all' ||
       filters.propertyTypeId !== 'all' ||
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
