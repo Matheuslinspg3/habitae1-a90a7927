@@ -16,6 +16,7 @@ export default function CRM() {
   } = useLeads();
 
   const [tab, setTab] = useTabParam("tab", "active");
+  useScreenTime("crm");
 
   return (
     <div className="flex flex-col min-h-screen relative page-enter" data-clarity-mask="true">
