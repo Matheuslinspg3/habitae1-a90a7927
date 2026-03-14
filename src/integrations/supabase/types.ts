@@ -1156,6 +1156,96 @@ export type Database = {
           },
         ]
       }
+      generated_videos: {
+        Row: {
+          created_at: string
+          created_by: string
+          duration_per_photo: number
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          final_text: string | null
+          format: string
+          has_narration: boolean
+          id: string
+          include_logo: boolean
+          job_error: string | null
+          job_id: string | null
+          job_phase: string | null
+          job_progress: number | null
+          job_status: string
+          music_style: string | null
+          organization_id: string
+          photo_urls: string[]
+          property_id: string | null
+          updated_at: string
+          video_url: string | null
+          voice_used: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          duration_per_photo?: number
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          final_text?: string | null
+          format?: string
+          has_narration?: boolean
+          id?: string
+          include_logo?: boolean
+          job_error?: string | null
+          job_id?: string | null
+          job_phase?: string | null
+          job_progress?: number | null
+          job_status?: string
+          music_style?: string | null
+          organization_id: string
+          photo_urls?: string[]
+          property_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+          voice_used?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          duration_per_photo?: number
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          final_text?: string | null
+          format?: string
+          has_narration?: boolean
+          id?: string
+          include_logo?: boolean
+          job_error?: string | null
+          job_id?: string | null
+          job_phase?: string | null
+          job_progress?: number | null
+          job_status?: string
+          music_style?: string | null
+          organization_id?: string
+          photo_urls?: string[]
+          property_id?: string | null
+          updated_at?: string
+          video_url?: string | null
+          voice_used?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_videos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_videos_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imobzi_api_keys: {
         Row: {
           api_key: string
