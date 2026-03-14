@@ -293,6 +293,11 @@ export function LeadDetails({
 
           <Separator />
 
+          {/* Lead Score Section */}
+          <LeadScoreSection lead={lead} />
+
+          <Separator />
+
           <LeadInteractionTimeline leadId={lead.id} leadName={lead.name} />
 
           <Separator />
