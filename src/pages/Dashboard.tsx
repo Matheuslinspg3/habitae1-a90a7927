@@ -155,8 +155,11 @@ export default function Dashboard() {
         {/* Carnival Banner */}
         {new Date().getMonth() === 1 && <CarnivalBanner />}
 
-        {/* Mobile compact stats (horizontal scroll) */}
+        {/* Mobile compact stats (2x2 grid) */}
         <MobileDashboardSummary stats={stats} isLoading={isLoading} />
+
+        {/* Mobile Today Summary */}
+        <MobileTodaySummary />
 
         {/* Desktop Stats Grid */}
         <div className="hidden md:grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">

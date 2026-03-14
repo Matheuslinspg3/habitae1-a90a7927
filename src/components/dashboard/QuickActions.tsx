@@ -56,6 +56,7 @@ export function QuickActions() {
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   const handleAction = (action: QuickAction) => {
+    trackQuickAction(action.action || action.label);
     if (action.isDialog) {
       setVisitDialogOpen(true);
     } else if (action.path) {
