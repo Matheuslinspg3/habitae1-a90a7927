@@ -54,7 +54,7 @@ export function useAuditLog() {
         // Audit logging should never break the user flow
       }
     },
-    [user?.id, profile?.organization_id, role, location.pathname]
+    [user?.id, profile?.organization_id, roles, location.pathname]
   );
 
   const logView = useCallback(
