@@ -49,7 +49,7 @@ const Automations = lazy(() => import("./pages/Automations"));
 const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
 const Administration = lazy(() => import("./pages/Administration"));
 const Anuncios = lazy(() => import("./pages/Anuncios"));
-const RDStation = lazy(() => import("./pages/RDStation"));
+const _RDStation = lazy(() => import("./pages/RDStation")); // embedded in Anuncios
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
 const GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios"));
