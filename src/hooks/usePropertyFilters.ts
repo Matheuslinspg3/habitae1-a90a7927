@@ -60,6 +60,7 @@ export function usePropertyFilters() {
     searchText: searchParams.get('q') || '',
     transactionType: searchParams.get('tipo') || 'all',
     status: searchParams.get('status') || 'all',
+    availabilityStatus: searchParams.get('disponibilidade') || 'all',
     propertyTypeId: searchParams.get('tipo_imovel') || 'all',
     minPrice: searchParams.get('min_preco') ? Number(searchParams.get('min_preco')) : null,
     maxPrice: searchParams.get('max_preco') ? Number(searchParams.get('max_preco')) : null,
