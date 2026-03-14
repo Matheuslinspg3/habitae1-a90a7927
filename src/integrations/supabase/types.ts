@@ -1105,6 +1105,57 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_arts: {
+        Row: {
+          config: Json | null
+          created_at: string
+          created_by: string
+          id: string
+          organization_id: string
+          property_id: string | null
+          url_banner: string | null
+          url_feed: string | null
+          url_story: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          created_by: string
+          id?: string
+          organization_id: string
+          property_id?: string | null
+          url_banner?: string | null
+          url_feed?: string | null
+          url_story?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          organization_id?: string
+          property_id?: string | null
+          url_banner?: string | null
+          url_feed?: string | null
+          url_story?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_arts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_arts_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imobzi_api_keys: {
         Row: {
           api_key: string

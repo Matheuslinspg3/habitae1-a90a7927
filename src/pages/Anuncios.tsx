@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
-import { Loader2, Megaphone, BarChart3, Sparkles } from "lucide-react";
+import { Loader2, Megaphone, BarChart3, Sparkles, Palette } from "lucide-react";
 
 import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
@@ -14,7 +14,8 @@ import RDWebhookTab from "@/components/ads/rdstation/RDWebhookTab";
 import RDOAuthTab from "@/components/ads/rdstation/RDOAuthTab";
 import RDSettingsTab from "@/components/ads/rdstation/RDSettingsTab";
 
-const GeradorAnunciosContent = lazy(() => import("./GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
+const GeradorAnunciosContent = lazy(() => import("../pages/GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
+const GeradorArtesContent = lazy(() => import("@/components/ads/GeradorArtesContent"));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center py-12">
@@ -38,7 +39,7 @@ export default function Anuncios() {
       <div className="flex-1 p-4 sm:p-6 space-y-4">
         {/* Top-level sections */}
         <Tabs value={section} onValueChange={setSection}>
-          <TabsList className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto flex-wrap">
             <TabsTrigger value="meta" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
               <Megaphone className="h-4 w-4" />
               Meta Ads
@@ -55,6 +56,10 @@ export default function Anuncios() {
             <TabsTrigger value="gerador" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
               <Sparkles className="h-4 w-4" />
               Gerador IA
+            </TabsTrigger>
+            <TabsTrigger value="artes" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+              <Palette className="h-4 w-4" />
+              Gerador de Artes
             </TabsTrigger>
           </TabsList>
 
@@ -103,6 +108,13 @@ export default function Anuncios() {
           <TabsContent value="gerador" className="mt-4">
             <Suspense fallback={<TabLoader />}>
               <GeradorAnunciosContent />
+            </Suspense>
+          </TabsContent>
+
+          {/* ── Gerador de Artes ── */}
+          <TabsContent value="artes" className="mt-4">
+            <Suspense fallback={<TabLoader />}>
+              <GeradorArtesContent />
             </Suspense>
           </TabsContent>
         </Tabs>
