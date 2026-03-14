@@ -276,16 +276,16 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 min-h-[44px]">
                 {[
                   { key: "basic", label: "Básico" },
                   { key: "values", label: "Valores" },
-                  { key: "features", label: "Características" },
-                  { key: "location", label: "Localização" },
+                  { key: "features", label: "Caract." },
+                  { key: "location", label: "Local" },
                   { key: "photos", label: "Fotos" },
-                  { key: "description", label: "Descrição" },
+                  { key: "description", label: "Desc." },
                 ].map(({ key, label }) => (
-                  <TabsTrigger key={key} value={key} className="relative text-xs sm:text-sm">
+                  <TabsTrigger key={key} value={key} className="relative text-[11px] sm:text-sm min-h-[44px]">
                     {label}
                     <TabErrorIndicator tabKey={key} />
                   </TabsTrigger>
