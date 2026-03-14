@@ -107,7 +107,25 @@ export function KanbanBoard() {
   const [search, setSearch] = useState('');
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(null);
+  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('crm_temperature_filter') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Persist temperature filter
+  const handleTemperatureChange = (value: string | null) => {
+    setSelectedTemperature(value);
+    try {
+      if (value) {
+        localStorage.setItem('crm_temperature_filter', value);
+      } else {
+        localStorage.removeItem('crm_temperature_filter');
+      }
+    } catch { /* ignore */ }
+  };
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [columnReorderMode, setColumnReorderMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -420,7 +438,7 @@ export function KanbanBoard() {
           selectedSource={selectedSource}
           onSourceChange={setSelectedSource}
           selectedTemperature={selectedTemperature}
-          onTemperatureChange={setSelectedTemperature}
+          onTemperatureChange={handleTemperatureChange}
         />
         <div className="flex gap-2">
           <div className="flex border rounded-md overflow-hidden shrink-0">
@@ -482,7 +500,7 @@ export function KanbanBoard() {
           return (
             <button
               key={value}
-              onClick={() => setSelectedTemperature(isActive ? null : value)}
+              onClick={() => handleTemperatureChange(isActive ? null : value)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0 min-h-[32px] ${
                 isActive ? activeClass : 'border-border text-muted-foreground hover:bg-accent'
               }`}
