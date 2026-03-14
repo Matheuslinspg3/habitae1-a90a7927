@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.summarize-lead]
 verify_jwt = false
+
+[functions.validate-document]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Phone,
   Mail,
@@ -30,6 +31,7 @@ import {
   Sun,
   Zap,
   Thermometer,
+  FolderOpen,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -49,6 +51,7 @@ import {
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
 import { LeadScoreSection } from './LeadScoreSection';
+import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface LeadDetailsProps {
@@ -91,6 +94,7 @@ export function LeadDetails({
   isInactivating,
 }: LeadDetailsProps) {
   const { logActivity } = useActivityLogger();
+  const [activeTab, setActiveTab] = useState('info');
 
   useEffect(() => {
     if (open && lead) {
@@ -148,7 +152,18 @@ export function LeadDetails({
           </div>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+          <TabsList className="w-full">
+            <TabsTrigger value="info" className="flex-1 min-h-[36px] text-xs">
+              Informações
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="flex-1 min-h-[36px] text-xs gap-1">
+              <FolderOpen className="h-3 w-3" />
+              Documentos
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="info" className="mt-4 space-y-6">
           {/* Contact Info */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground">Contato</h3>
@@ -376,7 +391,12 @@ export function LeadDetails({
           <Separator />
 
           <LeadSuggestedProperties lead={lead} />
-        </div>
+          </TabsContent>
+
+          <TabsContent value="documents" className="mt-4">
+            <LeadDocumentsTab leadId={lead.id} />
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
