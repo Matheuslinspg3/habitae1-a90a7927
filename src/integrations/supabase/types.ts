@@ -1597,6 +1597,164 @@ export type Database = {
           },
         ]
       }
+      lead_document_template_items: {
+        Row: {
+          accepted_formats: string[]
+          created_at: string
+          description: string | null
+          id: string
+          is_required: boolean
+          max_size_mb: number
+          name: string
+          position: number
+          template_id: string
+        }
+        Insert: {
+          accepted_formats?: string[]
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          max_size_mb?: number
+          name: string
+          position?: number
+          template_id: string
+        }
+        Update: {
+          accepted_formats?: string[]
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          max_size_mb?: number
+          name?: string
+          position?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_document_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "lead_document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_document_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          operation_type: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          operation_type: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          operation_type?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_document_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_documents: {
+        Row: {
+          ai_validation: Json | null
+          created_at: string
+          file_name: string
+          file_size_bytes: number | null
+          id: string
+          lead_id: string
+          mime_type: string | null
+          notes: string | null
+          organization_id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          storage_path: string
+          template_item_id: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          ai_validation?: Json | null
+          created_at?: string
+          file_name: string
+          file_size_bytes?: number | null
+          id?: string
+          lead_id: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          storage_path: string
+          template_item_id?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          ai_validation?: Json | null
+          created_at?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          id?: string
+          lead_id?: string
+          mime_type?: string | null
+          notes?: string | null
+          organization_id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          storage_path?: string
+          template_item_id?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_documents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_documents_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "lead_document_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_interactions: {
         Row: {
           appointment_id: string | null
@@ -4449,6 +4607,10 @@ export type Database = {
       count_new_ad_leads: {
         Args: { p_external_ad_id?: string; p_organization_id: string }
         Returns: number
+      }
+      create_default_document_templates: {
+        Args: { p_org_id: string }
+        Returns: undefined
       }
       create_trial_subscription: { Args: { org_id: string }; Returns: string }
       current_user_has_role: {
