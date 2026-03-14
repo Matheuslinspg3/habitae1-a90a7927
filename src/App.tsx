@@ -46,7 +46,7 @@ const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
 const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
-const Activities = lazy(() => import("./pages/Activities"));
+const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
 const Administration = lazy(() => import("./pages/Administration"));
 const Anuncios = lazy(() => import("./pages/Anuncios"));
 const RDStation = lazy(() => import("./pages/RDStation"));
