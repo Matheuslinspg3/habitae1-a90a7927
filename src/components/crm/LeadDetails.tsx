@@ -32,6 +32,7 @@ import {
   Zap,
   Thermometer,
   FolderOpen,
+  CalendarPlus,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,6 +54,8 @@ import { LeadSuggestedProperties } from './LeadSuggestedProperties';
 import { LeadScoreSection } from './LeadScoreSection';
 import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
+import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
+import { LeadVisitsSection } from '@/components/visits/LeadVisitsSection';
 
 interface LeadDetailsProps {
   open: boolean;
