@@ -5,8 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
 
 export function useLeadDocuments(leadId: string | undefined) {
-  const { user } = useAuth();
-  const { profile } = useProfile();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const orgId = profile?.organization_id;
