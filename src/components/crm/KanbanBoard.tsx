@@ -114,6 +114,9 @@ export function KanbanBoard() {
       trackSearch('crm', true);
     }
   }, []);
+  const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
     try {
       return localStorage.getItem('crm_temperature_filter') || null;
     } catch {
@@ -124,6 +127,7 @@ export function KanbanBoard() {
   // Persist temperature filter
   const handleTemperatureChange = (value: string | null) => {
     setSelectedTemperature(value);
+    trackFilterUsed(`crm_temperature_${value || 'clear'}`);
     try {
       if (value) {
         localStorage.setItem('crm_temperature_filter', value);
