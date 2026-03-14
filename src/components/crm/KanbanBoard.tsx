@@ -442,7 +442,7 @@ export function KanbanBoard() {
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between">
         <LeadFilters
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={handleSearchChange}
           selectedBrokerId={selectedBrokerId}
           onBrokerChange={setSelectedBrokerId}
           brokers={brokers}
