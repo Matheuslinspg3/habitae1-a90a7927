@@ -257,6 +257,21 @@ export function KanbanBoard() {
         ...newTarget.map((l, i) => ({ id: l.id, position: i, lead_stage_id: targetStageId })),
       ];
       reorderLeads(updates);
+
+      // Register score event for stage change
+      const sourceIdx = leadStages.findIndex(s => s.id === sourceStageId);
+      const targetIdx = leadStages.findIndex(s => s.id === targetStageId);
+      const targetStage = leadStages.find(s => s.id === targetStageId);
+      
+      if (targetStage?.is_win) {
+        registerLeadScoreEvent(leadId, "stage_win", { from: sourceStageId, to: targetStageId });
+      } else if (targetStage?.is_loss) {
+        registerLeadScoreEvent(leadId, "stage_loss", { from: sourceStageId, to: targetStageId });
+      } else if (targetIdx > sourceIdx) {
+        registerLeadScoreEvent(leadId, "stage_advanced", { from: sourceStageId, to: targetStageId });
+      } else {
+        registerLeadScoreEvent(leadId, "stage_moved", { from: sourceStageId, to: targetStageId });
+      }
     }
   }, [leads, leadStages, filteredLeadsByStage, reorderLeads]);
 
