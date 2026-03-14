@@ -88,7 +88,7 @@ export default function MetaAdsListContent() {
             <Card
               key={ad.id}
               className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => navigate(`/anuncios/ad/${ad.external_id}`)}
+              onClick={() => navigate(`/marketing/ad/${ad.external_id}`)}
             >
               <CardContent className="p-4 flex gap-4">
                 <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">

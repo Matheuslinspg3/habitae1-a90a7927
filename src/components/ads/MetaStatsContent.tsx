@@ -101,7 +101,7 @@ export default function MetaStatsContent() {
               </TableHeader>
               <TableBody>
                 {insights.map(i => (
-                  <TableRow key={i.external_id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/anuncios/ad/${i.external_id}`)}>
+                  <TableRow key={i.external_id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/marketing/ad/${i.external_id}`)}>
                     <TableCell className="font-medium max-w-[200px] truncate">{i.ad_name}</TableCell>
                     <TableCell className="text-right">{i.impressions.toLocaleString("pt-BR")}</TableCell>
                     <TableCell className="text-right">{i.clicks.toLocaleString("pt-BR")}</TableCell>
