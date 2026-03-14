@@ -43,8 +43,7 @@ export function useVisits(filters?: VisitFilters) {
         .select(`
           *,
           property:properties(id, title, address_neighborhood, address_city),
-          lead:leads(id, name),
-          agent:profiles!property_visits_agent_id_fkey(user_id, full_name, avatar_url)
+          lead:leads(id, name)
         `)
         .order("scheduled_at", { ascending: true });
 
