@@ -86,3 +86,12 @@ verify_jwt = false
 
 [functions.generate-property-art]
 verify_jwt = false
+
+[functions.generate-property-video]
+verify_jwt = false
+
+[functions.video-job-status]
+verify_jwt = false
+
+[functions.cancel-video-job]
+verify_jwt = false

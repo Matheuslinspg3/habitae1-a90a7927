@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
-import { Loader2, Megaphone, BarChart3, Sparkles, Palette } from "lucide-react";
+import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video } from "lucide-react";
 
 import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
@@ -16,6 +16,7 @@ import RDSettingsTab from "@/components/ads/rdstation/RDSettingsTab";
 
 const GeradorAnunciosContent = lazy(() => import("../pages/GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
 const GeradorArtesContent = lazy(() => import("@/components/ads/GeradorArtesContent"));
+const GeradorVideoContent = lazy(() => import("@/components/ads/GeradorVideoContent"));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center py-12">
@@ -60,6 +61,10 @@ export default function Anuncios() {
             <TabsTrigger value="artes" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
               <Palette className="h-4 w-4" />
               Gerador de Artes
+            </TabsTrigger>
+            <TabsTrigger value="video" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+              <Video className="h-4 w-4" />
+              Gerador de Vídeo
             </TabsTrigger>
           </TabsList>
 
@@ -115,6 +120,13 @@ export default function Anuncios() {
           <TabsContent value="artes" className="mt-4">
             <Suspense fallback={<TabLoader />}>
               <GeradorArtesContent />
+            </Suspense>
+          </TabsContent>
+
+          {/* ── Gerador de Vídeo ── */}
+          <TabsContent value="video" className="mt-4">
+            <Suspense fallback={<TabLoader />}>
+              <GeradorVideoContent />
             </Suspense>
           </TabsContent>
         </Tabs>
