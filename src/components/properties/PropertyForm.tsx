@@ -243,6 +243,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       document: owner_document || undefined, notes: owner_notes || undefined,
     } : undefined;
     await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
+    if (!property) trackPropertyCreated();
     onOpenChange(false);
   };
 
