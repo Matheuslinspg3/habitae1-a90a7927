@@ -4831,6 +4831,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_current_user_role: { Args: never; Returns: string }
       get_marketplace_contact: {
         Args: { p_property_id: string }
         Returns: Json
