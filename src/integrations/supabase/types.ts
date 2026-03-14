@@ -1645,6 +1645,54 @@ export type Database = {
           },
         ]
       }
+      lead_score_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_type: string
+          id: string
+          lead_id: string
+          metadata: Json | null
+          organization_id: string
+          score_delta: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_type: string
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+          organization_id: string
+          score_delta?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+          organization_id?: string
+          score_delta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_score_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_score_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_stages: {
         Row: {
           color: string
@@ -1730,6 +1778,8 @@ export type Database = {
       leads: {
         Row: {
           additional_requirements: string | null
+          ai_summary: string | null
+          ai_summary_at: string | null
           broker_id: string | null
           created_at: string
           created_by: string
@@ -1760,6 +1810,7 @@ export type Database = {
           preferred_cities: string[] | null
           preferred_neighborhoods: string[] | null
           property_id: string | null
+          score: number | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
           temperature: string | null
@@ -1768,6 +1819,8 @@ export type Database = {
         }
         Insert: {
           additional_requirements?: string | null
+          ai_summary?: string | null
+          ai_summary_at?: string | null
           broker_id?: string | null
           created_at?: string
           created_by: string
@@ -1798,6 +1851,7 @@ export type Database = {
           preferred_cities?: string[] | null
           preferred_neighborhoods?: string[] | null
           property_id?: string | null
+          score?: number | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null
@@ -1806,6 +1860,8 @@ export type Database = {
         }
         Update: {
           additional_requirements?: string | null
+          ai_summary?: string | null
+          ai_summary_at?: string | null
           broker_id?: string | null
           created_at?: string
           created_by?: string
@@ -1836,6 +1892,7 @@ export type Database = {
           preferred_cities?: string[] | null
           preferred_neighborhoods?: string[] | null
           property_id?: string | null
+          score?: number | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: string | null

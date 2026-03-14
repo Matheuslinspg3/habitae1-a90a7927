@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
+import { LeadScoreSection } from './LeadScoreSection';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 
 interface LeadDetailsProps {
@@ -289,6 +290,11 @@ export function LeadDetails({
               </div>
             </>
           )}
+
+          <Separator />
+
+          {/* Lead Score Section */}
+          <LeadScoreSection lead={lead} />
 
           <Separator />
 

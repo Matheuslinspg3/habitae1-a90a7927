@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { registerLeadScoreEvent } from '@/lib/leadScore';
 import type { Tables, Enums } from '@/integrations/supabase/types';
 
 export type LeadInteraction = Tables<'lead_interactions'>;
@@ -72,6 +73,9 @@ export function useLeadInteractions(leadId: string | null) {
         .single();
 
       if (error) throw error;
+
+      // Register score event for interaction
+      registerLeadScoreEvent(leadId, `interaction_${input.type}`, { description: input.description });
 
       // 3. If addToSchedule, create linked appointment
       if (input.addToSchedule && interaction) {
