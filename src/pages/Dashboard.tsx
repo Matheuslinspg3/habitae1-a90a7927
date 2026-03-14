@@ -99,6 +99,10 @@ export default function Dashboard() {
 
   const isLoading = loadingProperties || loadingLeads || loadingContracts || loadingTransactions;
 
+  // Analytics
+  useScreenTime("dashboard");
+  const trackAction = useTrackAction();
+
   const stats = isDemoMode
     ? {
         properties: { value: demoStats.activeProperties, subtitle: `${demoStats.totalProperties} imóveis em portfólio`, trend: { value: "+15%", positive: true } },
