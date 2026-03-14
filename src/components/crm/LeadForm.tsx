@@ -286,6 +286,7 @@ export function LeadForm({
       additional_requirements: data.additional_requirements || undefined,
     };
     await onSubmit(cleanData);
+    if (!isEditing) trackLeadCreated();
     onOpenChange(false);
   };
 
