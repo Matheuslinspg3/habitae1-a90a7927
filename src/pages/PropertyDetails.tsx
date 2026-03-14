@@ -711,6 +711,14 @@ export default function PropertyDetails() {
               </CardContent>
             </Card>
 
+            {/* Availability History */}
+            <PropertyHistory
+              propertyId={id!}
+              currentStatus={(property as any).availability_status || 'available'}
+              statusUpdatedAt={(property as any).availability_status_updated_at}
+              organizationId={profile?.organization_id || ''}
+            />
+
             {/* Owner Card */}
             {owners.length > 0 && (
               <Card>
