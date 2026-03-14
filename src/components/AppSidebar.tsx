@@ -8,6 +8,7 @@ import {
   Settings,
   Home,
   Store,
+  Plug,
   Code,
   Building2,
   User,
