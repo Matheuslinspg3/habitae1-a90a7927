@@ -83,7 +83,7 @@ export function MobileFAB() {
   };
 
   return (
-    <div ref={fabRef} className="fixed right-4 bottom-20 z-50 md:hidden flex flex-col-reverse items-end gap-3">
+    <div ref={fabRef} className="fixed right-4 bottom-[5.5rem] z-50 md:hidden flex flex-col-reverse items-end gap-3">
       {/* Sub-actions */}
       {isOpen && !isSingleAction && (
         <div className="flex flex-col-reverse items-end gap-2 mb-1">
