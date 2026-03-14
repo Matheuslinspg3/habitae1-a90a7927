@@ -8,6 +8,7 @@ export interface PropertyFilters {
   searchText: string;
   transactionType: string;
   status: string;
+  availabilityStatus: string;
   propertyTypeId: string;
   minPrice: number | null;
   maxPrice: number | null;
