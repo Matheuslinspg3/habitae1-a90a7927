@@ -7,10 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Sparkles, TrendingUp, TrendingDown, ArrowRight, Loader2, BarChart3 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import type { Lead } from "@/hooks/useLeads";
 import { toast } from "sonner";
 
@@ -18,10 +24,10 @@ interface LeadScoreSectionProps {
   lead: Lead;
 }
 
-const TEMP_BADGE: Record<string, { label: string; emoji: string; className: string }> = {
-  quente: { label: "Quente", emoji: "🔴", className: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" },
-  morno: { label: "Morno", emoji: "🟡", className: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300" },
-  frio: { label: "Frio", emoji: "⚪", className: "bg-muted text-muted-foreground" },
+const TEMP_BADGE: Record<string, { label: string; emoji: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  quente: { label: "Quente", emoji: "🔴", variant: "destructive" },
+  morno: { label: "Morno", emoji: "🟡", variant: "secondary" },
+  frio: { label: "Frio", emoji: "⚪", variant: "outline" },
 };
 
 export function LeadScoreSection({ lead }: LeadScoreSectionProps) {
@@ -34,12 +40,6 @@ export function LeadScoreSection({ lead }: LeadScoreSectionProps) {
   const { events, scoreHistory, trend, isLoadingEvents, isLoadingHistory, generateSummary } = useLeadScore(lead.id);
 
   const tempBadge = TEMP_BADGE[temperature] || TEMP_BADGE.frio;
-
-  const progressColor = useMemo(() => {
-    if (score >= 70) return "bg-orange-500";
-    if (score >= 40) return "bg-amber-500";
-    return "bg-muted-foreground";
-  }, [score]);
 
   const canGenerateSummary = useMemo(() => {
     if (!aiSummaryAt) return true;
@@ -54,143 +54,185 @@ export function LeadScoreSection({ lead }: LeadScoreSectionProps) {
     }));
   }, [scoreHistory]);
 
+  // Check if lead is inactive (> 48h since last update)
+  const isInactive = useMemo(() => {
+    const diff = Date.now() - new Date(lead.updated_at).getTime();
+    return diff > 48 * 60 * 60 * 1000;
+  }, [lead.updated_at]);
+
+  // Check if we have enough data points for a chart
+  const hasEnoughChartData = useMemo(() => {
+    const uniqueDays = new Set(scoreHistory.filter(d => d.score > 0).map(d => d.date));
+    return uniqueDays.size >= 3;
+  }, [scoreHistory]);
+
   const handleGenerateSummary = async () => {
     try {
       await generateSummary.mutateAsync({ id: lead.id, name: lead.name, score, temperature });
       toast.success("Resumo gerado com sucesso!");
     } catch {
-      toast.error("Erro ao gerar resumo do lead");
+      toast.error("Não foi possível gerar o resumo. Tente novamente.");
     }
   };
 
+  const summaryAge = aiSummaryAt
+    ? formatDistanceToNow(new Date(aiSummaryAt), { addSuffix: true, locale: ptBR })
+    : null;
+
   return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-        <span>Temperatura & Score</span>
-      </h3>
+    <TooltipProvider>
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          Temperatura & Score
+        </h3>
 
-      {/* Score block */}
-      <div className="flex items-center gap-4">
-        <div className="text-3xl font-bold tabular-nums">{score}</div>
-        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${tempBadge.className}`}>
-          {tempBadge.emoji} {tempBadge.label}
-        </span>
-        {/* Trend */}
-        {trend === "heating" && (
-          <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-300 dark:text-emerald-400">
-            <TrendingUp className="h-3 w-3" /> Aquecendo
-          </Badge>
-        )}
-        {trend === "cooling" && (
-          <Badge variant="outline" className="gap-1 text-red-600 border-red-300 dark:text-red-400">
-            <TrendingDown className="h-3 w-3" /> Esfriando
-          </Badge>
-        )}
-        {trend === "stable" && (
-          <Badge variant="outline" className="gap-1 text-muted-foreground">
-            <ArrowRight className="h-3 w-3" /> Estável
-          </Badge>
-        )}
-      </div>
+        {/* Score block */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="text-3xl font-bold tabular-nums">{score}</div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Badge variant={tempBadge.variant} className="text-xs gap-1">
+                  {tempBadge.emoji} {tempBadge.label}
+                </Badge>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Score atual: {score} pontos</p>
+            </TooltipContent>
+          </Tooltip>
 
-      <div className="relative">
-        <Progress value={score} className="h-2" />
-        <div className={`absolute inset-0 h-2 rounded-full ${progressColor} transition-all`} style={{ width: `${score}%` }} />
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Atualizado {formatDistanceToNow(new Date(lead.updated_at), { addSuffix: true, locale: ptBR })}
-      </p>
-
-      {/* Chart */}
-      <div className="pt-2">
-        <p className="text-xs font-medium text-muted-foreground mb-2">Evolução (14 dias)</p>
-        {isLoadingHistory ? (
-          <Skeleton className="h-32 w-full" />
-        ) : chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={120}>
-            <LineChart data={chartData}>
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
-              <Tooltip
-                contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                formatter={(value: number) => [`${value} pts`, "Score"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="score"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-6">Sem dados no período</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Recent events */}
-      <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2">Últimos eventos</p>
-        {isLoadingEvents ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full" />)}
-          </div>
-        ) : events.length > 0 ? (
-          <div className="space-y-1.5">
-            {events.map((event: any) => {
-              const info = EVENT_TYPE_LABELS[event.event_type] || { label: event.event_type, emoji: "📌" };
-              return (
-                <div key={event.id} className="flex items-center justify-between text-xs py-1">
-                  <span className="flex items-center gap-1.5">
-                    <span>{info.emoji}</span>
-                    <span>{info.label}</span>
-                    <Badge variant="outline" className="text-[10px] px-1 py-0">
-                      {event.score_delta > 0 ? "+" : ""}{event.score_delta}
-                    </Badge>
-                  </span>
-                  <span className="text-muted-foreground">
-                    {formatDistanceToNow(new Date(event.created_at), { addSuffix: true, locale: ptBR })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento registrado</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* AI Summary */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-muted-foreground">Resumo IA</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateSummary}
-            disabled={!canGenerateSummary || generateSummary.isPending}
-          >
-            {generateSummary.isPending ? (
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            ) : (
-              <Sparkles className="h-3 w-3 mr-1" />
-            )}
-            {canGenerateSummary ? "Gerar resumo" : "Gerado recentemente"}
-          </Button>
+          {/* Trend - only show if lead is active */}
+          {!isInactive && trend === "heating" && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <TrendingUp className="h-3 w-3" /> Aquecendo
+            </Badge>
+          )}
+          {!isInactive && trend === "cooling" && (
+            <Badge variant="outline" className="gap-1 text-xs">
+              <TrendingDown className="h-3 w-3" /> Esfriando
+            </Badge>
+          )}
+          {!isInactive && trend === "stable" && (
+            <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
+              <ArrowRight className="h-3 w-3" /> Estável
+            </Badge>
+          )}
         </div>
-        {aiSummary && (
-          <Card className="border-primary/20">
-            <CardContent className="p-3 text-sm whitespace-pre-wrap">{aiSummary}</CardContent>
-          </Card>
-        )}
+
+        <Progress value={Math.min(score, 100)} className="h-2" />
+
+        <p className="text-xs text-muted-foreground">
+          Atualizado {formatDistanceToNow(new Date(lead.updated_at), { addSuffix: true, locale: ptBR })}
+        </p>
+
+        {/* Chart */}
+        <div className="pt-2">
+          <p className="text-xs font-medium text-muted-foreground mb-2">Evolução (14 dias)</p>
+          {isLoadingHistory ? (
+            <Skeleton className="h-32 w-full rounded-lg" />
+          ) : hasEnoughChartData ? (
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={chartData}>
+                <XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+                <RechartsTooltip
+                  contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                  formatter={(value: number) => [`${value} pts`, "Score"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-6 text-center border rounded-lg bg-muted/30">
+              <BarChart3 className="h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-xs text-muted-foreground">
+                Aguardando mais interações para gerar o gráfico
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Necessário pelo menos 3 dias com atividade
+              </p>
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Recent events */}
+        <div>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Últimos eventos</p>
+          {isLoadingEvents ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-full rounded" />)}
+            </div>
+          ) : events.length > 0 ? (
+            <div className="space-y-1.5">
+              {events.map((event: any) => {
+                const info = EVENT_TYPE_LABELS[event.event_type] || { label: event.event_type, emoji: "📌" };
+                return (
+                  <div key={event.id} className="flex items-center justify-between text-xs py-1">
+                    <span className="flex items-center gap-1.5">
+                      <span>{info.emoji}</span>
+                      <span>{info.label}</span>
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {event.score_delta > 0 ? "+" : ""}{event.score_delta}
+                      </Badge>
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatDistanceToNow(new Date(event.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">Nenhum evento registrado ainda.</p>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* AI Summary */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Resumo IA</p>
+            <div className="flex items-center gap-2">
+              {summaryAge && (
+                <span className="text-[10px] text-muted-foreground">Gerado {summaryAge}</span>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={handleGenerateSummary}
+                disabled={!canGenerateSummary || generateSummary.isPending}
+              >
+                {generateSummary.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                {generateSummary.isPending ? "Gerando..." : canGenerateSummary ? "Gerar resumo" : "Gerado recentemente"}
+              </Button>
+            </div>
+          </div>
+          {aiSummary && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-3 text-sm whitespace-pre-wrap flex gap-2">
+                <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span>{aiSummary}</span>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
