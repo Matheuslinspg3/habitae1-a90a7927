@@ -138,21 +138,21 @@ const App = () => (
                         <Route path="/marketplace" element={<Marketplace />} />
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
-                        <Route path="/contratos" element={<Contracts />} />
+                        <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
                         <Route path="/agenda" element={<Schedule />} />
                         
                         <Route path="/automacoes" element={<Automations />} />
-                        <Route path="/atividades" element={<ManagerRoute><Activities /></ManagerRoute>} />
+                        <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         
-                        {/* Ads module */}
+                        {/* Ads module - consolidated */}
                         <Route path="/anuncios" element={<Anuncios />} />
                         <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
-                        <Route path="/rdstation" element={<RDStation />} />
-                        <Route path="/gerador-anuncios" element={<GeradorAnuncios />} />
+                        <Route path="/rdstation" element={<Navigate to="/anuncios?section=rdstation" replace />} />
+                        <Route path="/gerador-anuncios" element={<Navigate to="/anuncios?section=gerador" replace />} />
                         
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={
