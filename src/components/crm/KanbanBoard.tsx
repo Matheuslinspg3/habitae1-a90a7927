@@ -32,6 +32,13 @@ import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove 
 import { CSS } from '@dnd-kit/utilities';
 import type { LeadStage } from '@/hooks/useLeadStages';
 import { useLeadStages } from '@/hooks/useLeadStages';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useLeads, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
+import { useBrokers } from '@/hooks/useBrokers';
+import { useProperties } from '@/hooks/useProperties';
+import { usePropertyTypes } from '@/hooks/usePropertyTypes';
+import { useToast } from '@/hooks/use-toast';
+import { useTrackAction, trackSearch, trackFilterUsed, trackTaskCompletion } from '@/hooks/useAnalytics';
 
 const UNCLASSIFIED_STAGE: LeadStage = {
   id: '__unclassified__',
@@ -44,13 +51,6 @@ const UNCLASSIFIED_STAGE: LeadStage = {
   is_loss: false,
   created_at: '',
 };
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useLeads, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
-import { useBrokers } from '@/hooks/useBrokers';
-import { useProperties } from '@/hooks/useProperties';
-import { usePropertyTypes } from '@/hooks/usePropertyTypes';
-import { useToast } from '@/hooks/use-toast';
-import { useTrackAction, trackSearch, trackFilterUsed, trackTaskCompletion } from '@/hooks/useAnalytics';
 
 const TEMP_CHIPS = [
   { value: 'prioridade', label: 'Prioridade', icon: Zap, activeClass: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
