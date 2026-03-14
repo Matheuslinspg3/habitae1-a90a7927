@@ -15,6 +15,7 @@ import {
   Zap,
   UserCog,
   Megaphone,
+  Search,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
