@@ -24,6 +24,7 @@ const SCORE_WEIGHTS: Record<string, number> = {
   property_favorited: 5,
   visit_scheduled: 12,
   visit_completed: 18,
+  missed_visit: -15,
 
   // External signals
   ad_lead_received: 8,
