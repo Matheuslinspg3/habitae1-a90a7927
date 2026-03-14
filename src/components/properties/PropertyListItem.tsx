@@ -13,6 +13,7 @@ import {
 import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
+import { AvailabilityBadge } from "./AvailabilityBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
