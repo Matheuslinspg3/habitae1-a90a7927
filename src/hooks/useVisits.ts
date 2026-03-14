@@ -149,7 +149,7 @@ export function useVisits(filters?: VisitFilters) {
       if (status === "completed") {
         await registerLeadScoreEvent(leadId, "visit_completed", { visit_id: visitId });
       } else if (status === "no_show") {
-        await registerLeadScoreEvent(leadId, "missed_visit" as any, { visit_id: visitId });
+        await registerLeadScoreEvent(leadId, "missed_visit", { visit_id: visitId });
       }
     },
     onSuccess: () => {

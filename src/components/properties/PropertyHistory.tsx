@@ -73,22 +73,30 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
 
   const updateStatus = useMutation({
     mutationFn: async () => {
-      if (!reason.trim()) throw new Error("Motivo é obrigatório");
-      // First update the property
+      if (!reason.trim() || reason.trim().length < 10) throw new Error("Motivo precisa ter pelo menos 10 caracteres");
+      // First update the property (trigger creates history entry)
       const { error } = await supabase
         .from("properties")
         .update({ availability_status: newStatus })
         .eq("id", propertyId);
       if (error) throw error;
-      // Insert history with reason (trigger handles the basic entry, but we want reason)
-      const { error: histError } = await supabase
+
+      // Find the most recent history entry and add the reason
+      const { data: latestEntry } = await supabase
         .from("property_status_history" as any)
-        .update({ reason: reason.trim() })
+        .select("id")
         .eq("property_id", propertyId)
-        .eq("changed_by", user?.id)
+        .eq("new_status", newStatus)
         .order("created_at", { ascending: false })
-        .limit(1);
-      // Ignore if update fails — the trigger already recorded without reason
+        .limit(1)
+        .single();
+
+      if (latestEntry) {
+        await supabase
+          .from("property_status_history" as any)
+          .update({ reason: reason.trim() })
+          .eq("id", (latestEntry as any).id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["property_status_history", propertyId] });
@@ -150,16 +158,19 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
                     <Textarea
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="Informe o motivo da alteração..."
+                      placeholder="Informe o motivo da alteração (mínimo 10 caracteres)..."
                       rows={3}
                     />
+                    {reason.trim().length > 0 && reason.trim().length < 10 && (
+                      <p className="text-xs text-destructive">Mínimo 10 caracteres ({reason.trim().length}/10)</p>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
                   <Button
                     onClick={() => updateStatus.mutate()}
-                    disabled={!reason.trim() || newStatus === currentStatus || updateStatus.isPending}
+                    disabled={reason.trim().length < 10 || newStatus === currentStatus || updateStatus.isPending}
                   >
                     Confirmar
                   </Button>

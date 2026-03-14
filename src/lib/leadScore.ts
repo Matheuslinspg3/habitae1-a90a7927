@@ -24,6 +24,7 @@ const SCORE_WEIGHTS: Record<string, number> = {
   property_favorited: 5,
   visit_scheduled: 12,
   visit_completed: 18,
+  missed_visit: -15,
 
   // External signals
   ad_lead_received: 8,
@@ -57,6 +58,9 @@ export async function registerLeadScoreEvent(
   if (!profile?.organization_id) return;
 
   const scoreDelta = SCORE_WEIGHTS[eventType] ?? 0;
+  if (!(eventType in SCORE_WEIGHTS)) {
+    console.warn(`[LeadScore] Unknown event type: "${eventType}" — using delta 0`);
+  }
 
   const { error } = await supabase.from("lead_score_events").insert({
     lead_id: leadId,
