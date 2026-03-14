@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Upload, LayoutGrid, List, Flame, Snowflake, Sun, Zap, CheckSquare, HelpCircle, ArrowLeftRight } from 'lucide-react';
+import { registerLeadScoreEvent } from '@/lib/leadScore';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove as sortableArrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { LeadStage } from '@/hooks/useLeadStages';
