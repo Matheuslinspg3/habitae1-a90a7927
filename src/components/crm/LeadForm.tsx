@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { trackFormError, trackLeadCreated } from '@/components/ClarityProvider';
+import { useTrackAction } from '@/hooks/useAnalytics';
 import {
   Dialog,
   DialogContent,
@@ -249,6 +251,8 @@ export function LeadForm({
     if (basicHasError) errorMessages.push('Dados do Lead');
     if (interestHasError) errorMessages.push('Interesse em Imóvel');
 
+    trackFormError('lead_form');
+
     toast.error(`${errorCount} campo(s) obrigatório(s) pendente(s)`, {
       description: errorMessages.length > 0
         ? `Verifique a(s) aba(s): ${errorMessages.join(', ')}`
@@ -284,6 +288,7 @@ export function LeadForm({
       additional_requirements: data.additional_requirements || undefined,
     };
     await onSubmit(cleanData);
+    if (!isEditing) trackLeadCreated();
     onOpenChange(false);
   };
 
@@ -292,9 +297,17 @@ export function LeadForm({
   const hasPhone = phoneValue && phoneValue.trim().length > 0;
   const hasEmail = emailValue && emailValue.trim().length > 0;
 
+  const trackAction = useTrackAction();
+  const formStartRef = useRef(Date.now());
+
+  // Reset form timer when dialog opens
+  useEffect(() => {
+    if (open) formStartRef.current = Date.now();
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto mx-2 sm:mx-0 p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
         </DialogHeader>
@@ -306,20 +319,20 @@ export function LeadForm({
             className="space-y-4"
           >
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <TabsTrigger value="basic" className="flex items-center gap-1.5">
+               <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'} min-h-[44px]`}>
+                <TabsTrigger value="basic" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
                   Dados do Lead
                   {hasBasicErrors && (
                     <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="interest" className="flex items-center gap-1.5">
-                  Interesse em Imóvel
+                <TabsTrigger value="interest" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
+                  Interesse
                   {hasInterestErrors && (
                     <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                   )}
                 </TabsTrigger>
-                {isEditing && <TabsTrigger value="interactions">Interações</TabsTrigger>}
+                {isEditing && <TabsTrigger value="interactions" className="min-h-[44px] text-xs sm:text-sm">Interações</TabsTrigger>}
               </TabsList>
 
               {/* Aba Dados Básicos */}
@@ -965,15 +978,16 @@ export function LeadForm({
               )}
             </Tabs>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-1">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="min-h-[44px]"
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="min-h-[44px]">
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {isEditing ? 'Salvar' : 'Criar Lead'}
               </Button>

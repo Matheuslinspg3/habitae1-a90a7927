@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { trackFormError, trackPropertyCreated } from "@/components/ClarityProvider";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -126,6 +127,11 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   const [images, setImages] = useState<PropertyImage[]>([]);
   const [activeTab, setActiveTab] = useState("basic");
   const [publishToMarketplace, setPublishToMarketplace] = useState(false);
+  const formStartRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (open) formStartRef.current = Date.now();
+  }, [open]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(propertySchema),
@@ -237,11 +243,13 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       document: owner_document || undefined, notes: owner_notes || undefined,
     } : undefined;
     await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
+    if (!property) trackPropertyCreated();
     onOpenChange(false);
   };
 
   const handleInvalidSubmit = () => {
     const firstErrorTab = findFirstTabWithError();
+    trackFormError('property_form');
     if (firstErrorTab) {
       setActiveTab(firstErrorTab);
       toast({ title: "Campos obrigatórios", description: "Preencha os campos obrigatórios destacados em vermelho.", variant: "destructive" });
@@ -257,7 +265,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{property ? "Editar Imóvel" : "Novo Imóvel"}</DialogTitle>
           <DialogDescription>
@@ -268,16 +276,16 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 min-h-[44px]">
                 {[
                   { key: "basic", label: "Básico" },
                   { key: "values", label: "Valores" },
-                  { key: "features", label: "Características" },
-                  { key: "location", label: "Localização" },
+                  { key: "features", label: "Caract." },
+                  { key: "location", label: "Local" },
                   { key: "photos", label: "Fotos" },
-                  { key: "description", label: "Descrição" },
+                  { key: "description", label: "Desc." },
                 ].map(({ key, label }) => (
-                  <TabsTrigger key={key} value={key} className="relative text-xs sm:text-sm">
+                  <TabsTrigger key={key} value={key} className="relative text-[11px] sm:text-sm min-h-[44px]">
                     {label}
                     <TabErrorIndicator tabKey={key} />
                   </TabsTrigger>
@@ -294,19 +302,19 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
 
             <OwnerSection form={form} isEditing={!!property} />
 
-            <DialogFooter className="flex-col sm:flex-row gap-4">
+            <DialogFooter className="flex-col sm:flex-row gap-3 sticky bottom-0 bg-background pt-4 pb-1">
               <div className="flex items-center gap-3 mr-auto">
                 <Switch id="publish-marketplace" checked={publishToMarketplace} onCheckedChange={setPublishToMarketplace} />
                 <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                   <Store className="h-4 w-4" />
-                  Publicar no Marketplace
+                  <span className="hidden sm:inline">Publicar no</span> Marketplace
                 </Label>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting}>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
+                <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-initial min-h-[44px]">
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {property ? "Salvar Alterações" : "Cadastrar Imóvel"}
+                  {property ? "Salvar" : "Cadastrar"}
                 </Button>
               </div>
             </DialogFooter>
