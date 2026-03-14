@@ -77,6 +77,7 @@ function SortableColumnWrapper({ id, children }: { id: string; children: React.R
 export function KanbanBoard() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const trackAction = useTrackAction();
   
   const {
     leads,
