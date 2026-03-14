@@ -151,6 +151,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
+                {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
