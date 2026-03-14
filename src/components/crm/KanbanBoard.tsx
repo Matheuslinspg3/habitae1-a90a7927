@@ -50,6 +50,7 @@ import { useBrokers } from '@/hooks/useBrokers';
 import { useProperties } from '@/hooks/useProperties';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
 import { useToast } from '@/hooks/use-toast';
+import { useTrackAction, trackSearch, trackFilterUsed, trackTaskCompletion } from '@/hooks/useAnalytics';
 
 const TEMP_CHIPS = [
   { value: 'prioridade', label: 'Prioridade', icon: Zap, activeClass: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
@@ -76,6 +77,7 @@ function SortableColumnWrapper({ id, children }: { id: string; children: React.R
 export function KanbanBoard() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const trackAction = useTrackAction();
   
   const {
     leads,
@@ -105,6 +107,13 @@ export function KanbanBoard() {
   const { propertyTypes } = usePropertyTypes();
 
   const [search, setSearch] = useState('');
+  const handleSearchChange = useCallback((val: string) => {
+    setSearch(val);
+    // Debounced tracking handled by the filter component; track on clear/empty
+    if (val.length >= 3) {
+      trackSearch('crm', true);
+    }
+  }, []);
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
@@ -118,6 +127,7 @@ export function KanbanBoard() {
   // Persist temperature filter
   const handleTemperatureChange = (value: string | null) => {
     setSelectedTemperature(value);
+    trackFilterUsed(`crm_temperature_${value || 'clear'}`);
     try {
       if (value) {
         localStorage.setItem('crm_temperature_filter', value);
@@ -295,9 +305,10 @@ export function KanbanBoard() {
 
   const handleLeadClick = useCallback((lead: Lead) => {
     if (activeId) return;
+    trackAction('crm_lead_click', { leadId: lead.id });
     setSelectedLead(lead);
     setDetailsOpen(true);
-  }, [activeId]);
+  }, [activeId, trackAction]);
 
   const handleNewLead = useCallback(() => {
     setEditingLead(null);
@@ -431,7 +442,7 @@ export function KanbanBoard() {
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between">
         <LeadFilters
           search={search}
-          onSearchChange={setSearch}
+          onSearchChange={handleSearchChange}
           selectedBrokerId={selectedBrokerId}
           onBrokerChange={setSelectedBrokerId}
           brokers={brokers}

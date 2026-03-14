@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useLeads } from "@/hooks/useLeads";
 import { useTabParam } from "@/hooks/useTabParam";
+import { useScreenTime } from "@/hooks/useAnalytics";
 
 export default function CRM() {
   const { 
@@ -15,6 +16,7 @@ export default function CRM() {
   } = useLeads();
 
   const [tab, setTab] = useTabParam("tab", "active");
+  useScreenTime("crm");
 
   return (
     <div className="flex flex-col min-h-screen relative page-enter" data-clarity-mask="true">
