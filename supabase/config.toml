@@ -80,3 +80,9 @@ verify_jwt = false
 
 [functions.test-ai-connection]
 verify_jwt = false
+
+[functions.analyze-photo-quality]
+verify_jwt = false
+
+[functions.generate-property-art]
+verify_jwt = false
