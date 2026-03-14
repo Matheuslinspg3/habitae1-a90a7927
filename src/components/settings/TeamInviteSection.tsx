@@ -212,7 +212,16 @@ export function TeamInviteSection() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">Nome</Label>
+              <Input
+                id="invite-name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Nome do membro"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="invite-email">Email *</Label>
               <Input
@@ -225,13 +234,14 @@ export function TeamInviteSection() {
             </div>
             <div className="space-y-2">
               <Label>Cargo</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as "corretor" | "assistente")}>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="corretor">Corretor</SelectItem>
-                  <SelectItem value="assistente">Assistente (somente leitura)</SelectItem>
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role} value={role}>{ROLE_LABELS[role] || role}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
