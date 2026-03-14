@@ -52,7 +52,7 @@ const Anuncios = lazy(() => import("./pages/Anuncios"));
 const _RDStation = lazy(() => import("./pages/RDStation")); // embedded in Anuncios
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
-const GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios"));
+const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embedded in Anuncios
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
