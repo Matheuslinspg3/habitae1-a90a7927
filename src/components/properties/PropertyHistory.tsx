@@ -105,6 +105,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
   const getStatusLabel = (status: string) => availabilityConfig[status]?.label || status;
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
