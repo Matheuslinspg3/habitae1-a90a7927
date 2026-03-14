@@ -3723,6 +3723,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "property_visits_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "property_visits_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "property_visits_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
