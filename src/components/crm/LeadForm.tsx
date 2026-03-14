@@ -124,6 +124,7 @@ export function LeadForm({
   const isEditing = !!lead;
   const [showCustomSource, setShowCustomSource] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [showInterest, setShowInterest] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<FormData>({
