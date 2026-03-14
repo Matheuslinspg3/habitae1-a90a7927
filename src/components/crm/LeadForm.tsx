@@ -323,656 +323,72 @@ export function LeadForm({
             className="space-y-4"
           >
             {isEditing ? (
-              {/* Editing mode: keep tabs for interactions */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 min-h-[44px]">
                   <TabsTrigger value="basic" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
                     Dados
-                    {hasBasicErrors && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                    {(hasBasicErrors || hasInterestErrors) && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                   </TabsTrigger>
                   <TabsTrigger value="interactions" className="min-h-[44px] text-xs sm:text-sm">Interações</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic" className="space-y-4 mt-4">
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Nome do lead" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Telefone {!hasEmail ? '*' : ''}
-                          {hasEmail && (
-                            <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
-                          )}
-                        </FormLabel>
-                        <FormControl>
-                          <Input placeholder="(00) 00000-0000" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  <LeadFormFields
+                    form={form}
+                    leadStages={leadStages}
+                    brokers={brokers}
+                    properties={properties}
+                    propertyTypes={propertyTypes}
+                    hasPhone={!!hasPhone}
+                    hasEmail={!!hasEmail}
+                    showCustomSource={showCustomSource}
+                    onSourceChange={handleSourceChange}
+                    availableNeighborhoods={availableNeighborhoods}
+                    availableCities={availableCities}
+                    neighborhoodSearch={neighborhoodSearch}
+                    setNeighborhoodSearch={setNeighborhoodSearch}
+                    showNeighborhoodDropdown={showNeighborhoodDropdown}
+                    setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+                    citySearch={citySearch}
+                    setCitySearch={setCitySearch}
+                    showCityDropdown={showCityDropdown}
+                    setShowCityDropdown={setShowCityDropdown}
+                    showInterest={showInterest}
+                    setShowInterest={setShowInterest}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          E-mail {!hasPhone ? '*' : ''}
-                          {hasPhone && (
-                            <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
-                          )}
-                        </FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="email@exemplo.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {!hasPhone && !hasEmail && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    Informe pelo menos um telefone ou e-mail para contato.
-                  </p>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="source"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Origem</FormLabel>
-                        <Select onValueChange={handleSourceChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {LEAD_SOURCES.map((source) => (
-                              <SelectItem key={source.id} value={source.id}>
-                                {source.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {showCustomSource && (
-                  <FormField
-                    control={form.control}
-                    name="custom_source"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Origem Personalizada</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Digite a origem..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="broker_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Corretor Responsável</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {brokers.map((broker) => (
-                            <SelectItem key={broker.user_id} value={broker.user_id}>
-                              {broker.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="lead_stage_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Estágio *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {leadStages.map((stage) => (
-                            <SelectItem key={stage.id} value={stage.id}>
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
-                                {stage.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="temperature"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Temperatura / Prioridade</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a temperatura" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="frio">
-                            <div className="flex items-center gap-2">
-                              <Snowflake className="h-3.5 w-3.5 text-blue-500" />
-                              <span>Frio</span>
-                              <span className="text-xs text-muted-foreground">— sem urgência, acompanhamento futuro</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="morno">
-                            <div className="flex items-center gap-2">
-                              <Sun className="h-3.5 w-3.5 text-amber-500" />
-                              <span>Morno</span>
-                              <span className="text-xs text-muted-foreground">— interesse moderado</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="quente">
-                            <div className="flex items-center gap-2">
-                              <Flame className="h-3.5 w-3.5 text-orange-500" />
-                              <span>Quente</span>
-                              <span className="text-xs text-muted-foreground">— pronto para fechar</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="prioridade">
-                            <div className="flex items-center gap-2">
-                              <Zap className="h-3.5 w-3.5 text-red-500" />
-                              <span>Prioridade Máxima</span>
-                              <span className="text-xs text-muted-foreground">— ação imediata</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observações</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Observações sobre o lead..."
-                          className="resize-none"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              {/* Aba Interesse em Imóvel */}
-              <TabsContent value="interest" className="space-y-4 mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Informe os critérios do imóvel que o cliente procura. Essas informações ajudarão a filtrar e apresentar imóveis compatíveis.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="transaction_interest"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Interesse *</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Comprar ou Alugar?" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="venda">Comprar</SelectItem>
-                            <SelectItem value="aluguel">Alugar</SelectItem>
-                            <SelectItem value="ambos">Ambos</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="interested_property_type_ids"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tipos de Imóvel</FormLabel>
-                        <div className="grid grid-cols-2 gap-2 rounded-md border p-3 bg-background">
-                          {propertyTypes.map((type) => {
-                            const isChecked = (field.value || []).includes(type.id);
-                            return (
-                              <div key={type.id} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`ptype-${type.id}`}
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    const current = field.value || [];
-                                    if (checked) {
-                                      field.onChange([...current, type.id]);
-                                    } else {
-                                      field.onChange(current.filter((id: string) => id !== type.id));
-                                    }
-                                  }}
-                                />
-                                <Label htmlFor={`ptype-${type.id}`} className="text-sm font-normal cursor-pointer">
-                                  {type.name}
-                                </Label>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="estimated_value"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Orçamento Máximo</FormLabel>
-                      <FormControl>
-                        <CurrencyInput
-                          value={field.value}
-                          onChange={field.onChange}
-                          placeholder="R$ 0,00"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="bedrooms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quartos</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="bathrooms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Banheiros</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="parking"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Vagas</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="area"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Área (m²)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0"
-                            placeholder="0"
-                            {...field}
-                            value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Bairros de Preferência - Multi-select */}
-                <FormField
-                  control={form.control}
-                  name="preferred_neighborhoods"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bairros de Preferência</FormLabel>
-                      <div className="space-y-2">
-                        {(field.value || []).length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {(field.value || []).map((n) => (
-                              <Badge key={n} variant="secondary" className="gap-1 text-xs">
-                                {n}
-                                <button
-                                  type="button"
-                                  onClick={() => field.onChange((field.value || []).filter((v: string) => v !== n))}
-                                  className="ml-0.5 hover:text-destructive"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <div className="relative">
-                          <Input
-                            placeholder="Buscar bairro..."
-                            value={neighborhoodSearch}
-                            onChange={(e) => {
-                              setNeighborhoodSearch(e.target.value);
-                              setShowNeighborhoodDropdown(true);
-                            }}
-                            onFocus={() => setShowNeighborhoodDropdown(true)}
-                            onBlur={() => setTimeout(() => setShowNeighborhoodDropdown(false), 200)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && neighborhoodSearch.trim()) {
-                                e.preventDefault();
-                                const val = neighborhoodSearch.trim();
-                                if (!(field.value || []).includes(val)) {
-                                  field.onChange([...(field.value || []), val]);
-                                }
-                                setNeighborhoodSearch('');
-                                setShowNeighborhoodDropdown(false);
-                              }
-                            }}
-                          />
-                          {showNeighborhoodDropdown && (
-                            <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
-                              {availableNeighborhoods
-                                .filter(n => 
-                                  n.toLowerCase().includes(neighborhoodSearch.toLowerCase()) &&
-                                  !(field.value || []).includes(n)
-                                )
-                                .slice(0, 20)
-                                .map((n) => (
-                                  <button
-                                    key={n}
-                                    type="button"
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      field.onChange([...(field.value || []), n]);
-                                      setNeighborhoodSearch('');
-                                      setShowNeighborhoodDropdown(false);
-                                    }}
-                                  >
-                                    {n}
-                                  </button>
-                                ))}
-                              {neighborhoodSearch.trim() && !availableNeighborhoods.some(n => 
-                                n.toLowerCase() === neighborhoodSearch.toLowerCase()
-                              ) && (
-                                <button
-                                  type="button"
-                                  className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    const val = neighborhoodSearch.trim();
-                                    if (!(field.value || []).includes(val)) {
-                                      field.onChange([...(field.value || []), val]);
-                                    }
-                                    setNeighborhoodSearch('');
-                                    setShowNeighborhoodDropdown(false);
-                                  }}
-                                >
-                                  + Adicionar "{neighborhoodSearch.trim()}"
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Cidades de Preferência - Multi-select */}
-                <FormField
-                  control={form.control}
-                  name="preferred_cities"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cidades de Preferência</FormLabel>
-                      <div className="space-y-2">
-                        {(field.value || []).length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {(field.value || []).map((c) => (
-                              <Badge key={c} variant="secondary" className="gap-1 text-xs">
-                                {c}
-                                <button
-                                  type="button"
-                                  onClick={() => field.onChange((field.value || []).filter((v: string) => v !== c))}
-                                  className="ml-0.5 hover:text-destructive"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        <div className="relative">
-                          <Input
-                            placeholder="Buscar cidade..."
-                            value={citySearch}
-                            onChange={(e) => {
-                              setCitySearch(e.target.value);
-                              setShowCityDropdown(true);
-                            }}
-                            onFocus={() => setShowCityDropdown(true)}
-                            onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && citySearch.trim()) {
-                                e.preventDefault();
-                                const val = citySearch.trim();
-                                if (!(field.value || []).includes(val)) {
-                                  field.onChange([...(field.value || []), val]);
-                                }
-                                setCitySearch('');
-                                setShowCityDropdown(false);
-                              }
-                            }}
-                          />
-                          {showCityDropdown && (
-                            <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
-                              {availableCities
-                                .filter(c => 
-                                  c.toLowerCase().includes(citySearch.toLowerCase()) &&
-                                  !(field.value || []).includes(c)
-                                )
-                                .slice(0, 20)
-                                .map((c) => (
-                                  <button
-                                    key={c}
-                                    type="button"
-                                    className="w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      field.onChange([...(field.value || []), c]);
-                                      setCitySearch('');
-                                      setShowCityDropdown(false);
-                                    }}
-                                  >
-                                    {c}
-                                  </button>
-                                ))}
-                              {citySearch.trim() && !availableCities.some(c => 
-                                c.toLowerCase() === citySearch.toLowerCase()
-                              ) && (
-                                <button
-                                  type="button"
-                                  className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    const val = citySearch.trim();
-                                    if (!(field.value || []).includes(val)) {
-                                      field.onChange([...(field.value || []), val]);
-                                    }
-                                    setCitySearch('');
-                                    setShowCityDropdown(false);
-                                  }}
-                                >
-                                  + Adicionar "{citySearch.trim()}"
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="property_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Imóvel Específico de Interesse</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um imóvel (opcional)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {properties.map((property) => (
-                            <SelectItem key={property.id} value={property.id}>
-                              {property.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="additional_requirements"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Requisitos Adicionais</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Ex: Precisa de vaga de garagem coberta, aceita financiamento, prefere andar alto..."
-                          className="resize-none"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-
-              {isEditing && lead && (
-                <TabsContent value="interactions" className="mt-4">
-                  <LeadInteractionTimeline leadId={lead.id} leadName={lead.name} />
                 </TabsContent>
-              )}
-            </Tabs>
+
+                <TabsContent value="interactions" className="mt-4">
+                  {lead && <LeadInteractionTimeline leadId={lead.id} leadName={lead.name} />}
+                </TabsContent>
+              </Tabs>
+            ) : (
+              <div className="space-y-4">
+                <LeadFormFields
+                  form={form}
+                  leadStages={leadStages}
+                  brokers={brokers}
+                  properties={properties}
+                  propertyTypes={propertyTypes}
+                  hasPhone={!!hasPhone}
+                  hasEmail={!!hasEmail}
+                  showCustomSource={showCustomSource}
+                  onSourceChange={handleSourceChange}
+                  availableNeighborhoods={availableNeighborhoods}
+                  availableCities={availableCities}
+                  neighborhoodSearch={neighborhoodSearch}
+                  setNeighborhoodSearch={setNeighborhoodSearch}
+                  showNeighborhoodDropdown={showNeighborhoodDropdown}
+                  setShowNeighborhoodDropdown={setShowNeighborhoodDropdown}
+                  citySearch={citySearch}
+                  setCitySearch={setCitySearch}
+                  showCityDropdown={showCityDropdown}
+                  setShowCityDropdown={setShowCityDropdown}
+                  showInterest={showInterest}
+                  setShowInterest={setShowInterest}
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-1">
               <Button
@@ -992,5 +408,531 @@ export function LeadForm({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---- Extracted form fields component ----
+interface LeadFormFieldsProps {
+  form: any;
+  leadStages: LeadStage[];
+  brokers: Broker[];
+  properties: { id: string; title: string }[];
+  propertyTypes: PropertyType[];
+  hasPhone: boolean;
+  hasEmail: boolean;
+  showCustomSource: boolean;
+  onSourceChange: (value: string) => void;
+  availableNeighborhoods: string[];
+  availableCities: string[];
+  neighborhoodSearch: string;
+  setNeighborhoodSearch: (v: string) => void;
+  showNeighborhoodDropdown: boolean;
+  setShowNeighborhoodDropdown: (v: boolean) => void;
+  citySearch: string;
+  setCitySearch: (v: string) => void;
+  showCityDropdown: boolean;
+  setShowCityDropdown: (v: boolean) => void;
+  showInterest: boolean;
+  setShowInterest: (v: boolean) => void;
+}
+
+function LeadFormFields({
+  form, leadStages, brokers, properties, propertyTypes,
+  hasPhone, hasEmail, showCustomSource, onSourceChange,
+  availableNeighborhoods, availableCities,
+  neighborhoodSearch, setNeighborhoodSearch, showNeighborhoodDropdown, setShowNeighborhoodDropdown,
+  citySearch, setCitySearch, showCityDropdown, setShowCityDropdown,
+  showInterest, setShowInterest,
+}: LeadFormFieldsProps) {
+  return (
+    <>
+      {/* Basic fields */}
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nome *</FormLabel>
+            <FormControl>
+              <Input placeholder="Nome do lead" className="min-h-[44px]" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Telefone {!hasEmail ? '*' : ''}
+                {hasEmail && <span className="text-xs text-muted-foreground ml-1">(opcional)</span>}
+              </FormLabel>
+              <FormControl>
+                <Input placeholder="(00) 00000-0000" className="min-h-[44px]" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                E-mail {!hasPhone ? '*' : ''}
+                {hasPhone && <span className="text-xs text-muted-foreground ml-1">(opcional)</span>}
+              </FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="email@exemplo.com" className="min-h-[44px]" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      {!hasPhone && !hasEmail && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          Informe pelo menos um telefone ou e-mail para contato.
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="source"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Origem</FormLabel>
+              <Select onValueChange={onSourceChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {LEAD_SOURCES.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="broker_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Corretor</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {brokers.map((broker) => (
+                    <SelectItem key={broker.user_id} value={broker.user_id}>
+                      {broker.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      {showCustomSource && (
+        <FormField
+          control={form.control}
+          name="custom_source"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Origem Personalizada</FormLabel>
+              <FormControl>
+                <Input placeholder="Digite a origem..." className="min-h-[44px]" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="lead_stage_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Estágio *</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {leadStages.map((stage) => (
+                    <SelectItem key={stage.id} value={stage.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+                        {stage.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="temperature"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Temperatura</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="frio">
+                    <div className="flex items-center gap-2">
+                      <Snowflake className="h-3.5 w-3.5 text-blue-500" />Frio
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="morno">
+                    <div className="flex items-center gap-2">
+                      <Sun className="h-3.5 w-3.5 text-amber-500" />Morno
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="quente">
+                    <div className="flex items-center gap-2">
+                      <Flame className="h-3.5 w-3.5 text-orange-500" />Quente
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="prioridade">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-3.5 w-3.5 text-red-500" />Prioridade
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="notes"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Observações</FormLabel>
+            <FormControl>
+              <Textarea placeholder="Observações sobre o lead..." className="resize-none" rows={2} {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      {/* Interest section — collapsible */}
+      <Collapsible open={showInterest} onOpenChange={setShowInterest}>
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" size="sm" className="w-full justify-between text-muted-foreground min-h-[40px]">
+            {showInterest ? "Ocultar critérios de imóvel" : "Adicionar critérios de imóvel desejado"}
+            <ChevronDown className={`h-4 w-4 transition-transform ${showInterest ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="transaction_interest"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Interesse *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="min-h-[44px]">
+                        <SelectValue placeholder="Comprar ou Alugar?" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="venda">Comprar</SelectItem>
+                      <SelectItem value="aluguel">Alugar</SelectItem>
+                      <SelectItem value="ambos">Ambos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="interested_property_type_ids"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipos de Imóvel</FormLabel>
+                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3 bg-background">
+                    {propertyTypes.map((type) => {
+                      const isChecked = (field.value || []).includes(type.id);
+                      return (
+                        <div key={type.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`ptype-${type.id}`}
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              const current = field.value || [];
+                              field.onChange(checked ? [...current, type.id] : current.filter((id: string) => id !== type.id));
+                            }}
+                          />
+                          <Label htmlFor={`ptype-${type.id}`} className="text-sm font-normal cursor-pointer">{type.name}</Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="estimated_value"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Orçamento Máximo</FormLabel>
+                <FormControl>
+                  <CurrencyInput value={field.value} onChange={field.onChange} placeholder="R$ 0,00" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { name: 'bedrooms' as const, label: 'Quartos' },
+              { name: 'bathrooms' as const, label: 'Banheiros' },
+              { name: 'parking' as const, label: 'Vagas' },
+              { name: 'area' as const, label: 'Área (m²)' },
+            ].map(({ name, label }) => (
+              <FormField
+                key={name}
+                control={form.control}
+                name={name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{label}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number" min="0" placeholder="0" className="min-h-[44px]"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+          </div>
+
+          {/* Neighborhoods */}
+          <FormField
+            control={form.control}
+            name="preferred_neighborhoods"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Bairros de Preferência</FormLabel>
+                <div className="space-y-2">
+                  {(field.value || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(field.value || []).map((n: string) => (
+                        <Badge key={n} variant="secondary" className="gap-1 text-xs">
+                          {n}
+                          <button type="button" onClick={() => field.onChange((field.value || []).filter((v: string) => v !== n))} className="ml-0.5 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      placeholder="Buscar bairro..."
+                      className="min-h-[44px]"
+                      value={neighborhoodSearch}
+                      onChange={(e) => { setNeighborhoodSearch(e.target.value); setShowNeighborhoodDropdown(true); }}
+                      onFocus={() => setShowNeighborhoodDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowNeighborhoodDropdown(false), 200)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && neighborhoodSearch.trim()) {
+                          e.preventDefault();
+                          const val = neighborhoodSearch.trim();
+                          if (!(field.value || []).includes(val)) field.onChange([...(field.value || []), val]);
+                          setNeighborhoodSearch(''); setShowNeighborhoodDropdown(false);
+                        }
+                      }}
+                    />
+                    {showNeighborhoodDropdown && (
+                      <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
+                        {availableNeighborhoods
+                          .filter(n => n.toLowerCase().includes(neighborhoodSearch.toLowerCase()) && !(field.value || []).includes(n))
+                          .slice(0, 15)
+                          .map((n) => (
+                            <button key={n} type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-accent min-h-[40px]"
+                              onMouseDown={(e) => { e.preventDefault(); field.onChange([...(field.value || []), n]); setNeighborhoodSearch(''); setShowNeighborhoodDropdown(false); }}>
+                              {n}
+                            </button>
+                          ))}
+                        {neighborhoodSearch.trim() && !availableNeighborhoods.some(n => n.toLowerCase() === neighborhoodSearch.toLowerCase()) && (
+                          <button type="button" className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent min-h-[40px]"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              const val = neighborhoodSearch.trim();
+                              if (!(field.value || []).includes(val)) field.onChange([...(field.value || []), val]);
+                              setNeighborhoodSearch(''); setShowNeighborhoodDropdown(false);
+                            }}>
+                            + Adicionar "{neighborhoodSearch.trim()}"
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Cities */}
+          <FormField
+            control={form.control}
+            name="preferred_cities"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cidades de Preferência</FormLabel>
+                <div className="space-y-2">
+                  {(field.value || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(field.value || []).map((c: string) => (
+                        <Badge key={c} variant="secondary" className="gap-1 text-xs">
+                          {c}
+                          <button type="button" onClick={() => field.onChange((field.value || []).filter((v: string) => v !== c))} className="ml-0.5 hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      placeholder="Buscar cidade..."
+                      className="min-h-[44px]"
+                      value={citySearch}
+                      onChange={(e) => { setCitySearch(e.target.value); setShowCityDropdown(true); }}
+                      onFocus={() => setShowCityDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && citySearch.trim()) {
+                          e.preventDefault();
+                          const val = citySearch.trim();
+                          if (!(field.value || []).includes(val)) field.onChange([...(field.value || []), val]);
+                          setCitySearch(''); setShowCityDropdown(false);
+                        }
+                      }}
+                    />
+                    {showCityDropdown && (
+                      <div className="absolute z-50 w-full mt-1 max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
+                        {availableCities
+                          .filter(c => c.toLowerCase().includes(citySearch.toLowerCase()) && !(field.value || []).includes(c))
+                          .slice(0, 15)
+                          .map((c) => (
+                            <button key={c} type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-accent min-h-[40px]"
+                              onMouseDown={(e) => { e.preventDefault(); field.onChange([...(field.value || []), c]); setCitySearch(''); setShowCityDropdown(false); }}>
+                              {c}
+                            </button>
+                          ))}
+                        {citySearch.trim() && !availableCities.some(c => c.toLowerCase() === citySearch.toLowerCase()) && (
+                          <button type="button" className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent min-h-[40px]"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              const val = citySearch.trim();
+                              if (!(field.value || []).includes(val)) field.onChange([...(field.value || []), val]);
+                              setCitySearch(''); setShowCityDropdown(false);
+                            }}>
+                            + Adicionar "{citySearch.trim()}"
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="property_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Imóvel Específico</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Selecione (opcional)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {properties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>{property.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="additional_requirements"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Requisitos Adicionais</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Ex: Vaga coberta, andar alto..." className="resize-none" rows={2} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </CollapsibleContent>
+      </Collapsible>
+    </>
   );
 }
