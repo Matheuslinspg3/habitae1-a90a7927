@@ -319,20 +319,20 @@ export function LeadForm({
             className="space-y-4"
           >
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'}`}>
-                <TabsTrigger value="basic" className="flex items-center gap-1.5">
+               <TabsList className={`grid w-full ${isEditing ? 'grid-cols-3' : 'grid-cols-2'} min-h-[44px]`}>
+                <TabsTrigger value="basic" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
                   Dados do Lead
                   {hasBasicErrors && (
                     <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="interest" className="flex items-center gap-1.5">
-                  Interesse em Imóvel
+                <TabsTrigger value="interest" className="flex items-center gap-1.5 min-h-[44px] text-xs sm:text-sm">
+                  Interesse
                   {hasInterestErrors && (
                     <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                   )}
                 </TabsTrigger>
-                {isEditing && <TabsTrigger value="interactions">Interações</TabsTrigger>}
+                {isEditing && <TabsTrigger value="interactions" className="min-h-[44px] text-xs sm:text-sm">Interações</TabsTrigger>}
               </TabsList>
 
               {/* Aba Dados Básicos */}
