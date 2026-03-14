@@ -36,7 +36,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle } from 'lucide-react';
+import { Loader2, X, Flame, Snowflake, Sun, Zap, AlertCircle, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LEAD_SOURCES, TEMPERATURES, type Lead, type CreateLeadInput } from '@/hooks/useLeads';
