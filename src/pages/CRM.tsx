@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useLeads } from "@/hooks/useLeads";
 import { useTabParam } from "@/hooks/useTabParam";
+import { useScreenTime } from "@/hooks/useAnalytics";
 
 export default function CRM() {
   const { 
