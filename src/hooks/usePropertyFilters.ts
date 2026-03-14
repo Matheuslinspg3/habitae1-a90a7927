@@ -32,6 +32,7 @@ const defaultFilters: PropertyFilters = {
   searchText: '',
   transactionType: 'all',
   status: 'all',
+  availabilityStatus: 'all',
   propertyTypeId: 'all',
   minPrice: null,
   maxPrice: null,
