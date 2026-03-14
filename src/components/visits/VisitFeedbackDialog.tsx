@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -27,61 +28,86 @@ export function VisitFeedbackDialog({
 }: VisitFeedbackDialogProps) {
   const [feedback, setFeedback] = useState("");
   const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+
+  useEffect(() => {
+    if (open) {
+      setFeedback("");
+      setRating(0);
+      setHoveredRating(0);
+    }
+  }, [open]);
 
   const handleSubmit = () => {
-    if (rating === 0) return;
+    if (rating === 0 || !feedback.trim()) return;
     onSubmit(feedback.trim(), rating);
     setFeedback("");
     setRating(0);
   };
 
+  const displayRating = hoveredRating || rating;
+  const canSubmit = rating > 0 && feedback.trim().length > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="w-full sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Registrar Visita Realizada</DialogTitle>
+          <DialogDescription>
+            Avalie a visita e registre suas observações.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Avaliação *</Label>
+          <div className="space-y-2">
+            <Label>Avaliação *</Label>
             <div className="flex gap-1">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setRating(n)}
-                  className="p-1 hover:scale-110 transition-transform"
+                  onMouseEnter={() => setHoveredRating(n)}
+                  onMouseLeave={() => setHoveredRating(0)}
+                  className="p-1 hover:scale-110 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                  aria-label={`${n} estrela${n > 1 ? "s" : ""}`}
                 >
                   <Star
                     className={cn(
-                      "h-6 w-6",
-                      n <= rating
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-muted-foreground"
+                      "h-7 w-7 transition-colors",
+                      n <= displayRating
+                        ? "fill-primary text-primary"
+                        : "text-muted-foreground/30"
                     )}
                   />
                 </button>
               ))}
             </div>
+            {rating === 0 && (
+              <p className="text-xs text-muted-foreground">Clique nas estrelas para avaliar</p>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Feedback</Label>
+          <div className="space-y-2">
+            <Label htmlFor="visit-feedback-text">Feedback *</Label>
             <Textarea
+              id="visit-feedback-text"
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder="Como foi a visita?"
+              placeholder="Como foi a visita? Observações importantes..."
               rows={3}
               className="text-sm resize-none"
             />
+            {feedback.length === 0 && (
+              <p className="text-xs text-muted-foreground">Campo obrigatório</p>
+            )}
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10">
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || rating === 0}>
-            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Confirmar
+          <Button onClick={handleSubmit} disabled={isLoading || !canSubmit} className="h-10 gap-2">
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoading ? "Salvando..." : "Confirmar"}
           </Button>
         </DialogFooter>
       </DialogContent>

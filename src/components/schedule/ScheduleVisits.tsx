@@ -1,12 +1,9 @@
-import { useState } from "react";
 import { useVisits, type VisitStatus } from "@/hooks/useVisits";
 import { VisitCard } from "@/components/visits/VisitCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CalendarPlus } from "lucide-react";
 
 interface ScheduleVisitsProps {
   selectedDate?: Date;
@@ -24,31 +21,29 @@ export function ScheduleVisits({ selectedDate }: ScheduleVisitsProps) {
   });
 
   return (
-    <Card className="border-t-4 border-t-success/40">
+    <Card className="border-t-4 border-t-primary/40">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Eye className="h-5 w-5 text-success" />
+            <CalendarPlus className="h-5 w-5 text-primary" />
             Visitas
           </CardTitle>
-          <Badge className={cn(
-            "font-medium",
-            visits.length > 0 
-              ? "bg-success/10 text-success border-success/20" 
-              : "bg-muted text-muted-foreground"
-          )}>
+          <Badge variant={visits.length > 0 ? "default" : "secondary"} className="text-xs">
             {visits.length} visita{visits.length !== 1 ? "s" : ""}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground text-center py-4">Carregando...</p>
+          <div className="space-y-2">
+            <Skeleton className="h-24 w-full rounded-lg" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </div>
         ) : visits.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Eye className="h-10 w-10 text-muted-foreground mb-3" />
+            <CalendarPlus className="h-10 w-10 text-muted-foreground/50 mb-3" />
             <h3 className="font-medium text-muted-foreground text-sm">Nenhuma visita para este dia</h3>
-            <p className="text-xs text-muted-foreground mt-1">Use "Agendar Visita" no dashboard para agendar</p>
+            <p className="text-xs text-muted-foreground mt-1">Use "Agendar Visita" no dashboard para agendar.</p>
           </div>
         ) : (
           <div className="space-y-2">
