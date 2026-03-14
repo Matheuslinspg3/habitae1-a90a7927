@@ -13,6 +13,7 @@ import {
 import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Eye, ExternalLink, Hash, Building2, Store, CopyPlus } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
+import { AvailabilityBadge } from "./AvailabilityBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
@@ -135,6 +136,9 @@ export function PropertyListItem({
               <span className="font-semibold text-xs text-primary">{getDisplayPrice()}</span>
             )}
             <PropertyStatusBadge status={property.status} className="text-[10px]" />
+            {(property as any).availability_status && (property as any).availability_status !== 'available' && (
+              <AvailabilityBadge status={(property as any).availability_status} />
+            )}
             {isAvailable && (
               <Badge variant="outline" className="text-[10px] px-1">
                 {transactionLabels[property.transaction_type] || property.transaction_type}

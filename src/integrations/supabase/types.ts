@@ -2702,6 +2702,8 @@ export type Database = {
           area_built: number | null
           area_total: number | null
           area_useful: number | null
+          availability_status: string
+          availability_status_updated_at: string | null
           bathrooms: number | null
           beach_distance_meters: number | null
           bedrooms: number | null
@@ -2768,6 +2770,8 @@ export type Database = {
           area_built?: number | null
           area_total?: number | null
           area_useful?: number | null
+          availability_status?: string
+          availability_status_updated_at?: string | null
           bathrooms?: number | null
           beach_distance_meters?: number | null
           bedrooms?: number | null
@@ -2836,6 +2840,8 @@ export type Database = {
           area_built?: number | null
           area_total?: number | null
           area_useful?: number | null
+          availability_status?: string
+          availability_status_updated_at?: string | null
           bathrooms?: number | null
           beach_distance_meters?: number | null
           bedrooms?: number | null
@@ -3348,6 +3354,54 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "property_share_links_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_status_history: {
+        Row: {
+          changed_by: string
+          created_at: string
+          id: string
+          new_status: string
+          old_status: string | null
+          organization_id: string
+          property_id: string
+          reason: string | null
+        }
+        Insert: {
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_status: string
+          old_status?: string | null
+          organization_id: string
+          property_id: string
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_status?: string
+          old_status?: string | null
+          organization_id?: string
+          property_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_status_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_status_history_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "properties"

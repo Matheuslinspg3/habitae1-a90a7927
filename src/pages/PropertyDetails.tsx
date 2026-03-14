@@ -57,6 +57,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { LandingPageEditor } from "@/components/properties/LandingPageEditor";
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
+import { PropertyHistory } from "@/components/properties/PropertyHistory";
 
 const statusColors: Record<string, string> = {
   disponivel: "bg-success/15 text-success",
@@ -709,6 +710,14 @@ export default function PropertyDetails() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Availability History */}
+            <PropertyHistory
+              propertyId={id!}
+              currentStatus={(property as any).availability_status || 'available'}
+              statusUpdatedAt={(property as any).availability_status_updated_at}
+              organizationId={profile?.organization_id || ''}
+            />
 
             {/* Owner Card */}
             {owners.length > 0 && (

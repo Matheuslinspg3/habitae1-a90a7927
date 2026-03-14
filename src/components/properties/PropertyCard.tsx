@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MapPin, Bed, Bath, Car, Ruler, MoreHorizontal, Edit, Trash2, Building2, Eye, ExternalLink, Hash, Store, ImageIcon, FileText, Import } from "lucide-react";
 import { PropertyFreshnessBadge } from "./PropertyFreshnessBadge";
+import { AvailabilityBadge } from "./AvailabilityBadge";
 import { PropertyStatusBadge, transactionLabels } from "./PropertyStatusBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { proxyDriveImageUrl } from "@/lib/utils";
@@ -182,6 +183,9 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
             </Tooltip>
           )}
           <PropertyStatusBadge status={property.status} />
+          {(property as any).availability_status && (property as any).availability_status !== 'available' && (
+            <AvailabilityBadge status={(property as any).availability_status} />
+          )}
         </div>
 
         {imageCount > 1 && (

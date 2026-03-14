@@ -378,6 +378,24 @@ export function PropertyFilters({
               </Collapsible>
             )}
 
+            {/* Availability Status */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Disponibilidade</Label>
+              <Select value={filters.availabilityStatus} onValueChange={(value) => onUpdateFilter('availabilityStatus', value)}>
+                <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="available">🟢 Disponível</SelectItem>
+                  <SelectItem value="reserved">🟡 Reservado</SelectItem>
+                  <SelectItem value="sold">🔴 Vendido</SelectItem>
+                  <SelectItem value="rented">🔵 Alugado</SelectItem>
+                  <SelectItem value="unavailable">⚫ Indisponível</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
             {/* Status */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Status</Label>

@@ -8,6 +8,7 @@ export interface PropertyFilters {
   searchText: string;
   transactionType: string;
   status: string;
+  availabilityStatus: string;
   propertyTypeId: string;
   minPrice: number | null;
   maxPrice: number | null;
@@ -31,6 +32,7 @@ const defaultFilters: PropertyFilters = {
   searchText: '',
   transactionType: 'all',
   status: 'all',
+  availabilityStatus: 'all',
   propertyTypeId: 'all',
   minPrice: null,
   maxPrice: null,
@@ -58,6 +60,7 @@ export function usePropertyFilters() {
     searchText: searchParams.get('q') || '',
     transactionType: searchParams.get('tipo') || 'all',
     status: searchParams.get('status') || 'all',
+    availabilityStatus: searchParams.get('disponibilidade') || 'all',
     propertyTypeId: searchParams.get('tipo_imovel') || 'all',
     minPrice: searchParams.get('min_preco') ? Number(searchParams.get('min_preco')) : null,
     maxPrice: searchParams.get('max_preco') ? Number(searchParams.get('max_preco')) : null,
@@ -84,6 +87,7 @@ export function usePropertyFilters() {
     if (filters.searchText) params.set('q', filters.searchText);
     if (filters.transactionType !== 'all') params.set('tipo', filters.transactionType);
     if (filters.status !== 'all') params.set('status', filters.status);
+    if (filters.availabilityStatus !== 'all') params.set('disponibilidade', filters.availabilityStatus);
     if (filters.propertyTypeId !== 'all') params.set('tipo_imovel', filters.propertyTypeId);
     if (filters.minPrice) params.set('min_preco', String(filters.minPrice));
     if (filters.maxPrice) params.set('max_preco', String(filters.maxPrice));
@@ -173,6 +177,7 @@ export function usePropertyFilters() {
       filters.searchText !== '' ||
       filters.transactionType !== 'all' ||
       filters.status !== 'all' ||
+      filters.availabilityStatus !== 'all' ||
       filters.propertyTypeId !== 'all' ||
       filters.minPrice !== null ||
       filters.maxPrice !== null ||
@@ -197,6 +202,7 @@ export function usePropertyFilters() {
     let count = 0;
     if (filters.transactionType !== 'all') count++;
     if (filters.status !== 'all') count++;
+    if (filters.availabilityStatus !== 'all') count++;
     if (filters.propertyTypeId !== 'all') count++;
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
