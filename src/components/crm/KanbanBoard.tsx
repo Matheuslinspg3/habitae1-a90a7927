@@ -500,7 +500,7 @@ export function KanbanBoard() {
           return (
             <button
               key={value}
-              onClick={() => setSelectedTemperature(isActive ? null : value)}
+              onClick={() => handleTemperatureChange(isActive ? null : value)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors shrink-0 min-h-[32px] ${
                 isActive ? activeClass : 'border-border text-muted-foreground hover:bg-accent'
               }`}
