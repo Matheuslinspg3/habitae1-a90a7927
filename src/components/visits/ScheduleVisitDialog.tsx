@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -17,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CalendarPlus } from "lucide-react";
+import { Loader2, CalendarPlus, AlertTriangle } from "lucide-react";
 import { useVisits } from "@/hooks/useVisits";
 import { useProperties } from "@/hooks/useProperties";
 import { useBrokers } from "@/hooks/useBrokers";
@@ -64,22 +66,56 @@ export function ScheduleVisitDialog({
     }
   }, [open, defaultPropertyId, defaultLeadId]);
 
-  const filteredProperties = properties?.filter(
-    (p) =>
-      !propertySearch ||
-      p.title?.toLowerCase().includes(propertySearch.toLowerCase()) ||
-      p.property_code?.toLowerCase().includes(propertySearch.toLowerCase())
-  ).slice(0, 20) || [];
+  const filteredProperties = useMemo(() =>
+    (properties || []).filter(
+      (p) =>
+        !propertySearch ||
+        p.title?.toLowerCase().includes(propertySearch.toLowerCase()) ||
+        p.property_code?.toLowerCase().includes(propertySearch.toLowerCase())
+    ).slice(0, 20),
+    [properties, propertySearch]
+  );
 
-  const filteredLeads = leads?.filter(
-    (l) =>
-      !leadSearch ||
-      l.name?.toLowerCase().includes(leadSearch.toLowerCase()) ||
-      l.phone?.includes(leadSearch)
-  ).slice(0, 20) || [];
+  const filteredLeads = useMemo(() =>
+    (leads || []).filter(
+      (l) =>
+        !leadSearch ||
+        l.name?.toLowerCase().includes(leadSearch.toLowerCase()) ||
+        l.phone?.includes(leadSearch)
+    ).slice(0, 20),
+    [leads, leadSearch]
+  );
+
+  // Date validation
+  const dateValidation = useMemo(() => {
+    if (!scheduledAt) return null;
+    const date = new Date(scheduledAt);
+    const now = new Date();
+    
+    if (date < now) {
+      return { type: "error" as const, message: "Não é possível agendar no passado." };
+    }
+    
+    const hours = date.getHours();
+    if (hours < 8 || hours >= 20) {
+      return { type: "warning" as const, message: "Horário fora do comercial (8h–20h)." };
+    }
+    
+    return null;
+  }, [scheduledAt]);
+
+  const isPastDate = dateValidation?.type === "error";
+  const canSubmit = propertyId && leadId && agentId && scheduledAt && !isPastDate;
+
+  // Min date for input
+  const minDateTime = useMemo(() => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  }, []);
 
   const handleSubmit = () => {
-    if (!propertyId || !leadId || !agentId || !scheduledAt) return;
+    if (!canSubmit) return;
     createVisit(
       {
         property_id: propertyId,
@@ -96,26 +132,32 @@ export function ScheduleVisitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-full sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
             Agendar Visita
           </DialogTitle>
+          <DialogDescription>
+            Preencha os dados para agendar uma visita ao imóvel.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           {/* Property */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Imóvel *</Label>
-            <Input
-              placeholder="Buscar imóvel..."
-              value={propertySearch}
-              onChange={(e) => setPropertySearch(e.target.value)}
-              className="h-8 text-sm mb-1"
-            />
+            <Label htmlFor="visit-property-search">Imóvel *</Label>
+            {!defaultPropertyId && (
+              <Input
+                id="visit-property-search"
+                placeholder="Buscar imóvel..."
+                value={propertySearch}
+                onChange={(e) => setPropertySearch(e.target.value)}
+                className="h-9 text-sm mb-1"
+              />
+            )}
             <Select value={propertyId} onValueChange={setPropertyId}>
-              <SelectTrigger className="h-9 text-sm">
+              <SelectTrigger className="h-10 text-sm" aria-label="Selecionar imóvel">
                 <SelectValue placeholder="Selecione um imóvel" />
               </SelectTrigger>
               <SelectContent className="max-h-48">
@@ -130,21 +172,24 @@ export function ScheduleVisitDialog({
 
           {/* Lead */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Lead *</Label>
-            <Input
-              placeholder="Buscar lead..."
-              value={leadSearch}
-              onChange={(e) => setLeadSearch(e.target.value)}
-              className="h-8 text-sm mb-1"
-            />
+            <Label htmlFor="visit-lead-search">Lead *</Label>
+            {!defaultLeadId && (
+              <Input
+                id="visit-lead-search"
+                placeholder="Buscar lead..."
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                className="h-9 text-sm mb-1"
+              />
+            )}
             <Select value={leadId} onValueChange={setLeadId}>
-              <SelectTrigger className="h-9 text-sm">
+              <SelectTrigger className="h-10 text-sm" aria-label="Selecionar lead">
                 <SelectValue placeholder="Selecione um lead" />
               </SelectTrigger>
               <SelectContent className="max-h-48">
                 {filteredLeads.map((l) => (
                   <SelectItem key={l.id} value={l.id}>
-                    {l.name}
+                    {l.name}{l.phone ? ` · ${l.phone}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -153,9 +198,9 @@ export function ScheduleVisitDialog({
 
           {/* Agent */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Corretor Responsável *</Label>
+            <Label htmlFor="visit-agent-select">Corretor Responsável *</Label>
             <Select value={agentId} onValueChange={setAgentId}>
-              <SelectTrigger className="h-9 text-sm">
+              <SelectTrigger id="visit-agent-select" className="h-10 text-sm">
                 <SelectValue placeholder="Selecione um corretor" />
               </SelectTrigger>
               <SelectContent className="max-h-48">
@@ -170,19 +215,28 @@ export function ScheduleVisitDialog({
 
           {/* DateTime */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Data e Horário *</Label>
+            <Label htmlFor="visit-datetime">Data e Horário *</Label>
             <Input
+              id="visit-datetime"
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
-              className="h-9 text-sm"
+              min={minDateTime}
+              className="h-10 text-sm"
             />
+            {dateValidation && (
+              <div className={`flex items-center gap-1.5 text-xs ${dateValidation.type === "error" ? "text-destructive" : "text-warning"}`}>
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                {dateValidation.message}
+              </div>
+            )}
           </div>
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Observações</Label>
+            <Label htmlFor="visit-notes">Observações</Label>
             <Textarea
+              id="visit-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Observações sobre a visita..."
@@ -193,15 +247,16 @@ export function ScheduleVisitDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-10">
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isCreating || !propertyId || !leadId || !agentId || !scheduledAt}
+            disabled={isCreating || !canSubmit}
+            className="h-10 gap-2"
           >
-            {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Agendar
+            {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+            {isCreating ? "Agendando..." : "Agendar"}
           </Button>
         </DialogFooter>
       </DialogContent>
