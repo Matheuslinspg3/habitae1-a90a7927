@@ -438,7 +438,7 @@ export function KanbanBoard() {
           selectedSource={selectedSource}
           onSourceChange={setSelectedSource}
           selectedTemperature={selectedTemperature}
-          onTemperatureChange={setSelectedTemperature}
+          onTemperatureChange={handleTemperatureChange}
         />
         <div className="flex gap-2">
           <div className="flex border rounded-md overflow-hidden shrink-0">
