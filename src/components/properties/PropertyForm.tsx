@@ -249,6 +249,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
 
   const handleInvalidSubmit = () => {
     const firstErrorTab = findFirstTabWithError();
+    trackFormError('property_form');
     if (firstErrorTab) {
       setActiveTab(firstErrorTab);
       toast({ title: "Campos obrigatórios", description: "Preencha os campos obrigatórios destacados em vermelho.", variant: "destructive" });
