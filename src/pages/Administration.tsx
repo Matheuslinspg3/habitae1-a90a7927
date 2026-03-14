@@ -1,15 +1,16 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { useState, lazy, Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserPlus, Shield, History, LayoutDashboard, BarChart3, Loader2 } from "lucide-react";
+import { Users, UserPlus, Shield, History, LayoutDashboard, BarChart3, Loader2, Mail } from "lucide-react";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { TeamDashboard } from "@/components/admin/TeamDashboard";
 import { CustomRolesManager } from "@/components/admin/CustomRolesManager";
 import { MemberHistory } from "@/components/admin/MemberHistory";
+import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -101,7 +102,7 @@ export default function Administration() {
   if (!isAdminOrAbove) {
     return (
       <div className="flex flex-col min-h-screen">
-        <PageHeader title="Gestão" description="Acesso restrito" />
+        <PageHeader title="Administração" description="Acesso restrito" />
         <div className="flex-1 p-6 flex items-center justify-center">
           <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
         </div>
@@ -111,7 +112,7 @@ export default function Administration() {
 
   return (
     <div className="flex flex-col min-h-screen" data-clarity-mask="true">
-      <PageHeader title="Gestão" description="Equipe, permissões, atividades e integrações" />
+      <PageHeader title="Administração" description="Equipe, convites, permissões e auditoria" />
       <div className="flex-1 p-4 sm:p-6">
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
@@ -119,6 +120,10 @@ export default function Administration() {
               <TabsTrigger value="dashboard" className="gap-2 min-h-[44px]">
                 <LayoutDashboard className="h-4 w-4" />
                 Equipe
+              </TabsTrigger>
+              <TabsTrigger value="invites" className="gap-2 min-h-[44px]">
+                <Mail className="h-4 w-4" />
+                Convites
               </TabsTrigger>
               <TabsTrigger value="leads" className="gap-2 min-h-[44px]">
                 <UserPlus className="h-4 w-4" />
@@ -141,6 +146,10 @@ export default function Administration() {
 
           <TabsContent value="dashboard">
             <TeamDashboard />
+          </TabsContent>
+
+          <TabsContent value="invites">
+            <TeamInviteSection />
           </TabsContent>
 
           <TabsContent value="leads">
