@@ -62,7 +62,7 @@ export function QuickActions() {
 
   return (
     <>
-      <div className="flex flex-wrap gap-2.5 sm:gap-3">
+      <div className="flex gap-2.5 sm:gap-3 overflow-x-auto sm:overflow-visible sm:flex-wrap scrollbar-none snap-x snap-mandatory pb-1 sm:pb-0">
         {quickActions.map((action) => (
           <Button
             key={action.label}
