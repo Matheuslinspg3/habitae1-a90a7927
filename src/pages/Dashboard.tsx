@@ -4,6 +4,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { MobileDashboardSummary } from "@/components/dashboard/MobileDashboardSummary";
+import { MobileTodaySummary } from "@/components/dashboard/MobileTodaySummary";
 import { useScreenTime, useTrackAction } from "@/hooks/useAnalytics";
 import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { TodayTasks } from "@/components/dashboard/TodayTasks";
