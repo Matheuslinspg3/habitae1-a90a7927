@@ -20,7 +20,7 @@ function getPageType(pathname: string): string {
   if (pathname.startsWith("/configuracoes")) return "settings";
   if (pathname.startsWith("/marketplace")) return "marketplace";
   if (pathname.startsWith("/integracoes")) return "integrations";
-  if (pathname.startsWith("/anuncios")) return "ads";
+  if (pathname.startsWith("/marketing") || pathname.startsWith("/anuncios")) return "marketing";
   if (pathname.startsWith("/automacoes")) return "automations";
   if (pathname.startsWith("/proprietarios")) return "owners";
   if (pathname.startsWith("/admin")) return "admin";

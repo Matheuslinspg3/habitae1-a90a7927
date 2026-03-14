@@ -33,7 +33,7 @@ export default function Anuncios() {
   return (
     <div className="flex flex-col min-h-screen page-enter">
       <PageHeader
-        title="Anúncios"
+        title="Marketing"
         description="Gerencie campanhas, leads e conteúdo de marketing"
       />
 

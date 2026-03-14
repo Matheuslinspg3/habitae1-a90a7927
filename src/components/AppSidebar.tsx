@@ -49,7 +49,7 @@ const mainItems = [
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
-  { title: "Anúncios", url: "/anuncios", icon: Megaphone, badge: true },
+  { title: "Marketing", url: "/marketing", icon: Megaphone, badge: true },
 ];
 
 // ── Component ────────────────────────────────────────────────

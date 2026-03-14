@@ -77,7 +77,7 @@ export function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
             {showAdName && adName && (
               <p
                 className="text-xs text-primary cursor-pointer hover:underline"
-                onClick={() => navigate(`/anuncios/meta/ad/${lead.external_ad_id}`)}
+                onClick={() => navigate(`/marketing/ad/${lead.external_ad_id}`)}
               >
                 Anúncio: {adName}
               </p>
