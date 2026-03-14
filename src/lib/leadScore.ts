@@ -46,6 +46,11 @@ export async function registerLeadScoreEvent(
   eventType: string,
   metadata?: Record<string, unknown>
 ): Promise<void> {
+  const scoreDelta = SCORE_WEIGHTS[eventType];
+  if (scoreDelta === undefined) {
+    console.warn(`[LeadScore] Unknown event type: "${eventType}" — will use delta 0`);
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
