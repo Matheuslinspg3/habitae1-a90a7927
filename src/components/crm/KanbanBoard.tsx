@@ -50,6 +50,7 @@ import { useBrokers } from '@/hooks/useBrokers';
 import { useProperties } from '@/hooks/useProperties';
 import { usePropertyTypes } from '@/hooks/usePropertyTypes';
 import { useToast } from '@/hooks/use-toast';
+import { useTrackAction, trackSearch, trackFilterUsed, trackTaskCompletion } from '@/hooks/useAnalytics';
 
 const TEMP_CHIPS = [
   { value: 'prioridade', label: 'Prioridade', icon: Zap, activeClass: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
