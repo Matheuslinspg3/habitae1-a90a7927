@@ -98,6 +98,7 @@ export function LeadDetails({
 }: LeadDetailsProps) {
   const { logActivity } = useActivityLogger();
   const [activeTab, setActiveTab] = useState('info');
+  const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   useEffect(() => {
     if (open && lead) {
