@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,9 +12,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus, RefreshCw, Save, History, ChevronDown, RotateCcw } from "lucide-react";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 
 interface FormData {
   property_id: string;
@@ -46,6 +61,31 @@ const CHAR_LIMITS: Record<ResultKey, { min: number; max: number; label: string }
   whatsapp: { min: 50, max: 400, label: "WhatsApp" },
 };
 
+function CharCounter({ count, min, max }: { count: number; min: number; max: number }) {
+  const color = count >= min && count <= max
+    ? "text-success"
+    : count > max
+      ? "text-destructive"
+      : count >= min * 0.7
+        ? "text-warning"
+        : "text-muted-foreground";
+
+  const badgeVariant = count >= min && count <= max
+    ? "default" as const
+    : count > max
+      ? "destructive" as const
+      : "secondary" as const;
+
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className={color}>{count} caracteres</span>
+      <Badge variant={badgeVariant} className="text-[10px]">
+        Ideal: {min}–{max}
+      </Badge>
+    </div>
+  );
+}
+
 export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {}) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -72,6 +112,16 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [imagePrompts, setImagePrompts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
+  const [confirmLoadItem, setConfirmLoadItem] = useState<any>(null);
+  const [propertySearch, setPropertySearch] = useState("");
+
+  // Debounced property search
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(propertySearch), 300);
+    return () => clearTimeout(timer);
+  }, [propertySearch]);
 
   // Fetch properties
   const { data: properties = [] } = useQuery({
@@ -89,6 +139,17 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     },
     enabled: !!profile?.organization_id,
   });
+
+  const filteredProperties = useMemo(() => {
+    if (!debouncedSearch) return properties;
+    const q = debouncedSearch.toLowerCase();
+    return properties.filter((p: any) =>
+      p.title?.toLowerCase().includes(q) ||
+      p.property_code?.toLowerCase().includes(q) ||
+      p.address_neighborhood?.toLowerCase().includes(q) ||
+      p.address_city?.toLowerCase().includes(q)
+    );
+  }, [properties, debouncedSearch]);
 
   // Fetch leads
   const { data: leads = [] } = useQuery({
@@ -201,8 +262,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
       toast.success("Anúncios gerados com sucesso!");
     } catch (err: any) {
-      console.error("Erro ao gerar anúncios:", err);
-      toast.error(err.message || "Erro ao gerar anúncios");
+      toast.error(err.message || "Ocorreu um erro ao gerar os anúncios. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -223,8 +283,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         toast.success(`Texto de ${CHAR_LIMITS[channel].label} regenerado!`);
       }
     } catch (err: any) {
-      console.error(`Erro ao regenerar ${channel}:`, err);
-      toast.error(err.message || `Erro ao regenerar ${channel}`);
+      toast.error(err.message || `Erro ao regenerar texto de ${CHAR_LIMITS[channel].label}.`);
     } finally {
       setRegeneratingChannel(null);
     }
@@ -250,15 +309,23 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
 
       toast.success("Geração salva com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["anuncios_gerados"] });
-    } catch (err: any) {
-      console.error("Erro ao salvar:", err);
-      toast.error("Erro ao salvar geração.");
+    } catch {
+      toast.error("Não foi possível salvar a geração. Tente novamente.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleLoadHistory = (item: any) => {
+    // If there are current results, confirm before overwriting
+    if (results) {
+      setConfirmLoadItem(item);
+      return;
+    }
+    doLoadHistory(item);
+  };
+
+  const doLoadHistory = (item: any) => {
     const formData = item.dados_formulario as any;
     if (formData) {
       setForm({
@@ -281,6 +348,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       instagram: item.texto_instagram || "",
       whatsapp: item.texto_whatsapp || "",
     });
+    setConfirmLoadItem(null);
     toast.success("Geração carregada!");
   };
 
@@ -314,8 +382,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       setGeneratedImages(images);
       toast.success(`${images.length} imagem(ns) gerada(s)!`);
     } catch (err: any) {
-      console.error("Erro ao gerar imagens:", err);
-      toast.error(err.message || "Erro ao gerar imagens");
+      toast.error(err.message || "Não foi possível gerar as imagens. Tente novamente.");
     } finally {
       setImageLoading(false);
     }
@@ -325,7 +392,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     if (!results) return;
     await navigator.clipboard.writeText(results[key]);
     setCopied((prev) => ({ ...prev, [key]: true }));
-    toast.success("Copiado!");
+    toast.success("Texto copiado para a área de transferência!");
     setTimeout(() => setCopied((prev) => ({ ...prev, [key]: false })), 2000);
   };
 
@@ -341,396 +408,473 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     link.click();
   };
 
-  const resultCards: { key: ResultKey; title: string; icon: React.ReactNode; color: string }[] = [
-    { key: "portal", title: "Portal (OLX / ZAP)", icon: <Globe className="h-5 w-5" />, color: "text-blue-500" },
-    { key: "instagram", title: "Instagram / Facebook Ads", icon: <Instagram className="h-5 w-5" />, color: "text-pink-500" },
-    { key: "whatsapp", title: "WhatsApp", icon: <MessageCircle className="h-5 w-5" />, color: "text-green-500" },
+  const toggleExpand = (key: ResultKey) => {
+    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const isAnyRegenerating = !!regeneratingChannel;
+
+  const resultCards: { key: ResultKey; title: string; icon: React.ReactNode }[] = [
+    { key: "portal", title: "Portal (OLX / ZAP)", icon: <Globe className="h-5 w-5" /> },
+    { key: "instagram", title: "Instagram / Facebook Ads", icon: <Instagram className="h-5 w-5" /> },
+    { key: "whatsapp", title: "WhatsApp", icon: <MessageCircle className="h-5 w-5" /> },
   ];
 
+  const TEXT_PREVIEW_LENGTH = 300;
+
   return (
-    <div className="space-y-6">
-      {!embedded && <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />}
+    <TooltipProvider>
+      <div className="space-y-6">
+        {!embedded && <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />}
 
-      {/* Property & Lead Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Home className="h-5 w-5 text-primary" />
-            Vincular Imóvel e Lead
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Imóvel (opcional)</Label>
-              <Select value={form.property_id} onValueChange={(v) => setForm({ ...form, property_id: v === "__none__" ? "" : v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um imóvel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhum (preencher manual)</SelectItem>
-                  {properties.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      #{p.property_code} — {p.title || "Sem título"} — {p.address_neighborhood || ""}, {p.address_city || ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Ao selecionar, os campos serão preenchidos automaticamente.</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Lead / Cliente (opcional)</Label>
-              <Select value={form.lead_id} onValueChange={(v) => setForm({ ...form, lead_id: v === "__none__" ? "" : v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um lead" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhum</SelectItem>
-                  {leads.map((l: any) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name}{l.phone ? ` — ${l.phone}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">O nome do lead será usado na mensagem de WhatsApp.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Dados do Imóvel</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Tipo de imóvel</Label>
-              <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Casa">Casa</SelectItem>
-                  <SelectItem value="Apartamento">Apartamento</SelectItem>
-                  <SelectItem value="Terreno">Terreno</SelectItem>
-                  <SelectItem value="Sala Comercial">Sala Comercial</SelectItem>
-                  <SelectItem value="Cobertura">Cobertura</SelectItem>
-                  <SelectItem value="Kitnet">Kitnet</SelectItem>
-                  <SelectItem value="Sobrado">Sobrado</SelectItem>
-                  <SelectItem value="Galpão">Galpão</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Finalidade</Label>
-              <Select value={form.finalidade} onValueChange={(v) => setForm({ ...form, finalidade: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Venda">Venda</SelectItem>
-                  <SelectItem value="Aluguel">Aluguel</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Bairro e Cidade</Label>
-            <Input
-              placeholder="Ex: Centro, Curitiba - PR"
-              value={form.bairro_cidade}
-              onChange={(e) => setForm({ ...form, bairro_cidade: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Valor (R$)</Label>
-              <CurrencyInput value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Metragem (m²)</Label>
-              <Input
-                type="number"
-                placeholder="Ex: 120"
-                value={form.metragem ?? ""}
-                onChange={(e) => setForm({ ...form, metragem: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Quartos</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.quartos ?? ""}
-                onChange={(e) => setForm({ ...form, quartos: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Suítes</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.suites ?? ""}
-                onChange={(e) => setForm({ ...form, suites: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Vagas</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={form.vagas ?? ""}
-                onChange={(e) => setForm({ ...form, vagas: e.target.value ? Number(e.target.value) : null })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Diferenciais</Label>
-            <Textarea
-              placeholder="Ex: Piscina, churrasqueira, vista para o mar, próximo ao metrô..."
-              value={form.diferenciais}
-              onChange={(e) => setForm({ ...form, diferenciais: e.target.value })}
-              rows={3}
-            />
-          </div>
-
-          {/* Tone selector */}
-          <div className="space-y-2">
-            <Label>Tom do anúncio</Label>
-            <Select value={tone} onValueChange={(v) => setTone(v as Tone)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TONE_OPTIONS.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto gap-2">
-            <Sparkles className="h-4 w-4" />
-            {loading ? "Gerando textos..." : "Gerar Anúncios"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Results */}
-      {(loading || results) && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {resultCards.map(({ key, title, icon, color }) => {
-              const charCount = results?.[key]?.length || 0;
-              const limits = CHAR_LIMITS[key];
-              const isRegenerating = regeneratingChannel === key;
-
-              return (
-                <Card key={key}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <span className={color}>{icon}</span>
-                      {title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {loading || isRegenerating ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-5/6" />
-                        <Skeleton className="h-4 w-4/6" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/6" />
-                      </div>
-                    ) : results ? (
-                      <>
-                        <Textarea
-                          value={results[key]}
-                          onChange={(e) => updateResult(key, e.target.value)}
-                          rows={10}
-                          className="text-sm"
-                        />
-                        {/* Character counter */}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{charCount} caracteres</span>
-                          <Badge variant={charCount >= limits.min && charCount <= limits.max ? "default" : "destructive"} className="text-[10px]">
-                            Ideal: {limits.min}–{limits.max}
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 gap-1"
-                            onClick={() => handleCopy(key)}
-                          >
-                            {copied[key] ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                            {copied[key] ? "Copiado!" : "Copiar"}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => handleRegenerateChannel(key)}
-                            disabled={!!regeneratingChannel}
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Regenerar
-                          </Button>
-                        </div>
-                      </>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          {/* Save button */}
-          {results && (
-            <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={saving} className="gap-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {saving ? "Salvando..." : "💾 Salvar Geração"}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Image Generation */}
-      {imagePrompts.length > 0 && (
+        {/* Property & Lead Selection */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <ImagePlus className="h-5 w-5 text-primary" />
-              Imagens do Anúncio
+              <Home className="h-5 w-5 text-primary" />
+              Vincular Imóvel e Lead
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              A IA sugeriu {imagePrompts.length} imagens para o seu anúncio. Clique para gerar.
-            </p>
-
-            <Button
-              onClick={handleGenerateImages}
-              disabled={imageLoading}
-              className="gap-2"
-            >
-              {imageLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <ImagePlus className="h-4 w-4" />
-              )}
-              {imageLoading ? "Gerando imagens..." : `Gerar ${imagePrompts.length} Imagens`}
-            </Button>
-
-            {imageLoading && generatedImages.length === 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {imagePrompts.map((_, i) => (
-                  <Skeleton key={i} className="aspect-square rounded-lg" />
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="property-select">Imóvel (opcional)</Label>
+                <Input
+                  placeholder="Buscar por código, título ou bairro..."
+                  value={propertySearch}
+                  onChange={(e) => setPropertySearch(e.target.value)}
+                  className="h-9 text-sm"
+                  aria-label="Buscar imóvel"
+                />
+                <Select value={form.property_id} onValueChange={(v) => setForm({ ...form, property_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger id="property-select" className="w-full">
+                    <SelectValue placeholder="Selecione um imóvel" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="__none__">Nenhum (preencher manual)</SelectItem>
+                    {filteredProperties.map((p: any) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        #{p.property_code} — {p.title || "Sem título"} — {p.address_neighborhood || ""}, {p.address_city || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Ao selecionar, os campos serão preenchidos automaticamente.</p>
               </div>
-            )}
-
-            {generatedImages.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {generatedImages.map((img, i) => (
-                  <div key={i} className="space-y-2">
-                    <img
-                      src={img}
-                      alt={`Imagem gerada ${i + 1}`}
-                      className="w-full aspect-square object-cover rounded-lg border shadow-sm"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2"
-                      onClick={() => handleDownloadImage(img, i)}
-                    >
-                      <Download className="h-4 w-4" />
-                      Baixar
-                    </Button>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                <Label htmlFor="lead-select">Lead / Cliente (opcional)</Label>
+                <Select value={form.lead_id} onValueChange={(v) => setForm({ ...form, lead_id: v === "__none__" ? "" : v })}>
+                  <SelectTrigger id="lead-select" className="w-full">
+                    <SelectValue placeholder="Selecione um lead" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {leads.map((l: any) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.name}{l.phone ? ` — ${l.phone}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">O nome do lead será usado na mensagem de WhatsApp.</p>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* History */}
-      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
         <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" />
-                  Últimas gerações
-                  {history.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">{history.length}</Badge>
-                  )}
-                </span>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${historyOpen ? "rotate-180" : ""}`} />
+          <CardHeader>
+            <CardTitle className="text-lg">Dados do Imóvel</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tipo-select">Tipo de imóvel</Label>
+                <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
+                  <SelectTrigger id="tipo-select"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Casa">Casa</SelectItem>
+                    <SelectItem value="Apartamento">Apartamento</SelectItem>
+                    <SelectItem value="Terreno">Terreno</SelectItem>
+                    <SelectItem value="Sala Comercial">Sala Comercial</SelectItem>
+                    <SelectItem value="Cobertura">Cobertura</SelectItem>
+                    <SelectItem value="Kitnet">Kitnet</SelectItem>
+                    <SelectItem value="Sobrado">Sobrado</SelectItem>
+                    <SelectItem value="Galpão">Galpão</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="finalidade-select">Finalidade</Label>
+                <Select value={form.finalidade} onValueChange={(v) => setForm({ ...form, finalidade: v })}>
+                  <SelectTrigger id="finalidade-select"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Venda">Venda</SelectItem>
+                    <SelectItem value="Aluguel">Aluguel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bairro-input">Bairro e Cidade</Label>
+              <Input
+                id="bairro-input"
+                placeholder="Ex: Centro, Curitiba - PR"
+                value={form.bairro_cidade}
+                onChange={(e) => setForm({ ...form, bairro_cidade: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <CurrencyInput value={form.valor} onChange={(v) => setForm({ ...form, valor: v })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="metragem-input">Metragem (m²)</Label>
+                <Input
+                  id="metragem-input"
+                  type="number"
+                  placeholder="Ex: 120"
+                  value={form.metragem ?? ""}
+                  onChange={(e) => setForm({ ...form, metragem: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quartos-input">Quartos</Label>
+                <Input
+                  id="quartos-input"
+                  type="number"
+                  placeholder="0"
+                  value={form.quartos ?? ""}
+                  onChange={(e) => setForm({ ...form, quartos: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="suites-input">Suítes</Label>
+                <Input
+                  id="suites-input"
+                  type="number"
+                  placeholder="0"
+                  value={form.suites ?? ""}
+                  onChange={(e) => setForm({ ...form, suites: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vagas-input">Vagas</Label>
+                <Input
+                  id="vagas-input"
+                  type="number"
+                  placeholder="0"
+                  value={form.vagas ?? ""}
+                  onChange={(e) => setForm({ ...form, vagas: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="diferenciais-textarea">Diferenciais</Label>
+              <Textarea
+                id="diferenciais-textarea"
+                placeholder="Ex: Piscina, churrasqueira, vista para o mar, próximo ao metrô..."
+                value={form.diferenciais}
+                onChange={(e) => setForm({ ...form, diferenciais: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            {/* Tone selector */}
+            <div className="space-y-2">
+              <Label htmlFor="tone-select">Tom do anúncio</Label>
+              <Select value={tone} onValueChange={(v) => setTone(v as Tone)}>
+                <SelectTrigger id="tone-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TONE_OPTIONS.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full sm:w-auto gap-2 h-10"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {loading ? "Gerando textos..." : "Gerar Anúncios"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Results */}
+        {(loading || results) && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {resultCards.map(({ key, title, icon }) => {
+                const charCount = results?.[key]?.length || 0;
+                const limits = CHAR_LIMITS[key];
+                const isRegenerating = regeneratingChannel === key;
+                const text = results?.[key] || "";
+                const isLong = text.length > TEXT_PREVIEW_LENGTH;
+                const isExpanded = expandedCards[key];
+
+                return (
+                  <Card key={key}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <span className="text-primary">{icon}</span>
+                        {title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {loading || isRegenerating ? (
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-5/6" />
+                          <Skeleton className="h-4 w-4/6" />
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-3/6" />
+                        </div>
+                      ) : results ? (
+                        <>
+                          <Textarea
+                            value={isExpanded || !isLong ? text : text.slice(0, TEXT_PREVIEW_LENGTH) + "..."}
+                            onChange={(e) => updateResult(key, e.target.value)}
+                            rows={isExpanded ? 12 : 8}
+                            className="text-sm resize-none"
+                            aria-label={`Texto para ${title}`}
+                          />
+
+                          {isLong && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full h-7 text-xs text-muted-foreground"
+                              onClick={() => toggleExpand(key)}
+                            >
+                              {isExpanded ? (
+                                <><ChevronUp className="h-3 w-3 mr-1" /> Recolher</>
+                              ) : (
+                                <><ChevronDown className="h-3 w-3 mr-1" /> Ver mais</>
+                              )}
+                            </Button>
+                          )}
+
+                          <CharCounter count={charCount} min={limits.min} max={limits.max} />
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 gap-1 h-9"
+                              onClick={() => handleCopy(key)}
+                              aria-label={`Copiar texto de ${title}`}
+                            >
+                              {copied[key] ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                              {copied[key] ? "Copiado!" : "Copiar"}
+                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1 h-9"
+                                  onClick={() => handleRegenerateChannel(key)}
+                                  disabled={isAnyRegenerating}
+                                  aria-label={`Regenerar apenas o canal ${title}`}
+                                >
+                                  <RefreshCw className={cn("h-3.5 w-3.5", isRegenerating && "animate-spin")} />
+                                  Regenerar
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Regenerar apenas este canal</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Save button */}
+            {results && (
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving} className="gap-2 h-10">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving ? "Salvando..." : "Salvar Geração"}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Image Generation */}
+        {imagePrompts.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ImagePlus className="h-5 w-5 text-primary" />
+                Imagens do Anúncio
               </CardTitle>
             </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="pt-0">
-              {historyLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                A IA sugeriu {imagePrompts.length} imagens para o seu anúncio. Clique para gerar.
+              </p>
+
+              <Button
+                onClick={handleGenerateImages}
+                disabled={imageLoading}
+                className="gap-2 h-10"
+              >
+                {imageLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4" />
+                )}
+                {imageLoading ? "Gerando imagens..." : `Gerar ${imagePrompts.length} Imagens`}
+              </Button>
+
+              {imageLoading && generatedImages.length === 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {imagePrompts.map((_, i) => (
+                    <Skeleton key={i} className="aspect-square rounded-lg" />
                   ))}
                 </div>
-              ) : history.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma geração salva ainda.</p>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((item: any) => {
-                    const formData = item.dados_formulario as any;
-                    const date = new Date(item.created_at);
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+              )}
+
+              {generatedImages.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {generatedImages.map((img, i) => (
+                    <div key={i} className="space-y-2">
+                      <img
+                        src={img}
+                        alt={`Imagem gerada para anúncio ${i + 1}`}
+                        className="w-full aspect-square object-cover rounded-lg border shadow-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2 h-9"
+                        onClick={() => handleDownloadImage(img, i)}
+                        aria-label={`Baixar imagem ${i + 1}`}
                       >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium truncate">
-                              {formData?.tipo || "—"} • {formData?.finalidade || "—"}
-                            </span>
-                            {item.tone && (
-                              <Badge variant="outline" className="text-[10px]">{item.tone}</Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {formData?.bairro_cidade || "—"} • {date.toLocaleDateString("pt-BR")} {date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 shrink-0"
-                          onClick={() => handleLoadHistory(item)}
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          Carregar
-                        </Button>
-                      </div>
-                    );
-                  })}
+                        <Download className="h-4 w-4" />
+                        Baixar
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-    </div>
+          </Card>
+        )}
+
+        {/* History */}
+        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    Últimas gerações
+                    {history.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">{history.length}</Badge>
+                    )}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", historyOpen && "rotate-180")} />
+                </CardTitle>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0">
+                {historyLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                    ))}
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FileText className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                    <h3 className="text-sm font-medium text-muted-foreground">Nenhuma geração salva ainda</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Gere seu primeiro anúncio e salve para acessá-lo aqui.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {history.map((item: any) => {
+                      const formData = item.dados_formulario as any;
+                      const date = new Date(item.created_at);
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium truncate">
+                                {formData?.tipo || "—"} • {formData?.finalidade || "—"}
+                              </span>
+                              {item.tone && (
+                                <Badge variant="outline" className="text-[10px]">{item.tone}</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {formData?.bairro_cidade || "—"} • {date.toLocaleDateString("pt-BR")} {date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 shrink-0 h-9"
+                            onClick={() => handleLoadHistory(item)}
+                            aria-label="Carregar esta geração"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Carregar
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Confirm Load History Dialog */}
+        <Dialog open={!!confirmLoadItem} onOpenChange={() => setConfirmLoadItem(null)}>
+          <DialogContent className="w-full sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Substituir geração atual?</DialogTitle>
+              <DialogDescription>
+                Você tem uma geração em andamento. Ao carregar esta geração do histórico, os textos atuais serão substituídos.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfirmLoadItem(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => confirmLoadItem && doLoadHistory(confirmLoadItem)}>
+                Confirmar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Palette, Download, Copy, Check, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle } from "lucide-react";
+import { Palette, Download, Copy, Check, Loader2, Image as ImageIcon, CheckCircle, AlertTriangle, Camera } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface ArtConfig {
   main_text: string;
@@ -35,15 +36,19 @@ const ART_FORMATS = [
   { key: "url_banner" as const, label: "Banner 1200×628", aspect: "aspect-[1200/628]" },
 ];
 
+const MAX_VISIBLE_PHOTOS = 6;
+
 export default function GeradorArtes() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [photoQuality, setPhotoQuality] = useState<{ quality: string; message: string } | null>(null);
   const [qualityLoading, setQualityLoading] = useState(false);
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
   const [config, setConfig] = useState<ArtConfig>({
     main_text: "",
     sub_text: "",
@@ -104,6 +109,13 @@ export default function GeradorArtes() {
     enabled: !!selectedPropertyId,
   });
 
+  const visiblePhotos = useMemo(() => {
+    if (showAllPhotos) return propertyImages;
+    return propertyImages.slice(0, MAX_VISIBLE_PHOTOS);
+  }, [propertyImages, showAllPhotos]);
+
+  const hiddenPhotosCount = Math.max(0, propertyImages.length - MAX_VISIBLE_PHOTOS);
+
   // Auto-fill config when property changes
   useEffect(() => {
     if (!selectedPropertyId) return;
@@ -130,6 +142,7 @@ export default function GeradorArtes() {
     setSelectedImageId(null);
     setPhotoQuality(null);
     setResults(null);
+    setShowAllPhotos(false);
   }, [selectedPropertyId, properties, profile]);
 
   // Analyze photo quality
@@ -144,7 +157,7 @@ export default function GeradorArtes() {
         setPhotoQuality({ quality: data.quality, message: data.message });
       }
     } catch {
-      // Non-blocking, ignore errors
+      // Non-blocking
     } finally {
       setQualityLoading(false);
     }
@@ -188,19 +201,28 @@ export default function GeradorArtes() {
       queryClient.invalidateQueries({ queryKey: ["generated_arts", selectedPropertyId] });
       toast.success("Artes geradas com sucesso!");
     } catch (err: any) {
-      console.error("Erro ao gerar artes:", err);
-      toast.error(err.message || "Erro ao gerar artes");
+      toast.error(err.message || "Não foi possível gerar as artes. Tente novamente.");
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleDownload = (url: string, label: string) => {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `arte-${label.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.png`;
-    link.target = "_blank";
-    link.click();
+  const handleDownload = async (url: string, label: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `arte-${label.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // Fallback: open in new tab
+      window.open(url, "_blank");
+    }
   };
 
   const handleCopyUrl = async (url: string) => {
@@ -222,12 +244,12 @@ export default function GeradorArtes() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Imóvel</Label>
+            <Label htmlFor="art-property-select">Imóvel</Label>
             <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-              <SelectTrigger>
+              <SelectTrigger id="art-property-select">
                 <SelectValue placeholder="Buscar imóvel..." />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60">
                 {properties.map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>
                     #{p.property_code} — {p.title || "Sem título"} — {p.address_neighborhood || ""}, {p.address_city || ""}
@@ -248,42 +270,79 @@ export default function GeradorArtes() {
                   ))}
                 </div>
               ) : propertyImages.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma foto encontrada para este imóvel.</p>
-              ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                  {propertyImages.map((img: any) => {
-                    const thumbUrl = getImageUrl(img as ImageRecord, "thumb");
-                    const isSelected = selectedImageId === img.id;
-                    return (
-                      <button
-                        key={img.id}
-                        type="button"
-                        onClick={() => handleSelectImage(img)}
-                        className={cn(
-                          "relative aspect-square rounded-lg overflow-hidden border-2 transition-all",
-                          isSelected
-                            ? "border-primary ring-2 ring-ring"
-                            : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <img
-                          src={thumbUrl}
-                          alt="Foto do imóvel"
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                            <Check className="h-6 w-6 text-primary-foreground drop-shadow" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                <div className="flex flex-col items-center justify-center py-8 text-center border rounded-lg bg-muted/30">
+                  <Camera className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                  <h3 className="text-sm font-medium text-muted-foreground">Nenhuma foto encontrada</h3>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">Cadastre fotos neste imóvel para gerar artes.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => navigate(`/imoveis/${selectedPropertyId}`)}
+                  >
+                    Ir para o imóvel
+                  </Button>
                 </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {visiblePhotos.map((img: any) => {
+                      const thumbUrl = getImageUrl(img as ImageRecord, "thumb");
+                      const isSelected = selectedImageId === img.id;
+                      return (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => handleSelectImage(img)}
+                          aria-label={`Selecionar foto ${img.display_order || ""}`}
+                          className={cn(
+                            "relative aspect-square rounded-lg overflow-hidden border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            isSelected
+                              ? "ring-2 ring-primary ring-offset-2 border-primary"
+                              : "border-border hover:border-primary/50"
+                          )}
+                        >
+                          <img
+                            src={thumbUrl}
+                            alt={`Foto do imóvel ${img.display_order || ""}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <Check className="h-6 w-6 text-primary-foreground drop-shadow" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Show more button */}
+                  {hiddenPhotosCount > 0 && !showAllPhotos && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 text-xs text-muted-foreground"
+                      onClick={() => setShowAllPhotos(true)}
+                    >
+                      Ver mais fotos (+{hiddenPhotosCount})
+                    </Button>
+                  )}
+                  {showAllPhotos && hiddenPhotosCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 text-xs text-muted-foreground"
+                      onClick={() => setShowAllPhotos(false)}
+                    >
+                      Mostrar menos
+                    </Button>
+                  )}
+                </>
               )}
 
-              {/* Quality badge */}
+              {/* Quality badge - overlay style */}
               {selectedImageId && (
                 <div className="flex items-center gap-2 mt-2">
                   {qualityLoading ? (
@@ -324,16 +383,18 @@ export default function GeradorArtes() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Texto principal</Label>
+                <Label htmlFor="main-text-input">Texto principal</Label>
                 <Input
+                  id="main-text-input"
                   placeholder="Ex: R$ 450.000"
                   value={config.main_text}
                   onChange={(e) => setConfig({ ...config, main_text: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Subtexto</Label>
+                <Label htmlFor="sub-text-input">Subtexto</Label>
                 <Input
+                  id="sub-text-input"
                   placeholder="Ex: 3 quartos · 2 vagas · 120m²"
                   value={config.sub_text}
                   onChange={(e) => setConfig({ ...config, sub_text: e.target.value })}
@@ -343,16 +404,18 @@ export default function GeradorArtes() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Telefone</Label>
+                <Label htmlFor="phone-input">Telefone</Label>
                 <Input
+                  id="phone-input"
                   placeholder="(11) 99999-9999"
                   value={config.phone}
                   onChange={(e) => setConfig({ ...config, phone: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Slogan (opcional)</Label>
+                <Label htmlFor="slogan-input">Slogan (opcional)</Label>
                 <Input
+                  id="slogan-input"
                   placeholder="Seu imóvel dos sonhos"
                   value={config.slogan}
                   onChange={(e) => setConfig({ ...config, slogan: e.target.value })}
@@ -368,20 +431,22 @@ export default function GeradorArtes() {
                     type="color"
                     value={config.accent_color}
                     onChange={(e) => setConfig({ ...config, accent_color: e.target.value })}
-                    className="h-10 w-14 rounded-md border cursor-pointer"
+                    className="h-10 w-14 rounded-md border border-border cursor-pointer"
+                    aria-label="Escolher cor de destaque"
                   />
                   <Input
                     value={config.accent_color}
                     onChange={(e) => setConfig({ ...config, accent_color: e.target.value })}
                     className="flex-1"
                     maxLength={7}
+                    aria-label="Código hex da cor"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Posição do logo</Label>
+                <Label htmlFor="logo-pos-select">Posição do logo</Label>
                 <Select value={config.logo_position} onValueChange={(v) => setConfig({ ...config, logo_position: v })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="logo-pos-select">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -396,7 +461,7 @@ export default function GeradorArtes() {
             <Button
               onClick={handleGenerate}
               disabled={generating}
-              className="w-full sm:w-auto gap-2"
+              className="w-full sm:w-auto gap-2 h-10"
             >
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Palette className="h-4 w-4" />}
               {generating ? "Gerando suas artes..." : "Gerar Artes"}
@@ -419,7 +484,7 @@ export default function GeradorArtes() {
                   <CardContent className="space-y-3">
                     {generating ? (
                       <div className="space-y-3">
-                        <Skeleton className={cn("w-full rounded-lg", aspect)} />
+                        <div className={cn("w-full rounded-lg bg-gradient-to-br from-muted to-muted/50 animate-pulse", aspect)} />
                         <div className="flex items-center gap-2 justify-center text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Gerando...
@@ -429,15 +494,16 @@ export default function GeradorArtes() {
                       <>
                         <img
                           src={url}
-                          alt={label}
+                          alt={`Arte gerada no formato ${label}`}
                           className={cn("w-full rounded-lg border object-cover", aspect)}
                         />
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="flex-1 gap-1"
+                            className="flex-1 gap-1 h-9"
                             onClick={() => handleDownload(url, label)}
+                            aria-label={`Baixar arte ${label}`}
                           >
                             <Download className="h-3.5 w-3.5" />
                             Download
@@ -445,8 +511,9 @@ export default function GeradorArtes() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-1"
+                            className="gap-1 h-9"
                             onClick={() => handleCopyUrl(url)}
+                            aria-label={`Copiar link da arte ${label}`}
                           >
                             {copiedUrl === url ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                           </Button>
@@ -485,17 +552,27 @@ export default function GeradorArtes() {
                   if (!thumb) return null;
                   const date = new Date(item.created_at);
                   return (
-                    <div key={item.id} className="relative group">
+                    <div key={item.id} className="relative group rounded-lg overflow-hidden">
                       <img
                         src={thumb}
-                        alt="Arte gerada"
-                        className="w-full aspect-square object-cover rounded-lg border"
+                        alt={`Arte gerada em ${date.toLocaleDateString("pt-BR")}`}
+                        className="w-full aspect-square object-cover border rounded-lg"
                         loading="lazy"
                       />
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg p-1.5">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-end p-2 gap-1">
                         <p className="text-[10px] text-white">
                           {date.toLocaleDateString("pt-BR")}
                         </p>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 text-xs gap-1 w-full"
+                          onClick={() => handleDownload(thumb, `historico-${item.id}`)}
+                          aria-label={`Baixar arte de ${date.toLocaleDateString("pt-BR")}`}
+                        >
+                          <Download className="h-3 w-3" />
+                          Baixar
+                        </Button>
                       </div>
                     </div>
                   );
