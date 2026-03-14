@@ -30,7 +30,7 @@ interface FormData {
 
 type ResultKey = "portal" | "instagram" | "whatsapp";
 
-export default function GeradorAnuncios() {
+export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {}) {
   const { user, profile } = useAuth();
   const [form, setForm] = useState<FormData>({
     property_id: "",
