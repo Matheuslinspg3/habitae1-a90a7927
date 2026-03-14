@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
@@ -13,6 +13,11 @@ import { CarnivalBanner } from "@/components/dashboard/CarnivalBanner";
 import { MarketplaceMetricsCard } from "@/components/marketplace/MarketplaceMetricsCard";
 import { ConversionFunnel } from "@/components/dashboard/ConversionFunnel";
 import { InactivityAlerts } from "@/components/dashboard/InactivityAlerts";
+import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
+import { AdvancedKPIs } from "@/components/dashboard/AdvancedKPIs";
+import { DetailedFunnel } from "@/components/dashboard/DetailedFunnel";
+import { AgentRanking } from "@/components/dashboard/AgentRanking";
+import { LiveIndicator } from "@/components/dashboard/LiveIndicator";
 import { useDemo } from "@/contexts/DemoContext";
 import { useNavigate } from "react-router-dom";
 import { formatCurrency } from "@/lib/utils";
@@ -20,15 +25,41 @@ import { useProperties } from "@/hooks/useProperties";
 import { useLeads } from "@/hooks/useLeads";
 import { useContracts } from "@/hooks/useContracts";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useDashboardPeriod } from "@/hooks/useDashboardPeriod";
+import { useUserRoles } from "@/hooks/useUserRole";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Dashboard() {
   const { isDemoMode, demoStats } = useDemo();
   const navigate = useNavigate();
-  
+  const queryClient = useQueryClient();
+  const { isAdminOrAbove } = useUserRoles();
+  const { periodKey, setPeriodKey, dateRange, customRange, setCustomRange } = useDashboardPeriod();
+
   const { properties, isLoading: loadingProperties } = useProperties();
   const { leads, isLoading: loadingLeads } = useLeads();
   const { contracts, isLoading: loadingContracts } = useContracts();
   const { stats: transactionStats, chartData, isLoading: loadingTransactions } = useTransactions();
+
+  // Realtime subscription for leads and appointments
+  useEffect(() => {
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["kpi_metrics"] });
+        queryClient.invalidateQueries({ queryKey: ["agent_ranking"] });
+        queryClient.invalidateQueries({ queryKey: ["funnel_detail"] });
+        queryClient.invalidateQueries({ queryKey: ["leads"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["kpi_metrics"] });
+        queryClient.invalidateQueries({ queryKey: ["agent_ranking"] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const realStats = useMemo(() => {
     const activeProperties = properties.filter(p => 
@@ -87,11 +118,22 @@ export default function Dashboard() {
       <div className="absolute inset-0 bg-gradient-mesh-vibrant pointer-events-none" />
       
       <div className="relative flex-1 p-4 sm:p-6 space-y-6 sm:space-y-8">
-        {/* Welcome + Quick Actions */}
+        {/* Welcome + Quick Actions + Live */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <WelcomeHeader />
+          <div className="flex items-center gap-3">
+            <WelcomeHeader />
+            <LiveIndicator />
+          </div>
           <QuickActions />
         </div>
+
+        {/* Period Filter */}
+        <DashboardPeriodFilter
+          periodKey={periodKey}
+          onPeriodChange={setPeriodKey}
+          customRange={customRange}
+          onCustomRangeChange={setCustomRange}
+        />
 
         {/* Colorful divider */}
         <hr className="section-divider" />
@@ -107,11 +149,17 @@ export default function Dashboard() {
           <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => navigate('/financeiro')} isLoading={isLoading} />
         </div>
 
+        {/* Advanced KPIs */}
+        <AdvancedKPIs dateRange={dateRange} />
+
         {/* PWA Install Banner */}
         <PWAInstallBanner />
 
         {/* Stale Properties Alert */}
         <StalePropertiesAlert properties={properties} isLoading={loadingProperties} />
+
+        {/* Detailed Funnel */}
+        <DetailedFunnel dateRange={dateRange} />
 
         {/* Pipeline + Conversion + Appointments */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
@@ -119,6 +167,9 @@ export default function Dashboard() {
           <ConversionFunnel />
           <UpcomingAppointments />
         </div>
+
+        {/* Agent Ranking (admin+ only) */}
+        {isAdminOrAbove && <AgentRanking dateRange={dateRange} />}
 
         {/* Inactivity Alerts + Marketplace */}
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 stagger-children">
