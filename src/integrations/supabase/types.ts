@@ -4405,6 +4405,18 @@ export type Database = {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
       }
+      fn_agent_ranking: {
+        Args: { p_end: string; p_org_id: string; p_start: string }
+        Returns: Json
+      }
+      fn_funnel_detail: {
+        Args: { p_end: string; p_org_id: string; p_start: string }
+        Returns: Json
+      }
+      fn_kpi_metrics: {
+        Args: { p_end: string; p_org_id: string; p_start: string }
+        Returns: Json
+      }
       generate_property_code: {
         Args: {
           p_city?: string
