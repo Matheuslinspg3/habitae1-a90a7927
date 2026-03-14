@@ -136,6 +136,9 @@ export function PropertyListItem({
               <span className="font-semibold text-xs text-primary">{getDisplayPrice()}</span>
             )}
             <PropertyStatusBadge status={property.status} className="text-[10px]" />
+            {(property as any).availability_status && (property as any).availability_status !== 'available' && (
+              <AvailabilityBadge status={(property as any).availability_status} />
+            )}
             {isAvailable && (
               <Badge variant="outline" className="text-[10px] px-1">
                 {transactionLabels[property.transaction_type] || property.transaction_type}

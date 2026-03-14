@@ -183,6 +183,9 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
             </Tooltip>
           )}
           <PropertyStatusBadge status={property.status} />
+          {(property as any).availability_status && (property as any).availability_status !== 'available' && (
+            <AvailabilityBadge status={(property as any).availability_status} />
+          )}
         </div>
 
         {imageCount > 1 && (
