@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Home, UserPlus, FileText, CalendarPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
+import { trackQuickAction } from "@/hooks/useAnalytics";
 
 interface QuickAction {
   icon: React.ElementType;
@@ -53,6 +54,7 @@ export function QuickActions() {
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
 
   const handleAction = (action: QuickAction) => {
+    trackQuickAction(action.action || action.label);
     if (action.isDialog) {
       setVisitDialogOpen(true);
     } else if (action.path) {

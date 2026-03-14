@@ -4,6 +4,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { MobileDashboardSummary } from "@/components/dashboard/MobileDashboardSummary";
+import { MobileTodaySummary } from "@/components/dashboard/MobileTodaySummary";
 import { useScreenTime, useTrackAction } from "@/hooks/useAnalytics";
 import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { TodayTasks } from "@/components/dashboard/TodayTasks";
@@ -154,8 +155,11 @@ export default function Dashboard() {
         {/* Carnival Banner */}
         {new Date().getMonth() === 1 && <CarnivalBanner />}
 
-        {/* Mobile compact stats (horizontal scroll) */}
+        {/* Mobile compact stats (2x2 grid) */}
         <MobileDashboardSummary stats={stats} isLoading={isLoading} />
+
+        {/* Mobile Today Summary */}
+        <MobileTodaySummary />
 
         {/* Desktop Stats Grid */}
         <div className="hidden md:grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">

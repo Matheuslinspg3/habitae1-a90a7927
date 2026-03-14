@@ -13,10 +13,12 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 import { APP_VERSION } from "@/config/appVersion";
+import { useModuleVisit } from "@/hooks/useAnalytics";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
   usePerformanceMode();
+  useModuleVisit();
 
   // Push notification permission is now requested only via explicit user gesture
   // (Settings page or notification bell) — not auto-prompted here
