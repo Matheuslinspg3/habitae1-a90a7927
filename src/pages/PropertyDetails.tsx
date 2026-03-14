@@ -57,6 +57,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { LandingPageEditor } from "@/components/properties/LandingPageEditor";
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
+import { PropertyHistory } from "@/components/properties/PropertyHistory";
 
 const statusColors: Record<string, string> = {
   disponivel: "bg-success/15 text-success",
