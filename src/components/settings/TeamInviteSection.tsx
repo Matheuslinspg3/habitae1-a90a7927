@@ -18,9 +18,25 @@ export function TeamInviteSection() {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { hasRole, isLoading: rolesLoading } = useUserRoles();
-  const canInvite = hasRole('admin') || hasRole('leader') || hasRole('developer');
+  const canInvite = hasRole('admin') || hasRole('sub_admin') || hasRole('leader') || hasRole('developer');
+  const isAdmin = hasRole('admin') || hasRole('developer');
+  const isSubAdmin = hasRole('sub_admin');
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"corretor" | "assistente">("corretor");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<string>("corretor");
+
+  const availableRoles = isAdmin
+    ? ["corretor", "assistente", "leader", "sub_admin"]
+    : isSubAdmin
+    ? ["corretor", "assistente", "leader"]
+    : ["corretor", "assistente"];
+
+  const ROLE_LABELS: Record<string, string> = {
+    corretor: "Corretor",
+    assistente: "Assistente (somente leitura)",
+    leader: "Leader",
+    sub_admin: "Sub-Dono",
+  };
 
   const { data: invites = [], isLoading } = useQuery({
     queryKey: ["organization-invites", profile?.organization_id],
