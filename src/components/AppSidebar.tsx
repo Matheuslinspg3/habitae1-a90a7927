@@ -119,7 +119,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border/30 bg-sidebar backdrop-blur-xl">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 space-y-3">
         <a href="/dashboard" className="block cursor-pointer">
           {collapsed ? (
             <HabitaeLogo variant="icon" size="sm" />
@@ -127,6 +127,20 @@ export function AppSidebar() {
             <HabitaeLogo variant="horizontal" size="md" />
           )}
         </a>
+        {!collapsed && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground font-normal h-9"
+            onClick={() => {
+              window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+            }}
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-xs">Buscar...</span>
+            <kbd className="ml-auto text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+          </Button>
+        )}
       </SidebarHeader>
 
       <SidebarContent>

@@ -23,6 +23,17 @@ export function MobileTopBar() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => {
+              window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+            }}
+            aria-label="Buscar"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
           <NotificationBell />
           <ThemeToggle />
         </div>

@@ -42,6 +42,7 @@ export function AppLayout() {
         <MobileBottomNav />
         <PWAInstallPrompt />
         <UpdateBanner />
+        <GlobalCommandPalette />
         <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v{APP_VERSION}</span>
       </div>
     </SidebarProvider>
