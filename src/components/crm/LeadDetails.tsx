@@ -94,6 +94,7 @@ export function LeadDetails({
   isInactivating,
 }: LeadDetailsProps) {
   const { logActivity } = useActivityLogger();
+  const [activeTab, setActiveTab] = useState('info');
 
   useEffect(() => {
     if (open && lead) {
