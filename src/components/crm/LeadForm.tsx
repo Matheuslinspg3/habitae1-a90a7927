@@ -978,15 +978,16 @@ export function LeadForm({
               )}
             </Tabs>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background pb-1">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="min-h-[44px]"
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading} className="min-h-[44px]">
                 {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 {isEditing ? 'Salvar' : 'Criar Lead'}
               </Button>
