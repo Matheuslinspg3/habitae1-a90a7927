@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTabParam } from "@/hooks/useTabParam";
 
-const ActivitiesContent = lazy(() => import("./Activities"));
+const ActivitiesContent = lazy(() => import("./Activities").then(m => ({ default: () => <m.default embedded /> })));
 
 function UnassignedLeads() {
   const { profile } = useAuth();

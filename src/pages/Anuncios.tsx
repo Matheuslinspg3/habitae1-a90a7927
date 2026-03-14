@@ -14,7 +14,7 @@ import RDWebhookTab from "@/components/ads/rdstation/RDWebhookTab";
 import RDOAuthTab from "@/components/ads/rdstation/RDOAuthTab";
 import RDSettingsTab from "@/components/ads/rdstation/RDSettingsTab";
 
-const GeradorAnunciosContent = lazy(() => import("./GeradorAnuncios"));
+const GeradorAnunciosContent = lazy(() => import("./GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center py-12">
