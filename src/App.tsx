@@ -33,7 +33,7 @@ const PropertyLandingPage = lazy(() => import("./pages/PropertyLandingPage"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const MarketplacePropertyDetails = lazy(() => import("./pages/MarketplacePropertyDetails"));
 const CRM = lazy(() => import("./pages/CRM"));
-const Contracts = lazy(() => import("./pages/Contracts"));
+const _Contracts = lazy(() => import("./pages/Contracts")); // kept for reference, now embedded in Financial
 const Financial = lazy(() => import("./pages/Financial"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -46,13 +46,13 @@ const AccessDenied = lazy(() => import("./pages/AccessDenied"));
 const PlatformSignup = lazy(() => import("./pages/PlatformSignup"));
 const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
-const Activities = lazy(() => import("./pages/Activities"));
+const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
 const Administration = lazy(() => import("./pages/Administration"));
 const Anuncios = lazy(() => import("./pages/Anuncios"));
-const RDStation = lazy(() => import("./pages/RDStation"));
+const _RDStation = lazy(() => import("./pages/RDStation")); // embedded in Anuncios
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
 const Owners = lazy(() => import("./pages/Owners"));
-const GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios"));
+const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embedded in Anuncios
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
@@ -138,21 +138,21 @@ const App = () => (
                         <Route path="/marketplace" element={<Marketplace />} />
                         <Route path="/marketplace/:id" element={<MarketplacePropertyDetails />} />
                         <Route path="/crm" element={<CRM />} />
-                        <Route path="/contratos" element={<Contracts />} />
+                        <Route path="/contratos" element={<Navigate to="/financeiro?tab=contracts" replace />} />
                         <Route path="/financeiro" element={<Financial />} />
                         <Route path="/agenda" element={<Schedule />} />
                         
                         <Route path="/automacoes" element={<Automations />} />
-                        <Route path="/atividades" element={<ManagerRoute><Activities /></ManagerRoute>} />
+                        <Route path="/atividades" element={<Navigate to="/administracao?tab=activities" replace />} />
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
                         
-                        {/* Ads module */}
+                        {/* Ads module - consolidated */}
                         <Route path="/anuncios" element={<Anuncios />} />
                         <Route path="/anuncios/ad/:externalId" element={<MetaAdDetail />} />
-                        <Route path="/rdstation" element={<RDStation />} />
-                        <Route path="/gerador-anuncios" element={<GeradorAnuncios />} />
+                        <Route path="/rdstation" element={<Navigate to="/anuncios?section=rdstation" replace />} />
+                        <Route path="/gerador-anuncios" element={<Navigate to="/anuncios?section=gerador" replace />} />
                         
                         {/* Developer route inside AppLayout */}
                         <Route path="/developer" element={

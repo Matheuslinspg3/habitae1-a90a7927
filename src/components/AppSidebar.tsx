@@ -1,7 +1,6 @@
 import React from "react";
 import { 
   Users, 
-  FileText, 
   DollarSign, 
   Calendar, 
   LayoutDashboard,
@@ -16,8 +15,6 @@ import {
   Zap,
   UserCog,
   Megaphone,
-  BarChart3,
-  Sparkles,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -43,29 +40,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-// ── Menu Groups ──────────────────────────────────────────────
+// ── Sidebar Items ────────────────────────────────────────────
 
-const operationalItems = [
+const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Imóveis", url: "/imoveis", icon: Home },
-  { title: "Proprietários", url: "/proprietarios", icon: UserCog },
   { title: "CRM", url: "/crm", icon: Users },
   { title: "Agenda", url: "/agenda", icon: Calendar },
-];
-
-const businessItems = [
   { title: "Marketplace", url: "/marketplace", icon: Store },
-  { title: "Contratos", url: "/contratos", icon: FileText },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Anúncios", url: "/anuncios", icon: Megaphone, badge: true },
 ];
-
-const marketingItems = [
-  { title: "Meta Ads", url: "/anuncios", icon: Megaphone, badge: true },
-  { title: "RD Station", url: "/rdstation", icon: BarChart3 },
-  { title: "Gerador IA", url: "/gerador-anuncios", icon: Sparkles },
-];
-
-const marketingAutomation = { title: "Automações", url: "/automacoes", icon: Zap };
 
 // ── Component ────────────────────────────────────────────────
 
@@ -144,49 +129,15 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* ── Operacional ── */}
+        {/* ── Menu Principal ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-            Operacional
+            Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {operationalItems.map(renderMenuItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* ── Negócios ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-            Negócios
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {businessItems.map(renderMenuItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* ── Marketing ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-            Marketing
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {marketingItems.map(renderMenuItem)}
-              {isDeveloperOrLeader && renderMenuItem(marketingAutomation)}
-              {/* Google Ads - disabled */}
-              <SidebarMenuItem>
-                <SidebarMenuButton disabled tooltip="Google Ads (Em desenvolvimento)" className="opacity-50 cursor-not-allowed">
-                  <div className="flex items-center gap-3">
-                    <Megaphone className="h-4 w-4" />
-                    <span>Google Ads</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground">Em breve</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {mainItems.map(renderMenuItem)}
+              {isDeveloperOrLeader && renderMenuItem({ title: "Automações", url: "/automacoes", icon: Zap })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -200,7 +151,6 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
-                {renderMenuItem({ title: "Atividades", url: "/atividades", icon: BarChart3 })}
                 {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>
             </SidebarGroupContent>

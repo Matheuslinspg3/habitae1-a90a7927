@@ -116,7 +116,7 @@ function useActivities() {
   });
 }
 
-export default function Activities() {
+export default function Activities({ embedded }: { embedded?: boolean } = {}) {
   const { data, isLoading } = useActivities();
   const { isAdminOrAbove } = useUserRoles();
   const { brokers } = useBrokers();
@@ -165,10 +165,12 @@ export default function Activities() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Atividades"
-        description="Acompanhe todas as atividades da equipe"
-      />
+      {!embedded && (
+        <PageHeader
+          title="Atividades"
+          description="Acompanhe todas as atividades da equipe"
+        />
+      )}
 
       {/* Filters */}
       <Card>

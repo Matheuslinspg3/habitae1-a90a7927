@@ -30,7 +30,7 @@ interface FormData {
 
 type ResultKey = "portal" | "instagram" | "whatsapp";
 
-export default function GeradorAnuncios() {
+export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {}) {
   const { user, profile } = useAuth();
   const [form, setForm] = useState<FormData>({
     property_id: "",
@@ -231,7 +231,7 @@ export default function GeradorAnuncios() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />
+      {!embedded && <PageHeader title="Gerador de Anúncios" description="Gere textos e imagens otimizados para anúncios com IA" />}
 
       {/* Property & Lead Selection */}
       <Card>
