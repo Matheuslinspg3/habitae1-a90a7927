@@ -33,7 +33,7 @@ const PropertyLandingPage = lazy(() => import("./pages/PropertyLandingPage"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const MarketplacePropertyDetails = lazy(() => import("./pages/MarketplacePropertyDetails"));
 const CRM = lazy(() => import("./pages/CRM"));
-const Contracts = lazy(() => import("./pages/Contracts"));
+const _Contracts = lazy(() => import("./pages/Contracts")); // kept for reference, now embedded in Financial
 const Financial = lazy(() => import("./pages/Financial"));
 const Schedule = lazy(() => import("./pages/Schedule"));
 const Settings = lazy(() => import("./pages/Settings"));
