@@ -223,5 +223,12 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
         )}
       </CardContent>
     </Card>
+
+    <ScheduleVisitDialog
+      open={visitDialogOpen}
+      onOpenChange={setVisitDialogOpen}
+      defaultPropertyId={propertyId}
+    />
+    </>
   );
 }
