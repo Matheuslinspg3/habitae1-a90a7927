@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap } from "lucide-react";
+import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -20,15 +20,36 @@ interface MoreItem {
   developerOnly?: boolean;
 }
 
-const moreItems: MoreItem[] = [
-  { icon: Store, label: "Marketplace", path: "/marketplace" },
-  { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
-  { icon: Megaphone, label: "Marketing", path: "/marketing" },
-  { icon: Building2, label: "Proprietários", path: "/proprietarios" },
-  { icon: Zap, label: "Automações", path: "/automacoes" },
-  { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
-  { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
-  { icon: Settings, label: "Configurações", path: "/configuracoes" },
+interface MenuGroup {
+  title: string;
+  items: MoreItem[];
+}
+
+const menuGroups: MenuGroup[] = [
+  {
+    title: "Menu",
+    items: [
+      { icon: Store, label: "Marketplace", path: "/marketplace" },
+      { icon: DollarSign, label: "Financeiro", path: "/financeiro" },
+      { icon: Megaphone, label: "Marketing", path: "/marketing" },
+      { icon: Building2, label: "Proprietários", path: "/proprietarios" },
+      { icon: Zap, label: "Automações", path: "/automacoes" },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { icon: UserCog, label: "Administração", path: "/administracao", adminOnly: true },
+      { icon: Plug, label: "Integrações", path: "/integracoes", adminOnly: true },
+    ],
+  },
+  {
+    title: "Sistema",
+    items: [
+      { icon: Settings, label: "Configurações", path: "/configuracoes" },
+      { icon: Terminal, label: "Developer", path: "/developer", developerOnly: true },
+    ],
+  },
 ];
 
 export function MobileBottomNav() {
@@ -36,6 +57,7 @@ export function MobileBottomNav() {
   const navigate = useNavigate();
   const { isAdminOrAbove, isDeveloper } = useUserRoles();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   // Close sheet on route change
   useEffect(() => {
@@ -55,13 +77,23 @@ export function MobileBottomNav() {
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
 
-  const isMoreActive = moreItems.some(item => isActive(item.path));
+  const allItems = menuGroups.flatMap(g => g.items);
+  const isMoreActive = allItems.some(item => isActive(item.path));
 
-  const filteredMoreItems = moreItems.filter(item => {
-    if (item.adminOnly && !isAdminOrAbove) return false;
-    if (item.developerOnly && !isDeveloper) return false;
-    return true;
-  });
+  const filterItems = (items: MoreItem[]) =>
+    items.filter(item => {
+      if (item.adminOnly && !isAdminOrAbove) return false;
+      if (item.developerOnly && !isDeveloper) return false;
+      return true;
+    });
+
+  const toggleGroup = (title: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  const filteredGroups = menuGroups
+    .map(g => ({ ...g, items: filterItems(g.items) }))
+    .filter(g => g.items.length > 0);
 
   return (
     <>
@@ -76,16 +108,16 @@ export function MobileBottomNav() {
 
           {/* Sheet */}
           <div
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border/50 shadow-2xl slide-up-enter safe-area-bottom"
+            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border/50 shadow-2xl slide-up-enter safe-area-bottom max-h-[70vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-2">
+            <div className="flex items-center justify-between px-5 py-2 shrink-0">
               <p className="text-sm font-semibold text-foreground">Menu</p>
               <button
                 onClick={() => setIsSheetOpen(false)}
@@ -96,29 +128,50 @@ export function MobileBottomNav() {
               </button>
             </div>
 
-            {/* Grid of items */}
-            <div className="grid grid-cols-4 gap-1 px-3 pb-6 pt-1">
-              {filteredMoreItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
+            {/* Grouped items */}
+            <div className="overflow-y-auto px-3 pb-6 pt-1 space-y-1">
+              {filteredGroups.map((group) => {
+                const isCollapsed = collapsedGroups[group.title] ?? false;
                 return (
-                  <button
-                    key={item.path}
-                    onClick={() => {
-                      navigate(item.path);
-                      setIsSheetOpen(false);
-                    }}
-                    className={cn(
-                      "flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl",
-                      "active:scale-90 touch-manipulation transition-all duration-150",
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted"
+                  <div key={group.title}>
+                    <button
+                      onClick={() => toggleGroup(group.title)}
+                      className="flex items-center justify-between w-full px-2 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+                    >
+                      {group.title}
+                      <ChevronDown className={cn(
+                        "h-3.5 w-3.5 transition-transform duration-200",
+                        isCollapsed && "-rotate-90"
+                      )} />
+                    </button>
+                    {!isCollapsed && (
+                      <div className="grid grid-cols-4 gap-1">
+                        {group.items.map((item) => {
+                          const Icon = item.icon;
+                          const active = isActive(item.path);
+                          return (
+                            <button
+                              key={item.path}
+                              onClick={() => {
+                                navigate(item.path);
+                                setIsSheetOpen(false);
+                              }}
+                              className={cn(
+                                "flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl",
+                                "active:scale-90 touch-manipulation transition-all duration-150",
+                                active
+                                  ? "bg-primary/10 text-primary"
+                                  : "text-muted-foreground hover:bg-muted"
+                              )}
+                            >
+                              <Icon className="h-5 w-5" />
+                              <span className="text-[10px] font-medium leading-tight text-center">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-[10px] font-medium leading-tight text-center">{item.label}</span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
