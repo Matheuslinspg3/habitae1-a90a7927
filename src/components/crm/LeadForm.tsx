@@ -251,6 +251,8 @@ export function LeadForm({
     if (basicHasError) errorMessages.push('Dados do Lead');
     if (interestHasError) errorMessages.push('Interesse em Imóvel');
 
+    trackFormError('lead_form');
+
     toast.error(`${errorCount} campo(s) obrigatório(s) pendente(s)`, {
       description: errorMessages.length > 0
         ? `Verifique a(s) aba(s): ${errorMessages.join(', ')}`
