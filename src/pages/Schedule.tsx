@@ -193,6 +193,9 @@ export default function Schedule() {
               </CardContent>
             </Card>
 
+            {/* Visits for selected date */}
+            <ScheduleVisits selectedDate={date} />
+
             {/* Tasks */}
             <Card className="border-t-4 border-t-accent/40">
               <CardHeader>
