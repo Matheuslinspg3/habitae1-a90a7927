@@ -22,7 +22,7 @@ interface AuditEvent {
 
 export function useAuditLog() {
   const { user, profile } = useAuth();
-  const { role } = useUserRoles();
+  const { roles } = useUserRoles();
   const location = useLocation();
 
   const log = useCallback(
