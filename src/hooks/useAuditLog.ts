@@ -33,7 +33,7 @@ export function useAuditLog() {
         await supabase.rpc("insert_audit_event" as any, {
           p_organization_id: profile.organization_id,
           p_user_id: user.id,
-          p_acting_role: role || "unknown",
+          p_acting_role: roles?.[0] || "unknown",
           p_entity_type: event.entity_type,
           p_entity_id: event.entity_id || null,
           p_entity_name: event.entity_name || null,
