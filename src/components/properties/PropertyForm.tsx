@@ -302,19 +302,19 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
 
             <OwnerSection form={form} isEditing={!!property} />
 
-            <DialogFooter className="flex-col sm:flex-row gap-4">
+            <DialogFooter className="flex-col sm:flex-row gap-3 sticky bottom-0 bg-background pt-4 pb-1">
               <div className="flex items-center gap-3 mr-auto">
                 <Switch id="publish-marketplace" checked={publishToMarketplace} onCheckedChange={setPublishToMarketplace} />
                 <Label htmlFor="publish-marketplace" className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                   <Store className="h-4 w-4" />
-                  Publicar no Marketplace
+                  <span className="hidden sm:inline">Publicar no</span> Marketplace
                 </Label>
               </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                <Button type="submit" disabled={isSubmitting}>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
+                <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-initial min-h-[44px]">
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {property ? "Salvar Alterações" : "Cadastrar Imóvel"}
+                  {property ? "Salvar" : "Cadastrar"}
                 </Button>
               </div>
             </DialogFooter>
