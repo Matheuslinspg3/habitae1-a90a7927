@@ -166,6 +166,7 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
               </DialogContent>
             </Dialog>
           )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
