@@ -2,6 +2,8 @@ import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function MobileTopBar() {
   const { profile } = useAuth();
