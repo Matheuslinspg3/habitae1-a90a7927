@@ -107,7 +107,25 @@ export function KanbanBoard() {
   const [search, setSearch] = useState('');
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
-  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(null);
+  const [selectedTemperature, setSelectedTemperature] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('crm_temperature_filter') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Persist temperature filter
+  const handleTemperatureChange = (value: string | null) => {
+    setSelectedTemperature(value);
+    try {
+      if (value) {
+        localStorage.setItem('crm_temperature_filter', value);
+      } else {
+        localStorage.removeItem('crm_temperature_filter');
+      }
+    } catch { /* ignore */ }
+  };
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [columnReorderMode, setColumnReorderMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
