@@ -145,12 +145,15 @@ export default function Dashboard() {
         {/* Carnival Banner */}
         {new Date().getMonth() === 1 && <CarnivalBanner />}
 
-        {/* Stats Grid */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
-          <StatCard title="Imóveis Ativos" value={stats.properties.value} subtitle={stats.properties.subtitle} icon={Home} trend={stats.properties.trend} onClick={() => navigate('/imoveis')} isLoading={isLoading} />
-          <StatCard title="Leads no Funil" value={stats.leads.value} subtitle={stats.leads.subtitle} icon={Users} trend={stats.leads.trend} onClick={() => navigate('/crm')} isLoading={isLoading} />
-          <StatCard title="Contratos Ativos" value={stats.contracts.value} subtitle={stats.contracts.subtitle} icon={FileText} trend={stats.contracts.trend} onClick={() => navigate('/contratos')} isLoading={isLoading} />
-          <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => navigate('/financeiro')} isLoading={isLoading} />
+        {/* Mobile compact stats (horizontal scroll) */}
+        <MobileDashboardSummary stats={stats} isLoading={isLoading} />
+
+        {/* Desktop Stats Grid */}
+        <div className="hidden md:grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4 stagger-children">
+          <StatCard title="Imóveis Ativos" value={stats.properties.value} subtitle={stats.properties.subtitle} icon={Home} trend={stats.properties.trend} onClick={() => { trackAction('stat_click', { card: 'properties' }); navigate('/imoveis'); }} isLoading={isLoading} />
+          <StatCard title="Leads no Funil" value={stats.leads.value} subtitle={stats.leads.subtitle} icon={Users} trend={stats.leads.trend} onClick={() => { trackAction('stat_click', { card: 'leads' }); navigate('/crm'); }} isLoading={isLoading} />
+          <StatCard title="Contratos Ativos" value={stats.contracts.value} subtitle={stats.contracts.subtitle} icon={FileText} trend={stats.contracts.trend} onClick={() => { trackAction('stat_click', { card: 'contracts' }); navigate('/contratos'); }} isLoading={isLoading} />
+          <StatCard title="Receita do Mês" value={stats.revenue.value} subtitle={stats.revenue.subtitle} icon={DollarSign} trend={stats.revenue.trend} onClick={() => { trackAction('stat_click', { card: 'revenue' }); navigate('/financeiro'); }} isLoading={isLoading} />
         </div>
 
         {/* Advanced KPIs */}
