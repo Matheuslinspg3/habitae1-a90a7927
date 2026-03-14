@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Home, UserPlus, FileText, CalendarPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
+import { trackQuickAction } from "@/hooks/useAnalytics";
+import { useNavigate } from "react-router-dom";
+import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
 
 interface QuickAction {
   icon: React.ElementType;
