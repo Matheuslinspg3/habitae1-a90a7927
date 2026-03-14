@@ -14,6 +14,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { PushPermissionBanner } from "@/components/PushPermissionBanner";
 import { APP_VERSION } from "@/config/appVersion";
 import { useModuleVisit } from "@/hooks/useAnalytics";
+import { GlobalCommandPalette } from "@/components/GlobalCommandPalette";
 
 export function AppLayout() {
   const { isDemoMode } = useDemo();
@@ -41,6 +42,7 @@ export function AppLayout() {
         <MobileBottomNav />
         <PWAInstallPrompt />
         <UpdateBanner />
+        <GlobalCommandPalette />
         <span className="fixed bottom-1 left-1 z-[9999] text-[10px] text-muted-foreground/40 pointer-events-none select-none hidden md:block">Porta v{APP_VERSION}</span>
       </div>
     </SidebarProvider>
