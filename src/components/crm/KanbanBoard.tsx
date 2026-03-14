@@ -305,9 +305,10 @@ export function KanbanBoard() {
 
   const handleLeadClick = useCallback((lead: Lead) => {
     if (activeId) return;
+    trackAction('crm_lead_click', { leadId: lead.id });
     setSelectedLead(lead);
     setDetailsOpen(true);
-  }, [activeId]);
+  }, [activeId, trackAction]);
 
   const handleNewLead = useCallback(() => {
     setEditingLead(null);
