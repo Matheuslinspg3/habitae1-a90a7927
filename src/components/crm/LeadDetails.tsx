@@ -401,6 +401,12 @@ export function LeadDetails({
             <LeadDocumentsTab leadId={lead.id} />
           </TabsContent>
         </Tabs>
+
+        <ScheduleVisitDialog
+          open={visitDialogOpen}
+          onOpenChange={setVisitDialogOpen}
+          defaultLeadId={lead.id}
+        />
       </SheetContent>
     </Sheet>
   );
