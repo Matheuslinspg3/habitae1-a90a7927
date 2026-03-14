@@ -43,21 +43,31 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainMenuItems = [
+// ── Menu Groups ──────────────────────────────────────────────
+
+const operationalItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Imóveis", url: "/imoveis", icon: Home },
   { title: "Proprietários", url: "/proprietarios", icon: UserCog },
-  { title: "Marketplace", url: "/marketplace", icon: Store },
   { title: "CRM", url: "/crm", icon: Users },
-  { title: "Contratos", url: "/contratos", icon: FileText },
-  { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Agenda", url: "/agenda", icon: Calendar },
 ];
 
-const settingsItems = [
-  { title: "Integrações", url: "/integracoes", icon: Plug },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
+const businessItems = [
+  { title: "Marketplace", url: "/marketplace", icon: Store },
+  { title: "Contratos", url: "/contratos", icon: FileText },
+  { title: "Financeiro", url: "/financeiro", icon: DollarSign },
 ];
+
+const marketingItems = [
+  { title: "Meta Ads", url: "/anuncios", icon: Megaphone, badge: true },
+  { title: "RD Station", url: "/rdstation", icon: BarChart3 },
+  { title: "Gerador IA", url: "/gerador-anuncios", icon: Sparkles },
+];
+
+const marketingAutomation = { title: "Automações", url: "/automacoes", icon: Zap };
+
+// ── Component ────────────────────────────────────────────────
 
 export function AppSidebar() {
   const { state, setOpenMobile, isMobile } = useSidebar();
@@ -93,6 +103,34 @@ export function AppSidebar() {
     prevPath.current = currentPath;
   }, [currentPath, isMobile, setOpenMobile]);
 
+  const renderMenuItem = (item: { title: string; url: string; icon: React.ElementType; badge?: boolean }) => {
+    const active = isActive(item.url);
+    return (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton 
+          asChild 
+          isActive={active}
+          tooltip={item.title}
+          className={active ? "bg-sidebar-accent border-l-2 border-primary" : ""}
+        >
+          <NavLink 
+            to={item.url} 
+            className="flex items-center gap-3"
+            activeClassName="text-primary font-medium"
+          >
+            <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
+            <span>{item.title}</span>
+            {item.badge && newAdLeadsCount > 0 && (
+              <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
+                {newAdLeadsCount}
+              </span>
+            )}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border/30 bg-sidebar backdrop-blur-xl">
       <SidebarHeader className="p-4">
@@ -106,101 +144,39 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* ── Operacional ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-            Menu Principal
+            Operacional
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item) => {
-                const active = isActive(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={active}
-                      tooltip={item.title}
-                      className={active ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                    >
-                      <NavLink 
-                        to={item.url} 
-                        className="flex items-center gap-3"
-                        activeClassName="text-primary font-medium"
-                      >
-                        <item.icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
-                        <span>{item.title}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {operationalItems.map(renderMenuItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Anúncios - single menu item like Marketplace/Imóveis */}
+        {/* ── Negócios ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-            Anúncios
+            Negócios
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive("/anuncios")}
-                  tooltip="Anúncios"
-                  className={isActive("/anuncios") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                >
-                  <NavLink 
-                    to="/anuncios" 
-                    className="flex items-center gap-3"
-                    activeClassName="text-primary font-medium"
-                  >
-                    <Megaphone className={`h-4 w-4 ${isActive("/anuncios") ? "text-primary" : ""}`} />
-                    <span>Meta Ads</span>
-                    {newAdLeadsCount > 0 && (
-                      <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs rounded-full bg-destructive text-destructive-foreground">
-                        {newAdLeadsCount}
-                      </span>
-                    )}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {/* RD Station */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive("/rdstation")}
-                  tooltip="RD Station"
-                >
-                  <NavLink 
-                    to="/rdstation" 
-                    className="flex items-center gap-3"
-                    activeClassName="text-primary font-medium"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    <span>RD Station</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {/* Gerador de Anúncios */}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive("/gerador-anuncios")}
-                  tooltip="Gerador de Anúncios"
-                >
-                  <NavLink 
-                    to="/gerador-anuncios" 
-                    className="flex items-center gap-3"
-                    activeClassName="text-primary font-medium"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    <span>Gerador IA</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {businessItems.map(renderMenuItem)}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* ── Marketing ── */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
+            Marketing
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {marketingItems.map(renderMenuItem)}
+              {isDeveloperOrLeader && renderMenuItem(marketingAutomation)}
               {/* Google Ads - disabled */}
               <SidebarMenuItem>
                 <SidebarMenuButton disabled tooltip="Google Ads (Em desenvolvimento)" className="opacity-50 cursor-not-allowed">
@@ -215,35 +191,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isDeveloperOrLeader && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
-              Automações
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive("/automacoes")}
-                    tooltip="Automações"
-                    className={isActive("/automacoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                  >
-                    <NavLink 
-                      to="/automacoes" 
-                      className="flex items-center gap-3"
-                      activeClassName="text-primary font-medium"
-                    >
-                      <Zap className={`h-4 w-4 ${isActive("/automacoes") ? "text-primary" : ""}`} />
-                      <span>Automações</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
+        {/* ── Gestão (admin+) ── */}
         {isAdminOrAbove && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
@@ -251,92 +199,27 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive("/atividades")}
-                    tooltip="Atividades"
-                    className={isActive("/atividades") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                  >
-                    <NavLink 
-                      to="/atividades" 
-                      className="flex items-center gap-3"
-                      activeClassName="text-primary font-medium"
-                    >
-                      <BarChart3 className={`h-4 w-4 ${isActive("/atividades") ? "text-primary" : ""}`} />
-                      <span>Atividades</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive("/administracao")}
-                    tooltip="Administração"
-                    className={isActive("/administracao") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                  >
-                    <NavLink 
-                      to="/administracao" 
-                      className="flex items-center gap-3"
-                      activeClassName="text-primary font-medium"
-                    >
-                      <UserCog className={`h-4 w-4 ${isActive("/administracao") ? "text-primary" : ""}`} />
-                      <span>Administração</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {renderMenuItem({ title: "Administração", url: "/administracao", icon: UserCog })}
+                {renderMenuItem({ title: "Atividades", url: "/atividades", icon: BarChart3 })}
+                {renderMenuItem({ title: "Integrações", url: "/integracoes", icon: Plug })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
 
-
+        {/* ── Sistema ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
             Sistema
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {isAdminOrAbove && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive("/integracoes")}
-                    tooltip="Integrações"
-                    className={isActive("/integracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                  >
-                    <NavLink 
-                      to="/integracoes" 
-                      className="flex items-center gap-3"
-                      activeClassName="text-primary font-medium"
-                    >
-                      <Plug className={`h-4 w-4 ${isActive("/integracoes") ? "text-primary" : ""}`} />
-                      <span>Integrações</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
-                  isActive={isActive("/configuracoes")}
-                  tooltip="Configurações"
-                  className={isActive("/configuracoes") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                >
-                  <NavLink 
-                    to="/configuracoes" 
-                    className="flex items-center gap-3"
-                    activeClassName="text-primary font-medium"
-                  >
-                    <Settings className={`h-4 w-4 ${isActive("/configuracoes") ? "text-primary" : ""}`} />
-                    <span>Configurações</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {renderMenuItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* ── Developer ── */}
         {isDeveloper && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground/70 uppercase text-xs tracking-wider">
@@ -344,23 +227,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={isActive("/developer")}
-                    tooltip="Developer"
-                    className={isActive("/developer") ? "bg-sidebar-accent border-l-2 border-primary" : ""}
-                  >
-                    <NavLink 
-                      to="/developer" 
-                      className="flex items-center gap-3"
-                      activeClassName="text-primary font-medium"
-                    >
-                      <Code className={`h-4 w-4 ${isActive("/developer") ? "text-primary" : ""}`} />
-                      <span>Developer</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {renderMenuItem({ title: "Developer", url: "/developer", icon: Code })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
