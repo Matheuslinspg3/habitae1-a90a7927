@@ -116,7 +116,7 @@ function useActivities() {
   });
 }
 
-export default function Activities() {
+export default function Activities({ embedded }: { embedded?: boolean } = {}) {
   const { data, isLoading } = useActivities();
   const { isAdminOrAbove } = useUserRoles();
   const { brokers } = useBrokers();
