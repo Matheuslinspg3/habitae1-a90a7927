@@ -202,6 +202,7 @@ export function usePropertyFilters() {
     let count = 0;
     if (filters.transactionType !== 'all') count++;
     if (filters.status !== 'all') count++;
+    if (filters.availabilityStatus !== 'all') count++;
     if (filters.propertyTypeId !== 'all') count++;
     if (filters.minPrice !== null) count++;
     if (filters.maxPrice !== null) count++;
