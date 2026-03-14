@@ -112,6 +112,11 @@ export function PropertyHistory({ propertyId, currentStatus, statusUpdatedAt, or
             <History className="h-5 w-5" />
             Histórico de Disponibilidade
           </CardTitle>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setVisitDialogOpen(true)}>
+              <CalendarPlus className="h-3.5 w-3.5" />
+              Agendar visita
+            </Button>
           {isAdminOrAbove && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
