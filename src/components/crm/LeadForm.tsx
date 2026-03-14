@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { trackFormError, trackLeadCreated } from '@/components/ClarityProvider';
+import { useTrackAction } from '@/hooks/useAnalytics';
 import {
   Dialog,
   DialogContent,
