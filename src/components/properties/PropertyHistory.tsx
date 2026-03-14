@@ -15,9 +15,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { AvailabilityBadge, availabilityConfig } from "./AvailabilityBadge";
-import { History, RefreshCw, ArrowRight } from "lucide-react";
+import { History, RefreshCw, ArrowRight, CalendarPlus } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ScheduleVisitDialog } from "@/components/visits/ScheduleVisitDialog";
+import { LeadVisitsSection } from "@/components/visits/LeadVisitsSection";
 
 interface Props {
   propertyId: string;
