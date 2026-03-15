@@ -187,15 +187,10 @@ Deno.serve(async (req) => {
     const size = body.format === "feed" ? "1024x1024" : "1024x1536";
     console.log(`[generate-ad-image] style=${body.style}, format=${body.format}, size=${size}`);
 
-    // Convert image to base64 for OpenAI
-    const { base64, mimeType } = await urlToBase64(imageUrl);
+    const { imageBlob, ext } = await resolveImageFile(imageUrl);
 
     // Use OpenAI Images Edit API with gpt-image-1
     const formData = new FormData();
-    // Convert base64 to blob for multipart
-    const imageBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "png";
-    const imageBlob = new Blob([imageBytes], { type: mimeType });
     formData.append("image", imageBlob, `input.${ext}`);
     formData.append("prompt", prompt);
     formData.append("model", "gpt-image-1");
