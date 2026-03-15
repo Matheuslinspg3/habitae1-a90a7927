@@ -125,8 +125,19 @@ serve(async (req) => {
       });
 
       const uazapiData = await uazapiRes.json();
+      if (!uazapiRes.ok) {
+        throw new Error(`Uazapi connect error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+      }
 
-      const qrCode = uazapiData.qrcode || uazapiData.qr || uazapiData.data?.qrcode || null;
+      const qrCode =
+        uazapiData.qrcode ||
+        uazapiData.qr ||
+        uazapiData.base64 ||
+        uazapiData.data?.qrcode ||
+        uazapiData.data?.qr ||
+        uazapiData.data?.base64 ||
+        uazapiData.data?.qrCode ||
+        null;
 
       await supabaseClient
         .from("whatsapp_instances")
