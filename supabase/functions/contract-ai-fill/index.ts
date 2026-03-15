@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -198,6 +199,42 @@ REGRAS:
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const tokensIn = aiData.usage?.prompt_tokens || 0;
+    const tokensOut = aiData.usage?.completion_tokens || 0;
+
+    // Get user profile for org_id
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .single();
+
+    // Log usage
+    await supabase.from("ai_usage_logs").insert({
+      organization_id: profile?.organization_id || null,
+      user_id: user.id,
+      provider: "lovable",
+      model: "google/gemini-2.5-flash",
+      function_name: "contract-ai-fill",
+      usage_type: "text",
+      tokens_input: tokensIn,
+      tokens_output: tokensOut,
+      estimated_cost_usd: (tokensIn / 1000) * 0.00015 + (tokensOut / 1000) * 0.0006,
+      success: !!toolCall?.function?.arguments,
+    });
+
+    // Track billing
+    await trackAiBilling(supabase, {
+      userId: user.id,
+      organizationId: profile?.organization_id,
+      provider: "lovable",
+      model: "google/gemini-2.5-flash",
+      functionName: "contract-ai-fill",
+      inputTokens: tokensIn,
+      outputTokens: tokensOut,
+      success: !!toolCall?.function?.arguments,
+      usageType: "text",
+    });
 
     if (!toolCall?.function?.arguments) {
       throw new Error("IA não retornou dados estruturados");

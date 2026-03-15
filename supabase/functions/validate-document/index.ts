@@ -80,6 +80,19 @@ serve(async (req) => {
         const tokensIn = aiData.usage?.prompt_tokens || 0;
         const tokensOut = aiData.usage?.completion_tokens || 0;
 
+        // Log usage
+        await supabase.from("ai_usage_logs").insert({
+          user_id: "system",
+          provider: "lovable",
+          model: "google/gemini-2.5-flash-lite",
+          function_name: "validate-document",
+          usage_type: "vision",
+          tokens_input: tokensIn,
+          tokens_output: tokensOut,
+          estimated_cost_usd: (tokensIn / 1000) * 0.0001 + (tokensOut / 1000) * 0.0004,
+          success: true,
+        });
+
         // Track billing
         await trackAiBilling(supabase, {
           userId: "system",

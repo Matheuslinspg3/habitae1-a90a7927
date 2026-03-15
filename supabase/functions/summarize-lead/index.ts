@@ -118,6 +118,20 @@ Gere o resumo em português brasileiro, direto e prático.`;
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
+
+      // Log usage
+      await serviceClient.from("ai_usage_logs").insert({
+        user_id: userId,
+        provider: "lovable",
+        model: "google/gemini-2.5-flash-lite",
+        function_name: "summarize-lead",
+        usage_type: "text",
+        tokens_input: tokensIn,
+        tokens_output: tokensOut,
+        estimated_cost_usd: (tokensIn / 1000) * 0.0001 + (tokensOut / 1000) * 0.0004,
+        success: true,
+      });
+
       await trackAiBilling(serviceClient, {
         userId,
         provider: "lovable",

@@ -215,6 +215,26 @@ Deno.serve(async (req) => {
     // Call AI with fallback
     const aiResult = await callAI(aiMessages);
 
+    // Log AI usage
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .single();
+
+    await supabase.from("ai_usage_logs").insert({
+      organization_id: userProfile?.organization_id || null,
+      user_id: user.id,
+      provider: aiResult.provider,
+      model: aiResult.provider === "groq" ? GROQ_MODEL : GOOGLE_MODEL,
+      function_name: "ticket-chat",
+      usage_type: "text",
+      tokens_input: 0,
+      tokens_output: 0,
+      estimated_cost_usd: 0,
+      success: aiResult.success,
+    });
+
     // Save AI response
     await supabase.from("ticket_messages").insert({
       ticket_id,
