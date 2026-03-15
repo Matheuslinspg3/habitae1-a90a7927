@@ -67,6 +67,8 @@ export function WhatsAppIntegrationCard() {
     }
   };
 
+  const displayedQrCode = qrCode || instance?.qr_code || null;
+
   const statusBadge = () => {
     if (!instance) return null;
     switch (instance.status) {
