@@ -289,6 +289,74 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     }
   };
 
+  const handleGenerateFullAd = async () => {
+    if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
+      toast.error("Preencha tipo, finalidade e localização.");
+      return;
+    }
+    if (!form.property_id && propertyImages.length === 0) {
+      toast.error("Selecione um imóvel com fotos para gerar o anúncio completo.");
+      return;
+    }
+
+    setGeneratingFullAd(true);
+    setLoading(true);
+    setResults(null);
+    setGeneratedImage(null);
+
+    try {
+      // 1. Generate text
+      const data = await callGenerateContent();
+      setResults({
+        portal: data.portal,
+        instagram: data.instagram,
+        whatsapp: data.whatsapp,
+      });
+      if (data._ai_provider || data._ai_model) {
+        setAiProviderInfo({ provider: data._ai_provider || "unknown", model: data._ai_model || "" });
+      }
+
+      // 2. Generate image using first property image
+      if (propertyImages.length > 0) {
+        const { getImageUrl } = await import("@/lib/imageUrl");
+        const coverImg = propertyImages.find((i: any) => i.is_cover) || propertyImages[0];
+        const imgUrl = getImageUrl(coverImg as any, "full");
+
+        const formatCurrency = (v: number | null | undefined) =>
+          v ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "";
+
+        const overlayData = {
+          title: form.tipo ? `${form.tipo} ${form.finalidade ? `para ${form.finalidade}` : ""}`.trim() : undefined,
+          price: formatCurrency(form.valor) || undefined,
+          area: form.metragem ? `${form.metragem}m²` : undefined,
+          bedrooms: form.quartos ? `${form.quartos} quartos` : undefined,
+          parking: form.vagas ? `${form.vagas} vagas` : undefined,
+          neighborhood: form.bairro_cidade || undefined,
+        };
+
+        const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-ad-image", {
+          body: {
+            imageUrl: imgUrl,
+            format: "feed",
+            style: "template",
+            overlayData,
+            aiProvider: "gemini",
+          },
+        });
+
+        if (!imgError && imgData?.imageUrl) {
+          setGeneratedImage(imgData.imageUrl);
+        }
+      }
+
+      toast.success("Anúncio completo gerado!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar anúncio completo.");
+    } finally {
+      setLoading(false);
+      setGeneratingFullAd(false);
+    }
+  };
   const handleRegenerateChannel = async (channel: ResultKey) => {
     if (!form.tipo || !form.finalidade || !form.bairro_cidade) {
       toast.error("Preencha tipo, finalidade e localização.");
