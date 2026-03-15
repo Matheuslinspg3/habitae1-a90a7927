@@ -59,8 +59,15 @@ export function WhatsAppIntegrationCard() {
     const result = await checkStatus();
     if (result?.status === "connected") {
       setQrCode(null);
+      return;
+    }
+
+    if (result?.qr_code) {
+      setQrCode(result.qr_code);
     }
   };
+
+  const displayedQrCode = qrCode || instance?.qr_code || null;
 
   const statusBadge = () => {
     if (!instance) return null;
@@ -123,10 +130,10 @@ export function WhatsAppIntegrationCard() {
             </div>
 
             {/* QR Code */}
-            {qrCode && instance.status !== "connected" && (
+            {displayedQrCode && instance.status !== "connected" && (
               <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-background">
                 <p className="text-sm font-medium">Escaneie o QR Code no WhatsApp</p>
-                <img src={qrCode} alt="QR Code WhatsApp" className="w-48 h-48" />
+                <img src={displayedQrCode} alt="QR Code WhatsApp" className="w-48 h-48" />
                 <Button variant="outline" size="sm" onClick={handleCheckStatus} disabled={isCheckingStatus}>
                   {isCheckingStatus ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                   Verificar conexão
