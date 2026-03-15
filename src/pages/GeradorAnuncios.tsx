@@ -539,7 +539,13 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Brand Identity - collapsible */}
+        <BrandInlineCard onNavigate={() => {
+          // Navigate to Marketing > Marca tab
+          window.location.href = "/marketing?section=marca";
+        }} />
+
+
           <CardHeader>
             <CardTitle className="text-lg">Dados do Imóvel</CardTitle>
           </CardHeader>
