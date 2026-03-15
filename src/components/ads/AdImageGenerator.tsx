@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PropertyImage {
   id: string;
