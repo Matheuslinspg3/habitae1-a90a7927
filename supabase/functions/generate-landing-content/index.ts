@@ -256,6 +256,22 @@ Diretrizes:
     }
 
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const tokensIn = aiData.usage?.prompt_tokens || 0;
+    const tokensOut = aiData.usage?.completion_tokens || 0;
+
+    // Log usage
+    await supabase.from("ai_usage_logs").insert({
+      user_id: claimsData.claims.sub || "system",
+      provider: "groq",
+      model: GROQ_MODEL,
+      function_name: "generate-landing-content",
+      usage_type: "text",
+      tokens_input: tokensIn,
+      tokens_output: tokensOut,
+      estimated_cost_usd: (tokensIn / 1000) * 0.00059 + (tokensOut / 1000) * 0.00079,
+      success: !!toolCall?.function?.arguments,
+    });
+
     if (!toolCall?.function?.arguments) {
       throw new Error("Invalid AI response format");
     }

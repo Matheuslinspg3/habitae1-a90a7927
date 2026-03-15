@@ -73,6 +73,20 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (supabaseUrl && serviceKey) {
       const supabase = createClient(supabaseUrl, serviceKey);
+
+      // Log usage
+      await supabase.from("ai_usage_logs").insert({
+        user_id: "system",
+        provider: "lovable",
+        model: "google/gemini-2.5-flash",
+        function_name: "analyze-photo-quality",
+        usage_type: "vision",
+        tokens_input: tokensIn,
+        tokens_output: tokensOut,
+        estimated_cost_usd: (tokensIn / 1000) * 0.00015 + (tokensOut / 1000) * 0.0006,
+        success: true,
+      });
+
       await trackAiBilling(supabase, {
         userId: "system",
         provider: "lovable",
