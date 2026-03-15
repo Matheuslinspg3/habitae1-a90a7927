@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
 import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 import { lazy, Suspense } from "react";
 const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSettingsContent"));
