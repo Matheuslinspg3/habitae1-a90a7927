@@ -111,6 +111,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [imagePrompts, setImagePrompts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [aiProviderInfo, setAiProviderInfo] = useState<{ provider: string; model: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
   const [confirmLoadItem, setConfirmLoadItem] = useState<any>(null);
