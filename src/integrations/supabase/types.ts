@@ -345,6 +345,140 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_billing_config: {
+        Row: {
+          billing_enabled: boolean
+          default_currency: string
+          default_markup_percentage: number
+          id: string
+          sandbox_mode: boolean
+          stripe_test_mode: boolean
+          stripe_webhook_secret: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          billing_enabled?: boolean
+          default_currency?: string
+          default_markup_percentage?: number
+          id?: string
+          sandbox_mode?: boolean
+          stripe_test_mode?: boolean
+          stripe_webhook_secret?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          billing_enabled?: boolean
+          default_currency?: string
+          default_markup_percentage?: number
+          id?: string
+          sandbox_mode?: boolean
+          stripe_test_mode?: boolean
+          stripe_webhook_secret?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ai_billing_invoices: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          organization_id: string | null
+          period_end: string
+          period_start: string
+          status: string
+          stripe_invoice_id: string | null
+          total_billed_amount: number
+          total_provider_cost: number
+          total_requests: number
+          total_tokens: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          organization_id?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          stripe_invoice_id?: string | null
+          total_billed_amount?: number
+          total_provider_cost?: number
+          total_requests?: number
+          total_tokens?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          organization_id?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          stripe_invoice_id?: string | null
+          total_billed_amount?: number
+          total_provider_cost?: number
+          total_requests?: number
+          total_tokens?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_billing_invoices_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_billing_pricing: {
+        Row: {
+          currency: string
+          fixed_margin: number | null
+          id: string
+          is_active: boolean
+          markup_percentage: number
+          model: string
+          price_per_1k_input_tokens: number
+          price_per_1k_output_tokens: number
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          currency?: string
+          fixed_margin?: number | null
+          id?: string
+          is_active?: boolean
+          markup_percentage?: number
+          model: string
+          price_per_1k_input_tokens?: number
+          price_per_1k_output_tokens?: number
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          currency?: string
+          fixed_margin?: number | null
+          id?: string
+          is_active?: boolean
+          markup_percentage?: number
+          model?: string
+          price_per_1k_input_tokens?: number
+          price_per_1k_output_tokens?: number
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_provider_config: {
         Row: {
           id: string
@@ -398,6 +532,83 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      ai_token_usage_events: {
+        Row: {
+          created_at: string
+          currency: string
+          error_message: string | null
+          estimated_provider_cost: number
+          function_name: string | null
+          id: string
+          input_tokens: number
+          markup_percentage: number
+          metadata: Json | null
+          model: string
+          organization_id: string | null
+          output_tokens: number
+          provider: string
+          request_id: string
+          request_status: string
+          simulated_bill_amount: number | null
+          stripe_meter_event_id: string | null
+          stripe_sync_status: string | null
+          total_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          estimated_provider_cost?: number
+          function_name?: string | null
+          id?: string
+          input_tokens?: number
+          markup_percentage?: number
+          metadata?: Json | null
+          model: string
+          organization_id?: string | null
+          output_tokens?: number
+          provider: string
+          request_id?: string
+          request_status?: string
+          simulated_bill_amount?: number | null
+          stripe_meter_event_id?: string | null
+          stripe_sync_status?: string | null
+          total_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          estimated_provider_cost?: number
+          function_name?: string | null
+          id?: string
+          input_tokens?: number
+          markup_percentage?: number
+          metadata?: Json | null
+          model?: string
+          organization_id?: string | null
+          output_tokens?: number
+          provider?: string
+          request_id?: string
+          request_status?: string
+          simulated_bill_amount?: number | null
+          stripe_meter_event_id?: string | null
+          stripe_sync_status?: string | null
+          total_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_token_usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_usage_logs: {
         Row: {
