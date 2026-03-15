@@ -146,8 +146,3 @@ export default function Anuncios() {
     </div>
   );
 }
-        </Tabs>
-      </div>
-    </div>
-  );
-}
