@@ -1,262 +1,215 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-// Pricing per image (USD)
-const IMAGE_PRICING: Record<string, number> = {
-  "dall-e-3": 0.04,
-  "stability-sd3": 0.035,
-  "leonardo-kino-xl": 0.012,
-  "flux-pro-1.1": 0.05,
-  "lovable-gemini-image": 0,
-};
-
-interface ImageConfig {
-  image_provider: string;
-  lovable_fallback_enabled: boolean;
-  image_openai_key: string | null;
-  image_stability_key: string | null;
-  image_leonardo_key: string | null;
-  image_flux_key: string | null;
-}
-
-async function getImageConfig(supabase: any): Promise<ImageConfig> {
-  const { data } = await supabase
-    .from("ai_provider_config")
-    .select("image_provider, lovable_fallback_enabled, image_openai_key, image_stability_key, image_leonardo_key, image_flux_key")
-    .eq("id", "singleton")
-    .single();
-  return data || { image_provider: "lovable", lovable_fallback_enabled: true, image_openai_key: null, image_stability_key: null, image_leonardo_key: null, image_flux_key: null };
-}
-
-function getImageKey(provider: string, config: ImageConfig): string | null {
-  const map: Record<string, string | null> = {
-    openai: config.image_openai_key,
-    stability: config.image_stability_key,
-    leonardo: config.image_leonardo_key,
-    flux: config.image_flux_key,
+interface RequestBody {
+  imageUrl: string;
+  format: "feed" | "story";
+  style: "enhance" | "template" | "overlay";
+  overlayData?: {
+    title?: string;
+    price?: string;
+    area?: string;
+    bedrooms?: string;
+    parking?: string;
+    neighborhood?: string;
+    phone?: string;
+    logoUrl?: string;
   };
-  return map[provider] || null;
+  customPrompt?: string;
 }
 
-async function generateWithDALLE(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "dall-e-3",
-      prompt: `Professional real estate advertisement photo: ${prompt}`,
-      n: 1, size: "1024x1024", response_format: "b64_json",
-    }),
-  });
-  if (!res.ok) throw new Error(`DALL-E error: ${res.status}`);
-  const data = await res.json();
-  return `data:image/png;base64,${data.data[0].b64_json}`;
-}
+function buildPrompt(body: RequestBody): string {
+  const { format, style, overlayData, customPrompt } = body;
 
-async function generateWithStability(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch("https://api.stability.ai/v2beta/stable-image/generate/sd3", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-    body: (() => {
-      const fd = new FormData();
-      fd.append("prompt", `Professional real estate photo: ${prompt}`);
-      fd.append("output_format", "png");
-      fd.append("aspect_ratio", "1:1");
-      return fd;
-    })(),
-  });
-  if (!res.ok) throw new Error(`Stability AI error: ${res.status}`);
-  const data = await res.json();
-  return `data:image/png;base64,${data.image}`;
-}
+  const dimensions = format === "feed" ? "1080x1080 square" : "1080x1920 vertical (9:16 story)";
 
-async function generateWithLeonardo(apiKey: string, prompt: string): Promise<string> {
-  const genRes = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt: `Professional real estate photo: ${prompt}`,
-      modelId: "aa77f04e-3eec-4034-9c07-d0f619684628",
-      width: 1024, height: 1024, num_images: 1,
-    }),
-  });
-  if (!genRes.ok) throw new Error(`Leonardo error: ${genRes.status}`);
-  const genData = await genRes.json();
-  const generationId = genData.sdGenerationJob?.generationId;
-  if (!generationId) throw new Error("Leonardo: no generation ID");
-
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 2000));
-    const pollRes = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    if (!pollRes.ok) continue;
-    const pollData = await pollRes.json();
-    const images = pollData.generations_by_pk?.generated_images;
-    if (images?.length > 0) return images[0].url;
+  if (customPrompt) {
+    return `Edit this real estate photo to create a professional marketing piece in ${dimensions} format. ${customPrompt}`;
   }
-  throw new Error("Leonardo: timeout waiting for image");
-}
 
-async function generateWithFlux(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch("https://api.bfl.ml/v1/flux-pro-1.1", {
-    method: "POST",
-    headers: { "X-Key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: `Professional real estate photo: ${prompt}`, width: 1024, height: 1024 }),
-  });
-  if (!res.ok) throw new Error(`Flux error: ${res.status}`);
-  const data = await res.json();
-  const taskId = data.id;
-  if (!taskId) throw new Error("Flux: no task ID");
+  const baseInstructions = `Transform this real estate photo into a professional marketing advertisement in ${dimensions} format.`;
 
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 2000));
-    const pollRes = await fetch(`https://api.bfl.ml/v1/get_result?id=${taskId}`, { headers: { "X-Key": apiKey } });
-    if (!pollRes.ok) continue;
-    const pollData = await pollRes.json();
-    if (pollData.status === "Ready" && pollData.result?.sample) return pollData.result.sample;
+  if (style === "enhance") {
+    return `${baseInstructions}
+Enhance the photo with:
+- Professional color grading and brightness
+- Sharp, vivid colors
+- Clean composition
+- Modern, luxurious feel
+Keep the original scene but make it look magazine-quality. Do NOT add any text or overlays.`;
   }
-  throw new Error("Flux: timeout waiting for image");
+
+  if (style === "template") {
+    const data = overlayData || {};
+    return `${baseInstructions}
+Create a real estate marketing template using this photo as the main visual:
+- Add a modern, elegant frame/border design
+- Add a semi-transparent overlay bar at the bottom or side
+- Include the following text overlaid on the design:
+  ${data.title ? `- Title: "${data.title}"` : ""}
+  ${data.price ? `- Price: "${data.price}"` : ""}
+  ${data.area ? `- Area: "${data.area}"` : ""}
+  ${data.bedrooms ? `- Bedrooms: "${data.bedrooms}"` : ""}
+  ${data.neighborhood ? `- Location: "${data.neighborhood}"` : ""}
+  ${data.phone ? `- Contact: "${data.phone}"` : ""}
+- Use clean sans-serif fonts, white or light text on dark overlay
+- Professional real estate ad aesthetic
+- Make it look like an Instagram ad from a premium real estate agency`;
+  }
+
+  // overlay style
+  const data = overlayData || {};
+  return `${baseInstructions}
+Add a professional text overlay to this real estate photo:
+${data.title ? `- Main headline: "${data.title}"` : ""}
+${data.price ? `- Price tag: "${data.price}"` : ""}
+${data.area ? `- Area info: "${data.area}"` : ""}
+${data.bedrooms ? `- Bedrooms: "${data.bedrooms}"` : ""}
+${data.phone ? `- Contact: "${data.phone}"` : ""}
+- Use modern, bold typography
+- Add subtle gradient or blur overlay behind text for readability
+- Keep the photo visible and prominent
+- Professional real estate advertisement style`;
 }
 
-async function generateWithLovable(prompt: string): Promise<string> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-  const res = await fetch(LOVABLE_GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image",
-      messages: [{ role: "user", content: `Generate a professional, photorealistic real estate advertisement image. High quality, bright natural lighting, modern design. ${prompt}` }],
-      modalities: ["image", "text"],
-    }),
-  });
-  if (!res.ok) throw new Error(`Lovable AI image error: ${res.status}`);
-  const data = await res.json();
-  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) throw new Error("No image generated");
-  return imageUrl;
-}
-
-function getModelForProvider(provider: string): string {
-  const map: Record<string, string> = {
-    openai: "dall-e-3",
-    stability: "stability-sd3",
-    leonardo: "leonardo-kino-xl",
-    flux: "flux-pro-1.1",
-    lovable: "lovable-gemini-image",
-  };
-  return map[provider] || "lovable-gemini-image";
-}
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const { data: { user }, error: userError } = await authClient.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { prompt } = await req.json();
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "prompt is required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const body: RequestBody = await req.json();
+    const { imageUrl } = body;
+
+    if (!imageUrl) {
+      return new Response(JSON.stringify({ error: "imageUrl is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const prompt = buildPrompt(body);
+    console.log(`[generate-ad-image] style=${body.style}, format=${body.format}`);
+
+    const aiResponse = await fetch(LOVABLE_GATEWAY, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text().catch(() => "");
+      console.error(`AI gateway error: ${aiResponse.status}`, errText.slice(0, 300));
+
+      if (aiResponse.status === 429) {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "Falha ao processar imagem com IA. Tente novamente." }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const data = await aiResponse.json();
+    const generatedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!generatedImageUrl) {
+      console.error("No image in AI response:", JSON.stringify(data).slice(0, 500));
+      return new Response(JSON.stringify({ error: "Nenhuma imagem foi gerada. Tente novamente." }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Log usage
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
-    const imgConfig = await getImageConfig(serviceClient);
-
     const { data: profile } = await serviceClient
       .from("profiles")
       .select("organization_id")
       .eq("user_id", user.id)
       .single();
 
-    let imageUrl: string | null = null;
-    let usedProvider = "lovable";
-    const errors: string[] = [];
-    const provider = imgConfig.image_provider;
-
-    try {
-      console.log(`Trying image provider: ${provider}`);
-      const apiKey = getImageKey(provider, imgConfig);
-      if (provider === "openai" && apiKey) {
-        imageUrl = await generateWithDALLE(apiKey, prompt);
-        usedProvider = "openai";
-      } else if (provider === "stability" && apiKey) {
-        imageUrl = await generateWithStability(apiKey, prompt);
-        usedProvider = "stability";
-      } else if (provider === "leonardo" && apiKey) {
-        imageUrl = await generateWithLeonardo(apiKey, prompt);
-        usedProvider = "leonardo";
-      } else if (provider === "flux" && apiKey) {
-        imageUrl = await generateWithFlux(apiKey, prompt);
-        usedProvider = "flux";
-      }
-    } catch (err: any) {
-      errors.push(`${provider}: ${err.message}`);
-      console.warn(`${provider} failed:`, err.message);
-    }
-
-    if (!imageUrl && (provider === "lovable" || imgConfig.lovable_fallback_enabled)) {
-      try {
-        console.log("Using Lovable AI for image...");
-        imageUrl = await generateWithLovable(prompt);
-        usedProvider = "lovable";
-      } catch (err: any) {
-        errors.push(`Lovable: ${err.message}`);
-        console.error("Lovable AI image failed:", err.message);
-      }
-    }
-
-    // Log usage
-    const model = getModelForProvider(usedProvider);
-    const cost = IMAGE_PRICING[model] || 0;
-
     await serviceClient.from("ai_usage_logs").insert({
       organization_id: profile?.organization_id || null,
       user_id: user.id,
-      provider: usedProvider,
-      model,
+      provider: "lovable",
+      model: "gemini-2.5-flash-image",
       function_name: "generate-ad-image",
-      usage_type: "image",
+      usage_type: "image_edit",
       tokens_input: 0,
       tokens_output: 0,
-      estimated_cost_usd: cost,
-      success: !!imageUrl,
-      error_message: imageUrl ? null : errors.join("; "),
+      estimated_cost_usd: 0,
+      success: true,
     });
 
-    if (!imageUrl) {
-      return new Response(
-        JSON.stringify({ error: "Todos os provedores de imagem falharam: " + errors.join("; ") }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    return new Response(JSON.stringify({ imageUrl }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ imageUrl: generatedImageUrl }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("generate-ad-image error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

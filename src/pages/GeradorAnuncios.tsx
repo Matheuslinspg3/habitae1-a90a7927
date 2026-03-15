@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Download, Loader2, ImagePlus, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp } from "lucide-react";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -107,8 +108,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [regeneratingChannel, setRegeneratingChannel] = useState<ResultKey | null>(null);
   const [results, setResults] = useState<Record<ResultKey, string> | null>(null);
   const [copied, setCopied] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [imageLoading, setImageLoading] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [imagePrompts, setImagePrompts] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -138,6 +138,21 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       return data || [];
     },
     enabled: !!profile?.organization_id,
+  });
+
+  // Fetch property images when a property is selected
+  const { data: propertyImages = [] } = useQuery({
+    queryKey: ["property-images-for-ad", form.property_id],
+    queryFn: async () => {
+      if (!form.property_id) return [];
+      const { data } = await supabase
+        .from("property_images")
+        .select("id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url")
+        .eq("property_id", form.property_id)
+        .order("display_order");
+      return data || [];
+    },
+    enabled: !!form.property_id,
   });
 
   const filteredProperties = useMemo(() => {
@@ -352,41 +367,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     toast.success("Geração carregada!");
   };
 
-  const handleGenerateImages = async () => {
-    if (imagePrompts.length === 0) {
-      toast.error("Gere os textos primeiro para obter os prompts de imagem.");
-      return;
-    }
-
-    setImageLoading(true);
-    setGeneratedImages([]);
-
-    try {
-      const results = await Promise.allSettled(
-        imagePrompts.slice(0, 3).map((prompt) =>
-          supabase.functions.invoke("generate-ad-image", { body: { prompt } })
-        )
-      );
-
-      const images: string[] = [];
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value.data?.imageUrl) {
-          images.push(result.value.data.imageUrl);
-        }
-      }
-
-      if (images.length === 0) {
-        throw new Error("Nenhuma imagem foi gerada. Tente novamente.");
-      }
-
-      setGeneratedImages(images);
-      toast.success(`${images.length} imagem(ns) gerada(s)!`);
-    } catch (err: any) {
-      toast.error(err.message || "Não foi possível gerar as imagens. Tente novamente.");
-    } finally {
-      setImageLoading(false);
-    }
-  };
+  // handleGenerateImages removed — now using AdImageGenerator component
 
   const handleCopy = async (key: ResultKey) => {
     if (!results) return;
@@ -401,12 +382,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     setResults({ ...results, [key]: value });
   };
 
-  const handleDownloadImage = (imageUrl: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = `anuncio-imagem-${index + 1}-${Date.now()}.png`;
-    link.click();
-  };
+
 
   const toggleExpand = (key: ResultKey) => {
     setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -720,65 +696,22 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         )}
 
         {/* Image Generation */}
-        {imagePrompts.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ImagePlus className="h-5 w-5 text-primary" />
-                Imagens do Anúncio
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                A IA sugeriu {imagePrompts.length} imagens para o seu anúncio. Clique para gerar.
-              </p>
-
-              <Button
-                onClick={handleGenerateImages}
-                disabled={imageLoading}
-                className="gap-2 h-10"
-              >
-                {imageLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ImagePlus className="h-4 w-4" />
-                )}
-                {imageLoading ? "Gerando imagens..." : `Gerar ${imagePrompts.length} Imagens`}
-              </Button>
-
-              {imageLoading && generatedImages.length === 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {imagePrompts.map((_, i) => (
-                    <Skeleton key={i} className="aspect-square rounded-lg" />
-                  ))}
-                </div>
-              )}
-
-              {generatedImages.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {generatedImages.map((img, i) => (
-                    <div key={i} className="space-y-2">
-                      <img
-                        src={img}
-                        alt={`Imagem gerada para anúncio ${i + 1}`}
-                        className="w-full aspect-square object-cover rounded-lg border shadow-sm"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2 h-9"
-                        onClick={() => handleDownloadImage(img, i)}
-                        aria-label={`Baixar imagem ${i + 1}`}
-                      >
-                        <Download className="h-4 w-4" />
-                        Baixar
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {results && (
+          <AdImageGenerator
+            propertyImages={propertyImages}
+            formData={{
+              tipo: form.tipo,
+              finalidade: form.finalidade,
+              bairro_cidade: form.bairro_cidade,
+              diferenciais: form.diferenciais,
+              valor: form.valor,
+              quartos: form.quartos,
+              vagas: form.vagas,
+              metragem: form.metragem,
+            }}
+            generatedImage={generatedImage}
+            onImageGenerated={setGeneratedImage}
+          />
         )}
 
         {/* History */}
