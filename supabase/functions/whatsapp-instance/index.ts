@@ -6,6 +6,41 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const asLowerText = (value: unknown) => String(value ?? "").toLowerCase();
+
+const pickFirstString = (candidates: unknown[]): string | null => {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as Record<string, unknown>;
+      const nestedValue = [nested.base64, nested.qrcode, nested.qr, nested.qrCode, nested.code, nested.value]
+        .find((v) => typeof v === "string" && String(v).trim());
+
+      if (typeof nestedValue === "string" && nestedValue.trim()) {
+        return nestedValue.trim();
+      }
+    }
+  }
+
+  return null;
+};
+
+const extractQrCode = (payload: Record<string, any>) =>
+  pickFirstString([
+    payload?.qrcode,
+    payload?.qr,
+    payload?.qrCode,
+    payload?.base64,
+    payload?.data?.qrcode,
+    payload?.data?.qr,
+    payload?.data?.qrCode,
+    payload?.data?.base64,
+    payload?.data?.data?.qrcode,
+    payload?.data?.data?.qr,
+    payload?.data?.data?.base64,
+  ]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -63,7 +98,7 @@ serve(async (req) => {
 
       // Build instance name: orgName-userName-last4ofUserId
       const userIdSuffix = user.id.slice(-4);
-      const sanitize = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20);
+      const sanitize = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20);
       const orgName = sanitize(body.orgName || "org");
       const userName = sanitize(body.userName || "user");
       const instanceName = `${orgName}-${userName}-${userIdSuffix}`;
@@ -129,15 +164,7 @@ serve(async (req) => {
         throw new Error(`Uazapi connect error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
       }
 
-      const qrCode =
-        uazapiData.qrcode ||
-        uazapiData.qr ||
-        uazapiData.base64 ||
-        uazapiData.data?.qrcode ||
-        uazapiData.data?.qr ||
-        uazapiData.data?.base64 ||
-        uazapiData.data?.qrCode ||
-        null;
+      const qrCode = extractQrCode(uazapiData);
 
       await supabaseClient
         .from("whatsapp_instances")
@@ -170,20 +197,39 @@ serve(async (req) => {
         throw new Error(`Uazapi status error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
       }
 
-      const rawStatus = String(uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
-      const rawQr =
-        uazapiData.qrcode ||
-        uazapiData.qr ||
-        uazapiData.base64 ||
-        uazapiData.data?.qrcode ||
-        uazapiData.data?.qr ||
-        uazapiData.data?.base64 ||
-        uazapiData.data?.qrCode ||
-        null;
+      const rawQr = extractQrCode(uazapiData);
 
-      const newStatus = rawStatus.includes("connect") && !rawStatus.includes("disconnect")
+      const statusText = [
+        uazapiData?.status,
+        uazapiData?.state,
+        uazapiData?.connectionStatus,
+        uazapiData?.session?.status,
+        uazapiData?.instance?.status,
+        uazapiData?.instance?.state,
+        uazapiData?.data?.status,
+        uazapiData?.data?.state,
+      ]
+        .map(asLowerText)
+        .join(" ");
+
+      const hasConnectedFlag = [
+        uazapiData?.connected,
+        uazapiData?.isConnected,
+        uazapiData?.instance?.connected,
+        uazapiData?.data?.connected,
+      ].some((value) => value === true || asLowerText(value) === "true");
+
+      const isConnectedByStatus =
+        /connected|authorized|open|online|ready|working/.test(statusText) &&
+        !/disconnected|disconnect|notauthorized|offline|closed/.test(statusText);
+
+      const isConnectingByStatus =
+        /connecting|scan|qrcode|qr|pairing|pending|notauthorized/.test(statusText) ||
+        !!rawQr;
+
+      const newStatus = hasConnectedFlag || isConnectedByStatus
         ? "connected"
-        : rawStatus.includes("connecting")
+        : isConnectingByStatus
           ? "connecting"
           : "disconnected";
 
