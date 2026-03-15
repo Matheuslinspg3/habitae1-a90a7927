@@ -116,6 +116,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [expandedCards, setExpandedCards] = useState<Record<ResultKey, boolean>>({ portal: false, instagram: false, whatsapp: false });
   const [confirmLoadItem, setConfirmLoadItem] = useState<any>(null);
   const [propertySearch, setPropertySearch] = useState("");
+  const [generatingFullAd, setGeneratingFullAd] = useState(false);
 
   // Debounced property search
   const [debouncedSearch, setDebouncedSearch] = useState("");
