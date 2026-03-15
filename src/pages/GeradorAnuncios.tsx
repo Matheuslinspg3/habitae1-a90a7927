@@ -29,7 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp } from "lucide-react";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp, ImagePlus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
