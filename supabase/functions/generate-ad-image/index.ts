@@ -18,6 +18,15 @@ interface OverlayData {
   logoUrl?: string;
 }
 
+interface BrandData {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  slogan?: string;
+  logoUrl?: string;
+}
+
 interface RequestBody {
   imageUrl: string;
   format: "feed" | "story";
@@ -25,6 +34,7 @@ interface RequestBody {
   overlayData?: OverlayData;
   customPrompt?: string;
   aiProvider?: "openai" | "gemini" | "stability" | "leonardo" | "flux";
+  brandData?: BrandData;
 }
 
 function buildPrompt(body: RequestBody): string {
