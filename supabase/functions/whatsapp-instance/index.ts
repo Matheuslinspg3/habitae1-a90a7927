@@ -46,8 +46,8 @@ serve(async (req) => {
 
     const baseUrl = UAZAPI_BASE_URL.replace(/\/$/, "");
 
+    // ── CREATE INSTANCE ──
     if (action === "create") {
-      // Check if instance already exists
       const { data: existing } = await supabaseClient
         .from("whatsapp_instances")
         .select("id")
@@ -63,8 +63,8 @@ serve(async (req) => {
 
       const instanceName = body.name || `habitae-${orgId.substring(0, 8)}`;
 
-      // Create instance on Uazapi
-      const uazapiRes = await fetch(`${baseUrl}/api/createInstance`, {
+      // POST /instance/init  — header: admintoken
+      const uazapiRes = await fetch(`${baseUrl}/instance/init`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,12 +75,12 @@ serve(async (req) => {
 
       const uazapiData = await uazapiRes.json();
       if (!uazapiRes.ok) {
-        throw new Error(`Uazapi error: ${JSON.stringify(uazapiData)}`);
+        throw new Error(`Uazapi error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
       }
 
-      const instanceToken = uazapiData.token || uazapiData.instance?.token;
+      // The response contains the instance token
+      const instanceToken = uazapiData.token || uazapiData.instance?.token || uazapiData.data?.token;
 
-      // Save to DB
       const { data: instance, error: insertError } = await supabaseClient
         .from("whatsapp_instances")
         .insert({
@@ -99,8 +99,8 @@ serve(async (req) => {
       });
     }
 
+    // ── CONNECT (get QR code) ──
     if (action === "connect") {
-      // Get instance for this org
       const { data: instance } = await supabaseClient
         .from("whatsapp_instances")
         .select("*")
@@ -109,28 +109,31 @@ serve(async (req) => {
 
       if (!instance?.instance_token) throw new Error("Instância não encontrada");
 
-      // Request QR code from Uazapi
-      const uazapiRes = await fetch(`${baseUrl}/api/getQrCode`, {
-        method: "GET",
-        headers: { token: instance.instance_token },
+      // POST /instance/connect  — header: token
+      const uazapiRes = await fetch(`${baseUrl}/instance/connect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          token: instance.instance_token,
+        },
+        body: JSON.stringify({}),
       });
 
       const uazapiData = await uazapiRes.json();
 
-      // Update status
+      const qrCode = uazapiData.qrcode || uazapiData.qr || uazapiData.data?.qrcode || null;
+
       await supabaseClient
         .from("whatsapp_instances")
-        .update({
-          status: "connecting",
-          qr_code: uazapiData.qrcode || uazapiData.qr || null,
-        })
+        .update({ status: "connecting", qr_code: qrCode })
         .eq("id", instance.id);
 
-      return new Response(JSON.stringify({ qr_code: uazapiData.qrcode || uazapiData.qr, status: "connecting" }), {
+      return new Response(JSON.stringify({ qr_code: qrCode, status: "connecting", raw: uazapiData }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ── STATUS ──
     if (action === "status") {
       const { data: instance } = await supabaseClient
         .from("whatsapp_instances")
@@ -140,19 +143,25 @@ serve(async (req) => {
 
       if (!instance?.instance_token) throw new Error("Instância não encontrada");
 
-      const uazapiRes = await fetch(`${baseUrl}/api/status`, {
+      // GET /instance/status  — header: token
+      const uazapiRes = await fetch(`${baseUrl}/instance/status`, {
         method: "GET",
         headers: { token: instance.instance_token },
       });
 
       const uazapiData = await uazapiRes.json();
-      const newStatus = uazapiData.status === "connected" ? "connected" :
-                        uazapiData.status === "connecting" ? "connecting" : "disconnected";
+
+      const rawStatus = (uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
+      const newStatus = rawStatus.includes("connect") && !rawStatus.includes("disconnect")
+        ? "connected"
+        : rawStatus.includes("connecting")
+          ? "connecting"
+          : "disconnected";
 
       const updatePayload: Record<string, any> = { status: newStatus };
       if (newStatus === "connected") {
         updatePayload.qr_code = null;
-        updatePayload.phone_number = uazapiData.phone || uazapiData.phoneNumber || instance.phone_number;
+        updatePayload.phone_number = uazapiData.phone || uazapiData.phoneNumber || uazapiData.data?.phone || instance.phone_number;
       }
 
       await supabaseClient
@@ -160,11 +169,12 @@ serve(async (req) => {
         .update(updatePayload)
         .eq("id", instance.id);
 
-      return new Response(JSON.stringify({ status: newStatus, phone: updatePayload.phone_number || instance.phone_number }), {
+      return new Response(JSON.stringify({ status: newStatus, phone: updatePayload.phone_number || instance.phone_number, raw: uazapiData }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // ── DISCONNECT ──
     if (action === "disconnect") {
       const { data: instance } = await supabaseClient
         .from("whatsapp_instances")
@@ -174,10 +184,12 @@ serve(async (req) => {
 
       if (!instance?.instance_token) throw new Error("Instância não encontrada");
 
-      await fetch(`${baseUrl}/api/disconnect`, {
+      // POST /instance/disconnect  — header: token
+      const res = await fetch(`${baseUrl}/instance/disconnect`, {
         method: "POST",
         headers: { token: instance.instance_token },
       });
+      await res.text(); // consume body
 
       await supabaseClient
         .from("whatsapp_instances")
@@ -189,6 +201,7 @@ serve(async (req) => {
       });
     }
 
+    // ── DELETE ──
     if (action === "delete") {
       const { data: instance } = await supabaseClient
         .from("whatsapp_instances")
@@ -198,13 +211,14 @@ serve(async (req) => {
 
       if (!instance) throw new Error("Instância não encontrada");
 
-      // Delete on Uazapi
+      // DELETE /instance  — header: token
       if (instance.instance_token) {
         try {
-          await fetch(`${baseUrl}/api/deleteInstance`, {
+          const res = await fetch(`${baseUrl}/instance`, {
             method: "DELETE",
-            headers: { admintoken: UAZAPI_ADMIN_TOKEN, token: instance.instance_token },
+            headers: { token: instance.instance_token },
           });
+          await res.text();
         } catch (e) {
           console.warn("Failed to delete on Uazapi:", e);
         }

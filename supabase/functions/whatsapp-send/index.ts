@@ -51,23 +51,29 @@ serve(async (req) => {
 
     if (!phone || !message) throw new Error("phone and message are required");
 
-    // Normalize phone (remove non-digits, ensure country code)
     const cleanPhone = phone.replace(/\D/g, "");
     const baseUrl = UAZAPI_BASE_URL.replace(/\/$/, "");
 
-    let endpoint = `${baseUrl}/api/sendMessage/text`;
-    let payload: Record<string, any> = {
-      phone: cleanPhone,
-      message,
-    };
+    let endpoint: string;
+    let payload: Record<string, any>;
 
     if (type === "media") {
-      endpoint = `${baseUrl}/api/sendMessage/media`;
+      // POST /send/media — header: token
+      endpoint = `${baseUrl}/send/media`;
       payload = {
-        phone: cleanPhone,
-        caption: message,
-        media: body.mediaUrl,
+        number: cleanPhone,
+        text: message,
         type: body.mediaType || "image",
+        file: body.mediaUrl,
+      };
+    } else {
+      // POST /send/text — header: token
+      endpoint = `${baseUrl}/send/text`;
+      payload = {
+        number: cleanPhone,
+        text: message,
+        linkPreview: false,
+        delay: 0,
       };
     }
 
