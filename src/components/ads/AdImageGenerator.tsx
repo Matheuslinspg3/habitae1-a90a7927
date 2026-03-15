@@ -76,6 +76,8 @@ export function AdImageGenerator({
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
   const [format, setFormat] = useState<OutputFormat>("feed");
   const [style, setStyle] = useState<EditStyle>("template");
   const fileInputRef = useRef<HTMLInputElement>(null);
