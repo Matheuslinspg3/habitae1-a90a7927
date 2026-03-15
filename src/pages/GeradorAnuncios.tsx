@@ -701,65 +701,22 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         )}
 
         {/* Image Generation */}
-        {imagePrompts.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ImagePlus className="h-5 w-5 text-primary" />
-                Imagens do Anúncio
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                A IA sugeriu {imagePrompts.length} imagens para o seu anúncio. Clique para gerar.
-              </p>
-
-              <Button
-                onClick={handleGenerateImages}
-                disabled={imageLoading}
-                className="gap-2 h-10"
-              >
-                {imageLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ImagePlus className="h-4 w-4" />
-                )}
-                {imageLoading ? "Gerando imagens..." : `Gerar ${imagePrompts.length} Imagens`}
-              </Button>
-
-              {imageLoading && generatedImages.length === 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {imagePrompts.map((_, i) => (
-                    <Skeleton key={i} className="aspect-square rounded-lg" />
-                  ))}
-                </div>
-              )}
-
-              {generatedImages.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {generatedImages.map((img, i) => (
-                    <div key={i} className="space-y-2">
-                      <img
-                        src={img}
-                        alt={`Imagem gerada para anúncio ${i + 1}`}
-                        className="w-full aspect-square object-cover rounded-lg border shadow-sm"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2 h-9"
-                        onClick={() => handleDownloadImage(img, i)}
-                        aria-label={`Baixar imagem ${i + 1}`}
-                      >
-                        <Download className="h-4 w-4" />
-                        Baixar
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {results && (
+          <AdImageGenerator
+            propertyImages={propertyImages}
+            formData={{
+              tipo: form.tipo,
+              finalidade: form.finalidade,
+              bairro_cidade: form.bairro_cidade,
+              diferenciais: form.diferenciais,
+              valor: form.valor,
+              quartos: form.quartos,
+              vagas: form.vagas,
+              metragem: form.metragem,
+            }}
+            generatedImage={generatedImage}
+            onImageGenerated={setGeneratedImage}
+          />
         )}
 
         {/* History */}
