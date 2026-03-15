@@ -68,8 +68,8 @@ export function WhatsAppIntegrationCard() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-green-500/10">
-            <MessageCircle className="h-5 w-5 text-green-500" />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <MessageCircle className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1">
             <CardTitle className="text-base">WhatsApp</CardTitle>
