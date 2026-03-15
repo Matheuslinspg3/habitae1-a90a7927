@@ -328,6 +328,20 @@ LANGUAGE: Generate in Brazilian Portuguese (pt-BR).`;
       error_message: result ? null : errors.join("; "),
     });
 
+    // Track billing
+    await trackAiBilling(serviceClient, {
+      userId: user.id,
+      organizationId: profile?.organization_id,
+      provider: usedProvider,
+      model: usedModel,
+      functionName: "generate-ad-content",
+      inputTokens: tokensIn,
+      outputTokens: tokensOut,
+      success: !!result,
+      errorMessage: result ? null : errors.join("; "),
+      usageType: "text",
+    });
+
     if (!result) {
       return new Response(
         JSON.stringify({ error: "Todos os provedores de IA falharam: " + errors.join("; ") }),

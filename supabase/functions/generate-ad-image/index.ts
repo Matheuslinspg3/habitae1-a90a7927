@@ -535,6 +535,19 @@ Deno.serve(async (req) => {
       success: true,
     });
 
+    // Track billing
+    await trackAiBilling(serviceClient, {
+      userId: user.id,
+      organizationId: profile?.organization_id,
+      provider,
+      model: modelUsed,
+      functionName: "generate-ad-image",
+      inputTokens: 0,
+      outputTokens: 0,
+      success: true,
+      usageType: "image_edit",
+    });
+
     return new Response(JSON.stringify({ imageUrl: generatedImageUrl, promptUsed: prompt }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

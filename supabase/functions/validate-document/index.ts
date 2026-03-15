@@ -75,8 +75,23 @@ serve(async (req) => {
         console.error("AI error:", response.status, errText);
         aiResult = { valid: false, detected_type: "desconhecido", confidence: 0, observation: "Não foi possível validar automaticamente" };
       } else {
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content || "";
+        const aiData = await response.json();
+        const content = aiData.choices?.[0]?.message?.content || "";
+        const tokensIn = aiData.usage?.prompt_tokens || 0;
+        const tokensOut = aiData.usage?.completion_tokens || 0;
+
+        // Track billing
+        await trackAiBilling(supabase, {
+          userId: "system",
+          provider: "lovable",
+          model: "google/gemini-2.5-flash-lite",
+          functionName: "validate-document",
+          inputTokens: tokensIn,
+          outputTokens: tokensOut,
+          success: true,
+          usageType: "vision",
+        });
+
         try {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           aiResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { valid: false, detected_type: "desconhecido", confidence: 0, observation: content };
