@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -17,12 +18,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, CheckCircle2, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { MessageSquare, CheckCircle2, Clock, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { TicketChat } from "./TicketChat";
 
 interface Ticket {
@@ -56,6 +67,8 @@ export function TicketsTab() {
   const queryClient = useQueryClient();
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ["dev-support-tickets"],
@@ -67,7 +80,6 @@ export function TicketsTab() {
       if (error) throw error;
       const tickets = (data || []) as unknown as Ticket[];
 
-      // Fetch user names and org names
       if (tickets.length === 0) return tickets;
       const userIds = [...new Set(tickets.map((t) => t.user_id))];
       const orgIds = [...new Set(tickets.map((t) => t.organization_id))];
@@ -103,8 +115,47 @@ export function TicketsTab() {
     onError: () => toast.error("Erro ao atualizar status"),
   });
 
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: string[]) => {
+      // Delete related ticket_messages first, then tickets
+      const { error: msgError } = await supabase
+        .from("ticket_messages" as any)
+        .delete()
+        .in("ticket_id", ids);
+      if (msgError) throw msgError;
+
+      const { error } = await supabase
+        .from("support_tickets" as any)
+        .delete()
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ["dev-support-tickets"] });
+      setSelectedIds(new Set());
+      toast.success(`${ids.length} ticket(s) excluído(s)`);
+    },
+    onError: () => toast.error("Erro ao excluir tickets"),
+  });
+
   const filtered = filterStatus === "all" ? tickets : tickets.filter((t) => t.status === filterStatus);
   const openCount = tickets.filter((t) => t.status === "open").length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((t) => t.id)));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -116,8 +167,8 @@ export function TicketsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header stats */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">Tickets de Suporte</h3>
           {openCount > 0 && (
@@ -126,18 +177,45 @@ export function TicketsTab() {
             </Badge>
           )}
         </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos ({tickets.length})</SelectItem>
-            <SelectItem value="open">Abertos ({tickets.filter((t) => t.status === "open").length})</SelectItem>
-            <SelectItem value="in_progress">Em andamento ({tickets.filter((t) => t.status === "in_progress").length})</SelectItem>
-            <SelectItem value="resolved">Resolvidos ({tickets.filter((t) => t.status === "resolved").length})</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={bulkDelete.isPending}
+            >
+              {bulkDelete.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Excluir ({selectedIds.size})
+            </Button>
+          )}
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos ({tickets.length})</SelectItem>
+              <SelectItem value="open">Abertos ({tickets.filter((t) => t.status === "open").length})</SelectItem>
+              <SelectItem value="in_progress">Em andamento ({tickets.filter((t) => t.status === "in_progress").length})</SelectItem>
+              <SelectItem value="resolved">Resolvidos ({tickets.filter((t) => t.status === "resolved").length})</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {/* Select all */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-2 px-1">
+          <Checkbox
+            checked={selectedIds.size === filtered.length && filtered.length > 0}
+            onCheckedChange={toggleSelectAll}
+          />
+          <span className="text-xs text-muted-foreground">
+            {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : "Selecionar todos"}
+          </span>
+        </div>
+      )}
 
       {/* Ticket list */}
       {filtered.length === 0 ? (
@@ -152,15 +230,24 @@ export function TicketsTab() {
           {filtered.map((ticket) => {
             const sc = statusConfig[ticket.status] || statusConfig.open;
             const StatusIcon = sc.icon;
+            const isSelected = selectedIds.has(ticket.id);
             return (
               <Card
                 key={ticket.id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => setSelectedTicket(ticket)}
+                className={`transition-colors ${isSelected ? "ring-2 ring-primary/50 bg-primary/5" : "hover:bg-muted/50"}`}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelect(ticket.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 shrink-0"
+                    />
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer"
+                      onClick={() => setSelectedTicket(ticket)}
+                    >
                       <div className="flex items-center gap-2 mb-1">
                         <StatusIcon className="h-4 w-4 shrink-0" />
                         <h4 className="font-medium text-sm truncate">{ticket.subject}</h4>
@@ -188,6 +275,27 @@ export function TicketsTab() {
           })}
         </div>
       )}
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedIds.size} ticket(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. Todos os tickets selecionados e suas mensagens serão permanentemente removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulkDelete.mutate([...selectedIds])}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Detail dialog */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
