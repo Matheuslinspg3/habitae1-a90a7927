@@ -153,6 +153,7 @@ export function AdImageGenerator({
       }
 
       onImageGenerated(data.imageUrl);
+      if (data.promptUsed) setLastPrompt(data.promptUsed);
       toast.success("Imagem gerada com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar imagem:", err);
