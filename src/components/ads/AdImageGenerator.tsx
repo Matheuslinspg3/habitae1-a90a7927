@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ImagePlus, Download, Loader2, Upload, Check, Wand2, LayoutTemplate, Type } from "lucide-react";
+import { ImagePlus, Download, Loader2, Upload, Check, Wand2, LayoutTemplate, Type, Sparkles, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { supabase } from "@/integrations/supabase/client";
