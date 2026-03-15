@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Bot, Save, Loader2, ShieldCheck, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Bot, Save, Loader2, ShieldCheck, AlertTriangle, Eye, EyeOff, Key, ExternalLink, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -18,7 +19,6 @@ interface AIConfig {
   text_openai_model: string;
   image_provider: string;
   lovable_fallback_enabled: boolean;
-  // Keys
   text_openai_key: string;
   text_gemini_key: string;
   text_anthropic_key: string;
@@ -60,27 +60,47 @@ const IMAGE_PROVIDERS = [
   { value: "flux", label: "Flux (BFL)", description: "Qualidade premium", keyField: "image_flux_key" },
 ];
 
+interface KeyConfigItem {
+  field: keyof AIConfig;
+  label: string;
+  category: "text" | "image";
+  url: string;
+  urlLabel: string;
+  cost: string;
+  placeholder: string;
+}
+
+const ALL_KEYS: KeyConfigItem[] = [
+  // Text
+  { field: "text_openai_key", label: "OpenAI (Texto)", category: "text", url: "https://platform.openai.com/api-keys", urlLabel: "platform.openai.com", cost: "~$0.01/1K tokens", placeholder: "sk-..." },
+  { field: "text_gemini_key", label: "Google Gemini", category: "text", url: "https://aistudio.google.com/apikey", urlLabel: "aistudio.google.com", cost: "Grátis até 60 req/min", placeholder: "AIza..." },
+  { field: "text_anthropic_key", label: "Anthropic (Claude)", category: "text", url: "https://console.anthropic.com/settings/keys", urlLabel: "console.anthropic.com", cost: "~$0.015/1K tokens", placeholder: "sk-ant-..." },
+  { field: "text_groq_key", label: "Groq (Llama 3)", category: "text", url: "https://console.groq.com/keys", urlLabel: "console.groq.com", cost: "Grátis (tier gratuito)", placeholder: "gsk_..." },
+  // Image
+  { field: "image_openai_key", label: "DALL-E 3 (OpenAI)", category: "image", url: "https://platform.openai.com/api-keys", urlLabel: "platform.openai.com", cost: "~$0.04/imagem", placeholder: "sk-..." },
+  { field: "image_stability_key", label: "Stability AI (SDXL)", category: "image", url: "https://platform.stability.ai/account/keys", urlLabel: "platform.stability.ai", cost: "~$0.035/imagem", placeholder: "sk-..." },
+  { field: "image_leonardo_key", label: "Leonardo AI ⭐", category: "image", url: "https://app.leonardo.ai", urlLabel: "app.leonardo.ai → Settings → API", cost: "~$0.012/imagem (melhor custo!)", placeholder: "..." },
+  { field: "image_flux_key", label: "Flux Pro (BFL)", category: "image", url: "https://api.bfl.ml", urlLabel: "api.bfl.ml", cost: "~$0.05/imagem (premium)", placeholder: "..." },
+];
+
 function KeyInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [show, setShow] = useState(false);
   return (
-    <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      <div className="relative">
-        <Input
-          type={show ? "text" : "password"}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="sk-..."
-          className="pr-10 font-mono text-xs h-9"
-        />
-        <button
-          type="button"
-          onClick={() => setShow(!show)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
+    <div className="relative">
+      <Input
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="sk-..."
+        className="pr-10 font-mono text-xs h-9"
+      />
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
     </div>
   );
 }
@@ -177,124 +197,198 @@ export function AIProviderCard() {
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
-        {/* FALLBACK TOGGLE */}
-        <div className="flex items-center justify-between rounded-lg border p-3 bg-primary/5">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Lovable AI como Fallback</p>
-              <p className="text-xs text-muted-foreground">
-                Se o provedor principal falhar, usar Lovable AI automaticamente
-              </p>
+      <CardContent className="space-y-4">
+        <Tabs defaultValue="providers" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="providers" className="gap-1.5">
+              <Settings2 className="h-3.5 w-3.5" />
+              Provedores
+            </TabsTrigger>
+            <TabsTrigger value="keys" className="gap-1.5">
+              <Key className="h-3.5 w-3.5" />
+              Chaves API
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── TAB 1: PROVEDORES ── */}
+          <TabsContent value="providers" className="space-y-5 mt-4">
+            {/* Fallback */}
+            <div className="flex items-center justify-between rounded-lg border p-3 bg-primary/5">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+                <div>
+                  <p className="text-sm font-medium">Lovable AI como Fallback</p>
+                  <p className="text-xs text-muted-foreground">
+                    Se o provedor principal falhar, usar Lovable AI automaticamente
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={config.lovable_fallback_enabled}
+                onCheckedChange={(v) => update("lovable_fallback_enabled", v)}
+              />
             </div>
-          </div>
-          <Switch
-            checked={config.lovable_fallback_enabled}
-            onCheckedChange={(v) => update("lovable_fallback_enabled", v)}
-          />
-        </div>
 
-        {!config.lovable_fallback_enabled && config.text_provider !== "lovable" && config.image_provider !== "lovable" && (
-          <Alert className="border-yellow-500/30 bg-yellow-500/5">
-            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-            <AlertDescription className="text-xs">
-              Sem fallback ativo. Se o provedor principal falhar, a geração de IA não funcionará.
-            </AlertDescription>
-          </Alert>
-        )}
+            {!config.lovable_fallback_enabled && config.text_provider !== "lovable" && config.image_provider !== "lovable" && (
+              <Alert className="border-destructive/30 bg-destructive/5">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-xs">
+                  Sem fallback ativo. Se o provedor principal falhar, a geração não funcionará.
+                </AlertDescription>
+              </Alert>
+            )}
 
-        <Separator />
+            <Separator />
 
-        {/* TEXT PROVIDER */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Geração de Texto (Anúncios)</h3>
-          <div className="space-y-2">
-            <Label>Provedor</Label>
-            <Select value={config.text_provider} onValueChange={(v) => update("text_provider", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TEXT_PROVIDERS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <div className="flex flex-col">
-                      <span>{p.label}</span>
-                      <span className="text-xs text-muted-foreground">{p.description}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Text Provider */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Geração de Texto (Anúncios)</h3>
+              <div className="space-y-2">
+                <Label>Provedor</Label>
+                <Select value={config.text_provider} onValueChange={(v) => update("text_provider", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {TEXT_PROVIDERS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <div className="flex flex-col">
+                          <span>{p.label}</span>
+                          <span className="text-xs text-muted-foreground">{p.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {config.text_provider === "openai" && (
-            <div className="space-y-1">
-              <Label className="text-xs">Modelo</Label>
-              <Select value={config.text_openai_model} onValueChange={(v) => update("text_openai_model", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gpt-4o">GPT-4o (Recomendado)</SelectItem>
-                  <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
-                  <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                </SelectContent>
-              </Select>
+              {config.text_provider === "openai" && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Modelo</Label>
+                  <Select value={config.text_openai_model} onValueChange={(v) => update("text_openai_model", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gpt-4o">GPT-4o (Recomendado)</SelectItem>
+                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Econômico)</SelectItem>
+                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {config.text_provider === "lovable" && (
+                <p className="text-xs text-muted-foreground">
+                  Lovable AI (Gemini) será usado diretamente. Nenhuma configuração necessária.
+                </p>
+              )}
             </div>
-          )}
 
-          {/* Text API Key Input */}
-          {textProvider?.keyField && (
-            <KeyInput
-              label={`Chave API — ${textProvider.label}`}
-              value={(config as any)[textProvider.keyField] || ""}
-              onChange={(v) => update(textProvider.keyField as keyof AIConfig, v)}
-            />
-          )}
+            <Separator />
 
-          {config.text_provider === "lovable" && (
-            <p className="text-xs text-muted-foreground">
-              Lovable AI (Gemini) será usado diretamente. Nenhuma configuração necessária.
-            </p>
-          )}
-        </div>
+            {/* Image Provider */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Geração de Imagem</h3>
+              <div className="space-y-2">
+                <Label>Provedor</Label>
+                <Select value={config.image_provider} onValueChange={(v) => update("image_provider", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {IMAGE_PROVIDERS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        <div className="flex flex-col">
+                          <span>{p.label}</span>
+                          <span className="text-xs text-muted-foreground">{p.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-        <Separator />
+              {config.image_provider === "lovable" && (
+                <p className="text-xs text-muted-foreground">
+                  Lovable AI será usado para gerar imagens. Nenhuma configuração necessária.
+                </p>
+              )}
+            </div>
+          </TabsContent>
 
-        {/* IMAGE PROVIDER */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Geração de Imagem</h3>
-          <div className="space-y-2">
-            <Label>Provedor</Label>
-            <Select value={config.image_provider} onValueChange={(v) => update("image_provider", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {IMAGE_PROVIDERS.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    <div className="flex flex-col">
-                      <span>{p.label}</span>
-                      <span className="text-xs text-muted-foreground">{p.description}</span>
+          {/* ── TAB 2: CHAVES API ── */}
+          <TabsContent value="keys" className="space-y-5 mt-4">
+            <Alert className="border-primary/20 bg-primary/5">
+              <Key className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-xs">
+                Configure as chaves dos provedores que deseja usar. Clique nos links para obter cada chave.
+                <strong> Lovable AI não precisa de chave.</strong>
+              </AlertDescription>
+            </Alert>
+
+            {/* Text Keys */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">🔤 Chaves de Texto</h3>
+              <div className="space-y-4">
+                {ALL_KEYS.filter(k => k.category === "text").map((item) => (
+                  <div key={item.field} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.cost}</p>
+                      </div>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        {item.urlLabel}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     </div>
-                  </SelectItem>
+                    <KeyInput
+                      label=""
+                      value={(config as any)[item.field] || ""}
+                      onChange={(v) => update(item.field, v)}
+                    />
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
+            </div>
 
-          {/* Image API Key Input */}
-          {imageProvider?.keyField && (
-            <KeyInput
-              label={`Chave API — ${imageProvider.label}`}
-              value={(config as any)[imageProvider.keyField] || ""}
-              onChange={(v) => update(imageProvider.keyField as keyof AIConfig, v)}
-            />
-          )}
+            <Separator />
 
-          {config.image_provider === "lovable" && (
-            <p className="text-xs text-muted-foreground">
-              Lovable AI será usado para gerar imagens. Nenhuma configuração necessária.
-            </p>
-          )}
-        </div>
+            {/* Image Keys */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">🖼️ Chaves de Imagem</h3>
+              <div className="space-y-4">
+                {ALL_KEYS.filter(k => k.category === "image").map((item) => (
+                  <div key={item.field} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.cost}</p>
+                      </div>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        {item.urlLabel}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <KeyInput
+                      label=""
+                      value={(config as any)[item.field] || ""}
+                      onChange={(v) => update(item.field, v)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
 
-        <div className="flex items-center justify-between pt-2">
+        {/* Save Button — always visible */}
+        <div className="flex items-center justify-between pt-2 border-t">
           <p className="text-xs text-muted-foreground">
             {config.lovable_fallback_enabled
               ? "✅ Fallback Lovable AI ativo"
