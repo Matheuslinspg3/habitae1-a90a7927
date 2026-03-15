@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
+import { BrandInlineCard } from "@/components/marketing/BrandInlineCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
