@@ -156,7 +156,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
           token: instance.instance_token,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ phone: body?.phone ?? null }),
       });
 
       const uazapiData = await uazapiRes.json();
