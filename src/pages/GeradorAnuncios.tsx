@@ -407,8 +407,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   };
 
   const handleLoadHistory = (item: any) => {
-    // If there are current results, confirm before overwriting
-    if (results) {
+    if (results || generatedImage) {
       setConfirmLoadItem(item);
       return;
     }
