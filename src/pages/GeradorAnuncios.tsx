@@ -140,6 +140,21 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     enabled: !!profile?.organization_id,
   });
 
+  // Fetch property images when a property is selected
+  const { data: propertyImages = [] } = useQuery({
+    queryKey: ["property-images-for-ad", form.property_id],
+    queryFn: async () => {
+      if (!form.property_id) return [];
+      const { data } = await supabase
+        .from("property_images")
+        .select("id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url")
+        .eq("property_id", form.property_id)
+        .order("display_order");
+      return data || [];
+    },
+    enabled: !!form.property_id,
+  });
+
   const filteredProperties = useMemo(() => {
     if (!debouncedSearch) return properties;
     const q = debouncedSearch.toLowerCase();
