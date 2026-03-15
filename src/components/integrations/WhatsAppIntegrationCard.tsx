@@ -92,6 +92,7 @@ export function WhatsAppIntegrationCard() {
       const statusResult = await checkStatus().catch(() => null);
       if (statusResult?.qr_code) {
         setQrCode(statusResult.qr_code);
+        startPolling();
         return;
       }
 
