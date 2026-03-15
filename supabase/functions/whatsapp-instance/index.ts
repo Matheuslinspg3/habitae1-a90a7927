@@ -6,6 +6,41 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const asLowerText = (value: unknown) => String(value ?? "").toLowerCase();
+
+const pickFirstString = (candidates: unknown[]): string | null => {
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+
+    if (candidate && typeof candidate === "object") {
+      const nested = candidate as Record<string, unknown>;
+      const nestedValue = [nested.base64, nested.qrcode, nested.qr, nested.qrCode, nested.code, nested.value]
+        .find((v) => typeof v === "string" && String(v).trim());
+
+      if (typeof nestedValue === "string" && nestedValue.trim()) {
+        return nestedValue.trim();
+      }
+    }
+  }
+
+  return null;
+};
+
+const extractQrCode = (payload: Record<string, any>) =>
+  pickFirstString([
+    payload?.qrcode,
+    payload?.qr,
+    payload?.qrCode,
+    payload?.base64,
+    payload?.data?.qrcode,
+    payload?.data?.qr,
+    payload?.data?.qrCode,
+    payload?.data?.base64,
+    payload?.data?.data?.qrcode,
+    payload?.data?.data?.qr,
+    payload?.data?.data?.base64,
+  ]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
