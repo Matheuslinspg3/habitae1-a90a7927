@@ -144,6 +144,38 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
         },
       }).catch((err) => console.error("AI diagnostic error:", err));
 
+      // Send to OQFP inbox (fire-and-forget, no edge function needed)
+      try {
+        const messageText = `[${category.toUpperCase()}] ${subject.trim()}\n\n${description.trim()}${attachments.length > 0 ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.url).join(", ")}` : ""}`;
+        fetch("https://kanrkkvzjbznytensgst.supabase.co/functions/v1/intake-message", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imthbnlya3Z6amJ6bnl0ZW5zZ3N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3MTc2ODcsImV4cCI6MjA1NzI5MzY4N30.aT0JIKwXRPcTjVFzy_fDoJzqDp_yMyhpOmHZjbBriEU",
+          },
+          body: JSON.stringify({
+            project_slug: "porta-do-corretor",
+            source: "app",
+            sender_name: profile.full_name || user.email || "Usuário",
+            sender_email: user.email || undefined,
+            message_text: messageText,
+            external_message_id: ticketId,
+            received_at: new Date().toISOString(),
+            raw_payload: {
+              ticket_id: ticketId,
+              category,
+              subject: subject.trim(),
+              description: description.trim(),
+              organization_id: profile.organization_id,
+              user_id: user.id,
+              attachments,
+            },
+          }),
+        }).catch((err) => console.warn("[OQFP] Failed to send:", err));
+      } catch (e) {
+        // Silent — don't block user flow
+      }
+
       toast.success("Ticket criado! A IA está analisando seu problema...");
       setCreatedTicketId(ticketId);
       setCreatedTicketSubject(subject.trim());
