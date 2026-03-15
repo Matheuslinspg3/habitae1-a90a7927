@@ -146,6 +146,7 @@ export function AdImageGenerator({
           style,
           overlayData,
           customPrompt: customPrompt || undefined,
+          aiProvider,
         },
       });
 
