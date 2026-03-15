@@ -170,7 +170,7 @@ serve(async (req) => {
         throw new Error(`Uazapi status error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
       }
 
-      const rawStatus = (uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
+      const rawStatus = String(uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
       const rawQr =
         uazapiData.qrcode ||
         uazapiData.qr ||
