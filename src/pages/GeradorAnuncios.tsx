@@ -718,8 +718,8 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
           </>
         )}
 
-        {/* Image Generation */}
-        {results && (
+        {/* Image Generation - always visible when property selected or after text generation */}
+        {(form.property_id || results) && (
           <AdImageGenerator
             propertyImages={propertyImages}
             formData={{
