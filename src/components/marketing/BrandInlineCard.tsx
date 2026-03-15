@@ -90,14 +90,14 @@ export function BrandInlineCard({ onNavigate }: { onNavigate?: () => void }) {
                 {/* Colors */}
                 <div className="space-y-1.5">
                   <span className="text-xs font-medium text-muted-foreground uppercase">Cores</span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {[
                       { label: "Primária", color: brand!.primary_color },
                       { label: "Secundária", color: brand!.secondary_color },
                       { label: "Destaque", color: brand!.accent_color },
                     ].map(({ label, color }) => (
                       <div key={label} className="flex items-center gap-1.5">
-                        <div className="h-6 w-6 rounded border" style={{ backgroundColor: color }} />
+                        <div className="h-6 w-6 rounded border flex-shrink-0" style={{ backgroundColor: color }} />
                         <div className="text-[10px]">
                           <div className="text-muted-foreground">{label}</div>
                           <div className="font-mono">{color}</div>

@@ -29,11 +29,11 @@ export function AppLayout() {
       {isDemoMode && <DemoBanner />}
       <div className={`min-h-dvh flex w-full overflow-hidden ${isDemoMode ? "pt-10" : ""}`}>
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <MobileTopBar />
           <RenewalBanner />
           <PushPermissionBanner />
-          <main className="flex-1 overflow-y-auto pb-24 md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
+          <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24 md:pb-0" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}>
             <Outlet />
           </main>
         </div>

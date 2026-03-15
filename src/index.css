@@ -203,6 +203,43 @@
    ======================================== */
 
 @layer components {
+  /* ========================================
+     RESPONSIVE PAGE CONTAINER
+     Standardised wrapper for all page content.
+     Usage: <div className="page-container">
+     ======================================== */
+  .page-container {
+    @apply w-full px-4 sm:px-6 lg:px-8;
+    max-width: 1400px;
+    margin-inline: auto;
+  }
+
+  /* Narrower variant for forms / single-column pages */
+  .page-container-narrow {
+    @apply w-full px-4 sm:px-6;
+    max-width: 960px;
+    margin-inline: auto;
+  }
+
+  /* Responsive grid helpers — auto-fit with min size */
+  .grid-responsive-sm {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+    gap: 1rem;
+  }
+
+  .grid-responsive-md {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 1rem;
+  }
+
+  .grid-responsive-lg {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+    gap: 1.5rem;
+  }
+
   /* Soft glass cards */
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/60;
