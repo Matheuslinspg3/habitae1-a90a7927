@@ -3,7 +3,7 @@ import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, CreditCard, MessageSquare, Bot
+  Terminal, CreditCard, MessageSquare, Bot, Receipt
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
@@ -22,6 +22,7 @@ import { AIProviderCard } from "@/components/developer/AIProviderCard";
 import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { AILogsTable } from "@/components/developer/AILogsTable";
 import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
+import { BillingDashboardTab } from "@/components/developer/billing/BillingDashboardTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 
@@ -35,6 +36,7 @@ const tabs = [
   { id: "subscriptions", label: "Assinaturas", icon: CreditCard },
   { id: "tickets", label: "Tickets", icon: MessageSquare },
   { id: "ai", label: "IA", icon: Bot },
+  { id: "billing", label: "Billing IA", icon: Receipt },
 ] as const;
 
 export default function DeveloperDashboard() {
@@ -97,6 +99,7 @@ export default function DeveloperDashboard() {
             <AILogsTable />
           </div>
         </TabsContent>
+        <TabsContent value="billing"><BillingDashboardTab /></TabsContent>
       </Tabs>
     </div>
   );
