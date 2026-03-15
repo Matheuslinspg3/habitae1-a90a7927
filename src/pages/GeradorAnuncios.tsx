@@ -583,14 +583,32 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
               </Select>
             </div>
 
-            <Button
-              onClick={handleGenerate}
-              disabled={loading}
-              className="w-full sm:w-auto gap-2 h-10"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {loading ? "Gerando textos..." : "Gerar Anúncios"}
-            </Button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                onClick={handleGenerate}
+                disabled={loading}
+                className="w-full sm:w-auto gap-2 h-10"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {loading ? "Gerando textos..." : "Gerar Anúncios"}
+              </Button>
+
+              {aiProviderInfo && !loading && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md border">
+                  <span className="font-medium">
+                    {aiProviderInfo.provider === "lovable" ? "Lovable AI" :
+                     aiProviderInfo.provider === "openai" ? "OpenAI" :
+                     aiProviderInfo.provider === "gemini" ? "Google Gemini" :
+                     aiProviderInfo.provider === "anthropic" ? "Anthropic" :
+                     aiProviderInfo.provider === "groq" ? "Groq" :
+                     aiProviderInfo.provider}
+                  </span>
+                  {aiProviderInfo.model && (
+                    <span className="text-muted-foreground/70">• {aiProviderInfo.model}</span>
+                  )}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
