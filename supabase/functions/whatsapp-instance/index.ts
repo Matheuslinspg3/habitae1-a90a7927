@@ -41,6 +41,11 @@ const extractQrCode = (payload: Record<string, any>) =>
     payload?.data?.data?.base64,
   ]);
 
+const safeJsonForError = (payload: unknown, max = 1500) => {
+  const raw = JSON.stringify(payload ?? {});
+  return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -161,10 +166,26 @@ serve(async (req) => {
 
       const uazapiData = await uazapiRes.json();
       if (!uazapiRes.ok) {
-        throw new Error(`Uazapi connect error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+        throw new Error(`Uazapi connect error [${uazapiRes.status}]: ${safeJsonForError(uazapiData)}`);
       }
 
       const qrCode = extractQrCode(uazapiData);
+      if (!qrCode) {
+        const debugInfo = {
+          action: "connect",
+          endpoint: "/instance/connect",
+          instance_id: instance.id,
+          instance_name: instance.instance_name,
+          status: uazapiData?.status ?? uazapiData?.data?.status ?? null,
+          state: uazapiData?.state ?? uazapiData?.data?.state ?? null,
+          top_level_keys: Object.keys(uazapiData ?? {}),
+          data_keys: uazapiData?.data && typeof uazapiData.data === "object" ? Object.keys(uazapiData.data) : [],
+          raw: uazapiData,
+        };
+
+        console.error("whatsapp-instance connect without qr", debugInfo);
+        throw new Error(`QR_NOT_GENERATED: ${safeJsonForError(debugInfo, 2500)}`);
+      }
 
       await supabaseClient
         .from("whatsapp_instances")
