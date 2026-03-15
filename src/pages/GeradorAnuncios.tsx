@@ -433,11 +433,17 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       });
       if (formData.tone || item.tone) setTone(formData.tone || item.tone);
     }
-    setResults({
-      portal: item.texto_portal || "",
-      instagram: item.texto_instagram || "",
-      whatsapp: item.texto_whatsapp || "",
-    });
+    const hasText = item.texto_portal || item.texto_instagram || item.texto_whatsapp;
+    if (hasText) {
+      setResults({
+        portal: item.texto_portal || "",
+        instagram: item.texto_instagram || "",
+        whatsapp: item.texto_whatsapp || "",
+      });
+    } else {
+      setResults(null);
+    }
+    setGeneratedImage(item.imagem_url || null);
     setConfirmLoadItem(null);
     toast.success("Geração carregada!");
   };
