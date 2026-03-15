@@ -675,6 +675,16 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
               </Button>
 
               <Button
+                onClick={() => setShowImageGenerator(true)}
+                disabled={loading || generatingFullAd}
+                variant="outline"
+                className="w-full sm:w-auto gap-2 h-10"
+              >
+                <ImagePlus className="h-4 w-4" />
+                Gerar Imagem
+              </Button>
+
+              <Button
                 onClick={handleGenerateFullAd}
                 disabled={loading || generatingFullAd}
                 variant="default"
