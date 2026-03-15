@@ -27,7 +27,7 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       {isDemoMode && <DemoBanner />}
-      <div className={`min-h-dvh flex w-full overflow-hidden ${isDemoMode ? "pt-10" : ""}`}>
+      <div className={`min-h-dvh flex w-full overflow-x-hidden ${isDemoMode ? "pt-10" : ""}`}>
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <MobileTopBar />
