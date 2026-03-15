@@ -192,7 +192,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       if (!profile?.organization_id) return [];
       const { data } = await supabase
         .from("anuncios_gerados")
-        .select("id, created_at, dados_formulario, texto_portal, texto_instagram, texto_whatsapp, property_id, tone")
+        .select("id, created_at, dados_formulario, texto_portal, texto_instagram, texto_whatsapp, imagem_url, property_id, tone")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -379,19 +379,20 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   };
 
   const handleSave = async () => {
-    if (!results || !user || !profile?.organization_id) return;
+    if ((!results && !generatedImage) || !user || !profile?.organization_id) return;
 
     setSaving(true);
     try {
       const { error } = await supabase.from("anuncios_gerados").insert({
         organization_id: profile.organization_id,
         corretor_id: user.id,
-        texto_portal: results.portal,
-        texto_instagram: results.instagram,
-        texto_whatsapp: results.whatsapp,
+        texto_portal: results?.portal || null,
+        texto_instagram: results?.instagram || null,
+        texto_whatsapp: results?.whatsapp || null,
         dados_formulario: { ...form, lead_name: selectedLead?.name, tone } as any,
         property_id: form.property_id || null,
         tone,
+        imagem_url: generatedImage || null,
       } as any);
 
       if (error) throw error;
@@ -406,8 +407,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   };
 
   const handleLoadHistory = (item: any) => {
-    // If there are current results, confirm before overwriting
-    if (results) {
+    if (results || generatedImage) {
       setConfirmLoadItem(item);
       return;
     }
@@ -432,11 +432,17 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       });
       if (formData.tone || item.tone) setTone(formData.tone || item.tone);
     }
-    setResults({
-      portal: item.texto_portal || "",
-      instagram: item.texto_instagram || "",
-      whatsapp: item.texto_whatsapp || "",
-    });
+    const hasText = item.texto_portal || item.texto_instagram || item.texto_whatsapp;
+    if (hasText) {
+      setResults({
+        portal: item.texto_portal || "",
+        instagram: item.texto_instagram || "",
+        whatsapp: item.texto_whatsapp || "",
+      });
+    } else {
+      setResults(null);
+    }
+    setGeneratedImage(item.imagem_url || null);
     setConfirmLoadItem(null);
     toast.success("Geração carregada!");
   };
@@ -786,7 +792,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
             </div>
 
             {/* Save button */}
-            {results && (
+            {(results || generatedImage) && (
               <div className="flex justify-end">
                 <Button onClick={handleSave} disabled={saving} className="gap-2 h-10">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -852,18 +858,36 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
                     {history.map((item: any) => {
                       const formData = item.dados_formulario as any;
                       const date = new Date(item.created_at);
+                      const hasText = !!(item.texto_portal || item.texto_instagram || item.texto_whatsapp);
+                      const hasImage = !!item.imagem_url;
+                      const genType = hasText && hasImage ? "completo" : hasImage ? "imagem" : "texto";
+
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                          className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                         >
+                          {/* Thumbnail */}
+                          {hasImage && (
+                            <img
+                              src={item.imagem_url}
+                              alt="Imagem gerada"
+                              className="h-14 w-14 rounded-md object-cover border flex-shrink-0"
+                            />
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-medium truncate">
                                 {formData?.tipo || "—"} • {formData?.finalidade || "—"}
                               </span>
+                              <Badge
+                                variant={genType === "completo" ? "default" : "outline"}
+                                className="text-[10px]"
+                              >
+                                {genType === "completo" ? "📦 Completo" : genType === "imagem" ? "🖼️ Imagem" : "📝 Texto"}
+                              </Badge>
                               {item.tone && (
-                                <Badge variant="outline" className="text-[10px]">{item.tone}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">{item.tone}</Badge>
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground truncate">
