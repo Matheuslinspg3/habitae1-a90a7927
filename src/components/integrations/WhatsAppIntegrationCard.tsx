@@ -45,54 +45,66 @@ export function WhatsAppIntegrationCard() {
   };
 
   const handleCreate = async () => {
-    await createInstance();
+    try {
+      await createInstance();
 
-    // Auto-connect after creation to show QR code immediately
-    const connectResult = await connectInstance().catch(() => null);
-    if (connectResult?.qr_code) {
-      setQrCode(connectResult.qr_code);
-      return;
+      // Auto-connect after creation to show QR code immediately
+      const connectResult = await connectInstance().catch(() => null);
+      if (connectResult?.qr_code) {
+        setQrCode(connectResult.qr_code);
+        return;
+      }
+
+      // Fallback: some providers generate QR a few seconds later
+      const statusResult = await checkStatus().catch(() => null);
+      if (statusResult?.qr_code) {
+        setQrCode(statusResult.qr_code);
+        return;
+      }
+
+      toast.error("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.");
+    } catch {
+      // O toast detalhado já é exibido no hook
     }
-
-    // Fallback: some providers generate QR a few seconds later
-    const statusResult = await checkStatus().catch(() => null);
-    if (statusResult?.qr_code) {
-      setQrCode(statusResult.qr_code);
-      return;
-    }
-
-    toast.error("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.");
   };
 
   const handleConnect = async () => {
-    const result = await connectInstance();
-    if (result?.qr_code) {
-      setQrCode(result.qr_code);
-      return;
-    }
+    try {
+      const result = await connectInstance();
+      if (result?.qr_code) {
+        setQrCode(result.qr_code);
+        return;
+      }
 
-    const statusResult = await checkStatus().catch(() => null);
-    if (statusResult?.qr_code) {
-      setQrCode(statusResult.qr_code);
-      return;
-    }
+      const statusResult = await checkStatus().catch(() => null);
+      if (statusResult?.qr_code) {
+        setQrCode(statusResult.qr_code);
+        return;
+      }
 
-    toast.error("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.");
+      toast.error("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.");
+    } catch {
+      // O toast detalhado já é exibido no hook
+    }
   };
 
   const handleCheckStatus = async () => {
-    const result = await checkStatus();
-    if (result?.status === "connected") {
-      setQrCode(null);
-      return;
-    }
+    try {
+      const result = await checkStatus();
+      if (result?.status === "connected") {
+        setQrCode(null);
+        return;
+      }
 
-    if (result?.qr_code) {
-      setQrCode(result.qr_code);
-      return;
-    }
+      if (result?.qr_code) {
+        setQrCode(result.qr_code);
+        return;
+      }
 
-    toast.info("Ainda sem QR Code disponível. Aguarde alguns segundos e tente novamente.");
+      toast.info("Ainda sem QR Code disponível. Aguarde alguns segundos e tente novamente.");
+    } catch {
+      // O toast detalhado já é exibido no hook
+    }
   };
 
   const displayedQrCode = useMemo(() => normalizeQrCodeSrc(qrCode || instance?.qr_code || null), [qrCode, instance?.qr_code]);
