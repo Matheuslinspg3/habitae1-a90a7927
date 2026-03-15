@@ -30,19 +30,48 @@ function buildPrompt(body: RequestBody): string {
   const { format, style, overlayData, customPrompt } = body;
   const dimensions = format === "feed" ? "1080x1080 square" : "1080x1920 vertical (9:16 story)";
 
+  // Base professional prompt for all styles
+  const baseEnhancement = `You are a luxury real estate advertising visual designer.
+
+VISUAL ENHANCEMENTS (apply to ALL styles):
+- Improve lighting and colors for a premium look
+- Enhance sky and sunlight for a cinematic feel
+- Slightly improve landscaping and surroundings
+- Keep the building architecture accurate and intact
+- Ultra realistic rendering
+- Modern luxury aesthetic
+- High resolution output
+
+CONSTRAINTS:
+- Do not alter the building structure
+- Avoid exaggerated effects
+- Keep a professional commercial appearance`;
+
   if (customPrompt) {
-    return `Edit this real estate photo to create a professional marketing piece in ${dimensions} format. ${customPrompt}`;
+    return `${baseEnhancement}
+
+Create a professional real estate marketing piece in ${dimensions} format.
+
+Additional instructions: ${customPrompt}`;
   }
 
   const data = overlayData || {};
 
   if (style === "enhance") {
-    return `You are a professional real estate photo editor. Transform this property photo into a magazine-quality marketing image in ${dimensions} format.
+    return `${baseEnhancement}
 
-Apply the following enhancements:
+GOAL: Transform this property photo into a magazine-quality marketing image in ${dimensions} format.
+
+COMPOSITION:
+- Maintain the building as the main focal point
+- Use a luxury real estate aesthetic
+- Apply subtle cinematic lighting
+- Keep a clean and modern visual style
+
+Apply:
 - Professional HDR-style color grading with warm, inviting tones
 - Brighten shadows while preserving highlights
-- Enhance sky to be vivid blue or golden hour warmth
+- Enhance sky to vivid blue or golden hour warmth
 - Sharpen architectural details and textures
 - Make grass/landscaping vibrant green
 - Add subtle warm ambient lighting to interior shots
@@ -61,26 +90,34 @@ Apply the following enhancements:
     if (data.neighborhood) infoLines.push(`Location: "${data.neighborhood}"`);
     if (data.phone) infoLines.push(`Contact phone: "${data.phone}"`);
 
-    return `You are a premium real estate marketing designer. Create a high-end Instagram ad in ${dimensions} format using this property photo.
+    return `${baseEnhancement}
 
-Design requirements:
+GOAL: Create a high-end commercial advertisement image in ${dimensions} format using this property photo as the base reference.
+
+COMPOSITION:
+- Maintain the building as the main focal point
 - Use the photo as the main hero visual, occupying most of the frame
+- Apply subtle cinematic lighting
 - Add a sophisticated, modern frame or border design (thin elegant lines, geometric accents)
 - Create a semi-transparent dark gradient overlay at the bottom (30-40% of image height)
 - The overlay should fade from fully transparent at top to 70% dark at bottom
 
-Typography and text placement on the overlay:
+TEXT SPACE — Reserve visual space for and render:
 ${infoLines.map(l => `- ${l}`).join("\n")}
+- Logo or contact information area
 
-Design style:
-- Use clean, modern sans-serif typography (like Montserrat or Helvetica style)
+TYPOGRAPHY:
+- Use clean, modern sans-serif typography (Montserrat or Helvetica style)
 - Title in bold white, large font size
 - Price in accent gold/amber color, prominent
 - Other details in light gray, smaller font
 - Add subtle luxury design elements: thin gold lines, minimal icons for bed/area/parking
-- Overall feel: premium real estate agency Instagram ad
+
+STYLE:
+- Premium real estate agency Instagram ad
 - Inspired by luxury property marketing from high-end agencies
-- Clean, elegant, professional — NOT cluttered or cheap-looking`;
+- Clean, elegant, professional — NOT cluttered or cheap-looking
+- Social media ready`;
   }
 
   // overlay style
@@ -91,7 +128,13 @@ Design style:
   if (data.bedrooms) infoLines.push(`Bedrooms: "${data.bedrooms}"`);
   if (data.phone) infoLines.push(`Contact: "${data.phone}"`);
 
-  return `You are a premium real estate marketing designer. Add professional text overlays to this property photo for a ${dimensions} Instagram ad.
+  return `${baseEnhancement}
+
+GOAL: Add professional text overlays to this property photo for a ${dimensions} real estate advertisement.
+
+COMPOSITION:
+- Maintain the building as the main focal point
+- Keep the property photo prominent and visible (at least 70% of frame)
 
 Text to overlay:
 ${infoLines.map(l => `- ${l}`).join("\n")}
@@ -101,11 +144,11 @@ Design instructions:
 - Use modern, bold sans-serif typography
 - Title should be large and impactful
 - Price should stand out with a distinct color (gold or brand accent)
-- Keep the property photo prominent and visible (at least 70% of frame)
-- Text should be positioned at bottom third or as a clean sidebar
+- Text positioned at bottom third or as a clean sidebar
 - Add small icons next to bedroom/area/parking data
 - Professional, clean real estate ad aesthetic
-- Do NOT cover the main subject of the photo with text`;
+- Do NOT cover the main subject of the photo with text
+- Social media ready`;
 }
 
 /** Resolve input image (http(s) URL or data URL) to a Blob file for OpenAI */
