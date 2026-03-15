@@ -70,7 +70,7 @@ export default function Favorites() {
                 bedrooms={p.bedrooms}
                 parkingSpots={p.parking_spots}
                 areaTotal={p.area_total}
-                imageUrl={p.images?.[0]}
+                imageUrl={p.images?.[0] ? proxyDriveImageUrl(p.images[0]) : null}
                 isFavorite={true}
                 onFavoriteToggle={toggleFavorite}
                 onClick={(id) => navigate(`/app/imovel/${id}`)}
