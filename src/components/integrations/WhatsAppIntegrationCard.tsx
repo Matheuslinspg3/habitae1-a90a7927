@@ -37,7 +37,6 @@ export function WhatsAppIntegrationCard() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Auto-poll DB directly (no edge function cost) when QR is shown
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
@@ -45,6 +44,7 @@ export function WhatsAppIntegrationCard() {
     }
   }, []);
 
+  // Auto-poll DB directly (no edge function / Cloud cost) every 5s when QR is shown
   const startPolling = useCallback(() => {
     stopPolling();
     if (!instance?.id) return;
@@ -52,32 +52,19 @@ export function WhatsAppIntegrationCard() {
       try {
         const { data } = await supabase
           .from("whatsapp_instances" as any)
-          .select("status, phone_number")
+          .select("status")
           .eq("id", instance.id)
           .maybeSingle();
         if ((data as any)?.status === "connected") {
           setQrCode(null);
           stopPolling();
           toast.success("WhatsApp conectado com sucesso!");
-          // refresh query cache
-          (window as any).__whatsappInvalidate?.();
+          checkStatus().catch(() => {}); // refresh full state via edge fn once
         }
       } catch { /* silent */ }
     }, 5000);
-  }, [instance?.id, stopPolling]);
+  }, [instance?.id, stopPolling, checkStatus]);
 
-  // Expose invalidate for polling callback
-  const { instance: _inst, ...hooks } = useWhatsAppInstance();
-  // We already destructured above, just need to wire invalidate
-  useEffect(() => {
-    (window as any).__whatsappInvalidate = () => {
-      // re-fetch query
-      hooks.checkStatus().catch(() => {});
-    };
-    return () => { delete (window as any).__whatsappInvalidate; };
-  }, []);
-
-  // Cleanup on unmount
   useEffect(() => () => stopPolling(), [stopPolling]);
 
   const normalizeQrCodeSrc = (value?: string | null) => {
