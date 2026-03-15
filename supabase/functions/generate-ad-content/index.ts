@@ -303,7 +303,7 @@ serve(async (req) => {
     }
 
     if (!result.image_prompts) result.image_prompts = [];
-    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ...result, _ai_provider: usedProvider, _ai_model: usedModel }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("generate-ad-content error:", error);
     return new Response(
