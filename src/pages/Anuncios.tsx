@@ -17,6 +17,7 @@ import RDSettingsTab from "@/components/ads/rdstation/RDSettingsTab";
 const GeradorAnunciosContent = lazy(() => import("../pages/GeradorAnuncios").then(m => ({ default: () => <m.default embedded /> })));
 const GeradorArtesContent = lazy(() => import("@/components/ads/GeradorArtesContent"));
 const GeradorVideoContent = lazy(() => import("@/components/ads/GeradorVideoContent"));
+const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSettingsContent"));
 
 const TabLoader = () => (
   <div className="flex items-center justify-center py-12">
