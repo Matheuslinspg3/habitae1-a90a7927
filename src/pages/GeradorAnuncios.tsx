@@ -685,16 +685,6 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
                 Gerar Imagem
               </Button>
 
-              <Button
-                onClick={handleGenerateFullAd}
-                disabled={loading || generatingFullAd}
-                variant="default"
-                className="w-full sm:w-auto gap-2 h-10 bg-gradient-to-r from-primary to-primary/80"
-              >
-                {generatingFullAd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {generatingFullAd ? "Gerando anúncio..." : "Gerar Anúncio Completo"}
-              </Button>
-
               {aiProviderInfo && !loading && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md border">
                   <span className="font-medium">
