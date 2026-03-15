@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +65,25 @@ serve(async (req) => {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
+    const tokensIn = data.usage?.prompt_tokens || 0;
+    const tokensOut = data.usage?.completion_tokens || 0;
+
+    // Track billing (no user auth here, use anonymous tracking)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (supabaseUrl && serviceKey) {
+      const supabase = createClient(supabaseUrl, serviceKey);
+      await trackAiBilling(supabase, {
+        userId: "system",
+        provider: "lovable",
+        model: "google/gemini-2.5-flash",
+        functionName: "analyze-photo-quality",
+        inputTokens: tokensIn,
+        outputTokens: tokensOut,
+        success: true,
+        usageType: "vision",
+      });
+    }
 
     // Parse the JSON from the response
     try {

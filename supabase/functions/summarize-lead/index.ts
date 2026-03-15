@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -109,6 +110,24 @@ Gere o resumo em português brasileiro, direto e prático.`;
 
       const aiData = await aiRes.json();
       const summary = aiData.choices?.[0]?.message?.content || "Não foi possível gerar resumo.";
+      const tokensIn = aiData.usage?.prompt_tokens || 0;
+      const tokensOut = aiData.usage?.completion_tokens || 0;
+
+      // Track billing
+      const serviceClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      await trackAiBilling(serviceClient, {
+        userId,
+        provider: "lovable",
+        model: "google/gemini-2.5-flash-lite",
+        functionName: "summarize-lead",
+        inputTokens: tokensIn,
+        outputTokens: tokensOut,
+        success: true,
+        usageType: "text",
+      });
 
       // Save summary to lead
       await supabase

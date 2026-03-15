@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -325,6 +326,20 @@ LANGUAGE: Generate in Brazilian Portuguese (pt-BR).`;
       estimated_cost_usd: cost,
       success: !!result,
       error_message: result ? null : errors.join("; "),
+    });
+
+    // Track billing
+    await trackAiBilling(serviceClient, {
+      userId: user.id,
+      organizationId: profile?.organization_id,
+      provider: usedProvider,
+      model: usedModel,
+      functionName: "generate-ad-content",
+      inputTokens: tokensIn,
+      outputTokens: tokensOut,
+      success: !!result,
+      errorMessage: result ? null : errors.join("; "),
+      usageType: "text",
     });
 
     if (!result) {

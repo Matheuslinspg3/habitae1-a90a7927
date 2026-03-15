@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { trackAiBilling } from "../_shared/ai-billing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -532,6 +533,19 @@ Deno.serve(async (req) => {
       tokens_output: 0,
       estimated_cost_usd: 0,
       success: true,
+    });
+
+    // Track billing
+    await trackAiBilling(serviceClient, {
+      userId: user.id,
+      organizationId: profile?.organization_id,
+      provider,
+      model: modelUsed,
+      functionName: "generate-ad-image",
+      inputTokens: 0,
+      outputTokens: 0,
+      success: true,
+      usageType: "image_edit",
     });
 
     return new Response(JSON.stringify({ imageUrl: generatedImageUrl, promptUsed: prompt }), {
