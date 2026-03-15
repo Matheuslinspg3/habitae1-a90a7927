@@ -10,6 +10,7 @@ import { useConsumerProperties } from "@/hooks/useConsumerProperties";
 import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { proxyDriveImageUrl } from "@/lib/utils";
 
 export default function AppSearch() {
   const navigate = useNavigate();
@@ -104,7 +105,7 @@ export default function AppSearch() {
                 bedrooms={p.bedrooms}
                 parkingSpots={p.parking_spots}
                 areaTotal={p.area_total}
-                imageUrl={p.images?.[0]}
+                imageUrl={p.images?.[0] ? proxyDriveImageUrl(p.images[0]) : null}
                 isFavorite={favorites.has(p.id!)}
                 onFavoriteToggle={toggleFavorite}
                 onClick={(id) => navigate(`/app/imovel/${id}`)}

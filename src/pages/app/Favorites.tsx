@@ -6,6 +6,7 @@ import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { ConsumerPropertyCard } from "@/components/app/ConsumerPropertyCard";
 import { PropertyCardSkeleton } from "@/components/app/PropertyCardSkeleton";
 import { useQuery } from "@tanstack/react-query";
+import { proxyDriveImageUrl } from "@/lib/utils";
 
 export default function Favorites() {
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ export default function Favorites() {
                 bedrooms={p.bedrooms}
                 parkingSpots={p.parking_spots}
                 areaTotal={p.area_total}
-                imageUrl={p.images?.[0]}
+                imageUrl={p.images?.[0] ? proxyDriveImageUrl(p.images[0]) : null}
                 isFavorite={true}
                 onFavoriteToggle={toggleFavorite}
                 onClick={(id) => navigate(`/app/imovel/${id}`)}
