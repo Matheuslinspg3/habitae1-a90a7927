@@ -272,6 +272,10 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         whatsapp: data.whatsapp,
       });
 
+      if (data._ai_provider || data._ai_model) {
+        setAiProviderInfo({ provider: data._ai_provider || "unknown", model: data._ai_model || "" });
+      }
+
       if (data.image_prompts?.length) {
         setImagePrompts(data.image_prompts);
       }
