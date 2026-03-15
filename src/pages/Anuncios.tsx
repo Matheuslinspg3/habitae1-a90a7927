@@ -67,6 +67,10 @@ export default function Anuncios() {
               <Video className="h-4 w-4" />
               Gerador de Vídeo
             </TabsTrigger>
+            <TabsTrigger value="marca" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+              <Stamp className="h-4 w-4" />
+              Marca
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Meta Ads ── */}
