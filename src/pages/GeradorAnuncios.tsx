@@ -118,6 +118,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [confirmLoadItem, setConfirmLoadItem] = useState<any>(null);
   const [propertySearch, setPropertySearch] = useState("");
   const [generatingFullAd, setGeneratingFullAd] = useState(false);
+  const [showImageGenerator, setShowImageGenerator] = useState(false);
 
   // Debounced property search
   const [debouncedSearch, setDebouncedSearch] = useState("");
