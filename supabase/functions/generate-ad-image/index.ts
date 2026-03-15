@@ -23,7 +23,7 @@ interface RequestBody {
   style: "enhance" | "template" | "overlay";
   overlayData?: OverlayData;
   customPrompt?: string;
-  aiProvider?: "openai" | "gemini";
+  aiProvider?: "openai" | "gemini" | "stability" | "leonardo" | "flux";
 }
 
 function buildPrompt(body: RequestBody): string {
