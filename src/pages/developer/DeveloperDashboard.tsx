@@ -23,7 +23,7 @@ import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { AILogsTable } from "@/components/developer/AILogsTable";
 import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 
 const tabs = [
   { id: "overview", label: "Uso por Org", icon: HardDrive },
