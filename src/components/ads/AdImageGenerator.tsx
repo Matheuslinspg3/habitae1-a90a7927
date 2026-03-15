@@ -86,6 +86,7 @@ export function AdImageGenerator({
   const [showPrompt, setShowPrompt] = useState(false);
   const [format, setFormat] = useState<OutputFormat>("feed");
   const [style, setStyle] = useState<EditStyle>("template");
+  const [aiProvider, setAiProvider] = useState<AiProvider>("openai");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
