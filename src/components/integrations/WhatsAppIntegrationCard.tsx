@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, MessageCircle, CheckCircle2, XCircle, RefreshCw, QrCode, Trash2, Smartphone } from "lucide-react";
@@ -34,6 +35,37 @@ export function WhatsAppIntegrationCard() {
   } = useWhatsAppInstance();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Auto-poll DB directly (no edge function / Cloud cost) every 5s when QR is shown
+  const startPolling = useCallback(() => {
+    stopPolling();
+    if (!instance?.id) return;
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from("whatsapp_instances" as any)
+          .select("status")
+          .eq("id", instance.id)
+          .maybeSingle();
+        if ((data as any)?.status === "connected") {
+          setQrCode(null);
+          stopPolling();
+          toast.success("WhatsApp conectado com sucesso!");
+          checkStatus().catch(() => {}); // refresh full state via edge fn once
+        }
+      } catch { /* silent */ }
+    }, 5000);
+  }, [instance?.id, stopPolling, checkStatus]);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const normalizeQrCodeSrc = (value?: string | null) => {
     if (!value) return null;
@@ -52,6 +84,7 @@ export function WhatsAppIntegrationCard() {
       const connectResult = await connectInstance().catch(() => null);
       if (connectResult?.qr_code) {
         setQrCode(connectResult.qr_code);
+        startPolling();
         return;
       }
 
@@ -59,6 +92,7 @@ export function WhatsAppIntegrationCard() {
       const statusResult = await checkStatus().catch(() => null);
       if (statusResult?.qr_code) {
         setQrCode(statusResult.qr_code);
+        startPolling();
         return;
       }
 
@@ -73,12 +107,14 @@ export function WhatsAppIntegrationCard() {
       const result = await connectInstance();
       if (result?.qr_code) {
         setQrCode(result.qr_code);
+        startPolling();
         return;
       }
 
       const statusResult = await checkStatus().catch(() => null);
       if (statusResult?.qr_code) {
         setQrCode(statusResult.qr_code);
+        startPolling();
         return;
       }
 
@@ -93,11 +129,13 @@ export function WhatsAppIntegrationCard() {
       const result = await checkStatus();
       if (result?.status === "connected") {
         setQrCode(null);
+        stopPolling();
         return;
       }
 
       if (result?.qr_code) {
         setQrCode(result.qr_code);
+        startPolling();
         return;
       }
 
