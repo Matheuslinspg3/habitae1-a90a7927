@@ -41,6 +41,11 @@ const extractQrCode = (payload: Record<string, any>) =>
     payload?.data?.data?.base64,
   ]);
 
+const safeJsonForError = (payload: unknown, max = 1500) => {
+  const raw = JSON.stringify(payload ?? {});
+  return raw.length > max ? `${raw.slice(0, max)}...` : raw;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
