@@ -15,7 +15,7 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
   "gemini-2.0-flash": { input: 0.1, output: 0.4 },
   "claude-sonnet-4-20250514": { input: 3, output: 15 },
-  "llama-3.1-70b-versatile": { input: 0.59, output: 0.79 },
+  "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
   "google/gemini-2.5-flash": { input: 0.15, output: 0.6 },
   "google/gemini-3-flash-preview": { input: 0.15, output: 0.6 },
 };
@@ -242,8 +242,8 @@ serve(async (req) => {
         result = extractToolResult(aiData);
         usedProvider = "anthropic";
       } else if (provider === "groq" && apiKey) {
-        usedModel = "llama-3.1-70b-versatile";
-        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: toolChoice };
+        usedModel = "llama-3.3-70b-versatile";
+        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: "auto" };
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
