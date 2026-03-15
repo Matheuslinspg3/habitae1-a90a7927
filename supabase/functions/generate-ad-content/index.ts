@@ -249,7 +249,10 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!res.ok) throw new Error(`Groq error: ${res.status}`);
+        if (!res.ok) {
+          const groqErrorText = await res.text();
+          throw new Error(`Groq error: ${res.status} - ${groqErrorText.slice(0, 300)}`);
+        }
         aiData = await res.json();
         result = extractToolResult(aiData);
         usedProvider = "groq";
@@ -260,7 +263,7 @@ serve(async (req) => {
     }
 
     // Fallback to Lovable AI
-    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled)) {
+    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled || provider === "groq")) {
       try {
         console.log("Using Lovable AI...");
         aiData = await callLovable(messages, tools, toolChoice);
