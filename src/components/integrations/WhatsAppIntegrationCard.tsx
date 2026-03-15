@@ -129,11 +129,13 @@ export function WhatsAppIntegrationCard() {
       const result = await checkStatus();
       if (result?.status === "connected") {
         setQrCode(null);
+        stopPolling();
         return;
       }
 
       if (result?.qr_code) {
         setQrCode(result.qr_code);
+        startPolling();
         return;
       }
 
