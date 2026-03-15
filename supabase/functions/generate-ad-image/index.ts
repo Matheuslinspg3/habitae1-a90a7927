@@ -18,6 +18,15 @@ interface OverlayData {
   logoUrl?: string;
 }
 
+interface BrandData {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  slogan?: string;
+  logoUrl?: string;
+}
+
 interface RequestBody {
   imageUrl: string;
   format: "feed" | "story";
@@ -25,14 +34,29 @@ interface RequestBody {
   overlayData?: OverlayData;
   customPrompt?: string;
   aiProvider?: "openai" | "gemini" | "stability" | "leonardo" | "flux";
+  brandData?: BrandData;
 }
 
 function buildPrompt(body: RequestBody): string {
-  const { format, style, overlayData, customPrompt } = body;
+  const { format, style, overlayData, customPrompt, brandData } = body;
   const dimensions = format === "feed" ? "1080x1080 square" : "1080x1920 vertical (9:16 story)";
 
-  // Base professional prompt for all styles
+  // Brand identity instructions
+  const brandInstructions = brandData ? `
+BRAND IDENTITY (MANDATORY — use these exact colors and fonts):
+- Primary color: ${brandData.primaryColor || "#3B82F6"}
+- Secondary color: ${brandData.secondaryColor || "#1E293B"}
+- Accent color: ${brandData.accentColor || "#F59E0B"}
+${brandData.fontFamily ? `- Font family: ${brandData.fontFamily} (use this font style for ALL text)` : ""}
+${brandData.slogan ? `- Brand slogan: "${brandData.slogan}"` : ""}
+- Use the primary color for main design elements, borders, and highlights
+- Use the accent color for price tags and call-to-action elements
+- Use the secondary color for background overlays and text backgrounds
+` : "";
+
   const baseEnhancement = `You are a luxury real estate advertising visual designer.
+
+CRITICAL RULE: You MUST use the provided property photo as the EXACT base image. Do NOT generate a new building or property. The original photo must be clearly recognizable in the final output.
 
 VISUAL ENHANCEMENTS (apply to ALL styles):
 - Improve lighting and colors for a premium look
@@ -42,9 +66,10 @@ VISUAL ENHANCEMENTS (apply to ALL styles):
 - Ultra realistic rendering
 - Modern luxury aesthetic
 - High resolution output
-
+${brandInstructions}
 CONSTRAINTS:
 - Do not alter the building structure
+- Do NOT create a new property image — edit the PROVIDED photo only
 - Avoid exaggerated effects
 - Keep a professional commercial appearance`;
 
@@ -52,19 +77,26 @@ CONSTRAINTS:
     return `${baseEnhancement}
 
 Create a professional real estate marketing piece in ${dimensions} format.
+IMPORTANT: Use the provided photo as the base. Do not generate a new image.
 
 Additional instructions: ${customPrompt}`;
   }
 
   const data = overlayData || {};
+  const brand = brandData || {};
+  const primaryColor = brand.primaryColor || "#3B82F6";
+  const accentColor = brand.accentColor || "#F59E0B";
+  const secondaryColor = brand.secondaryColor || "#1E293B";
+  const fontFamily = brand.fontFamily || "Montserrat";
 
   if (style === "enhance") {
     return `${baseEnhancement}
 
-GOAL: Transform this property photo into a magazine-quality marketing image in ${dimensions} format.
+GOAL: Transform this EXACT property photo into a magazine-quality marketing image in ${dimensions} format.
+IMPORTANT: Keep the EXACT same building/property from the photo. Only enhance visual quality.
 
 COMPOSITION:
-- Maintain the building as the main focal point
+- Maintain the building as the main focal point — do NOT replace it
 - Use a luxury real estate aesthetic
 - Apply subtle cinematic lighting
 - Keep a clean and modern visual style
@@ -78,7 +110,8 @@ Apply:
 - Add subtle warm ambient lighting to interior shots
 - Clean, luxurious, aspirational feel
 - Do NOT add any text, logos, watermarks or overlays
-- Keep the original composition and scene intact`;
+- Keep the original composition and scene intact
+- The output must show the SAME property as the input photo`;
   }
 
   if (style === "template") {
@@ -90,34 +123,40 @@ Apply:
     if (data.parking) infoLines.push(`Parking: "${data.parking}"`);
     if (data.neighborhood) infoLines.push(`Location: "${data.neighborhood}"`);
     if (data.phone) infoLines.push(`Contact phone: "${data.phone}"`);
+    if (brand.slogan) infoLines.push(`Brand slogan: "${brand.slogan}"`);
 
     return `${baseEnhancement}
 
-GOAL: Create a high-end commercial advertisement image in ${dimensions} format using this property photo as the base reference.
+GOAL: Create a high-end commercial advertisement image in ${dimensions} format using this EXACT property photo as the hero image.
+CRITICAL: The property in the photo must remain clearly visible and recognizable. Do NOT replace or regenerate the building.
 
 COMPOSITION:
-- Maintain the building as the main focal point
-- Use the photo as the main hero visual, occupying most of the frame
-- Apply subtle cinematic lighting
-- Add a sophisticated, modern frame or border design (thin elegant lines, geometric accents)
-- Create a semi-transparent dark gradient overlay at the bottom (30-40% of image height)
+- Keep the ORIGINAL property photo as the main hero visual, occupying most of the frame
+- Apply subtle cinematic lighting enhancement to the photo
+- Add a sophisticated, modern frame or border design using the brand primary color (${primaryColor})
+- Create a semi-transparent gradient overlay at the bottom using the secondary color (${secondaryColor}) at 70% opacity
 - The overlay should fade from fully transparent at top to 70% dark at bottom
 
 TEXT SPACE — Reserve visual space for and render:
 ${infoLines.map(l => `- ${l}`).join("\n")}
-- Logo or contact information area
 
 TYPOGRAPHY:
-- Use clean, modern sans-serif typography (Montserrat or Helvetica style)
+- Use ${fontFamily} font family for all text
 - Title in bold white, large font size
-- Price in accent gold/amber color, prominent
+- Price in accent color (${accentColor}), prominent and eye-catching
 - Other details in light gray, smaller font
-- Add subtle luxury design elements: thin gold lines, minimal icons for bed/area/parking
+- Add thin accent lines in primary color (${primaryColor})
+- Use small modern icons for bed/area/parking info
+
+COLOR SCHEME:
+- Frame/borders: ${primaryColor}
+- Price highlight: ${accentColor}
+- Background overlay: ${secondaryColor}
+- Text: white and light gray
 
 STYLE:
 - Premium real estate agency Instagram ad
-- Inspired by luxury property marketing from high-end agencies
-- Clean, elegant, professional — NOT cluttered or cheap-looking
+- Clean, elegant, professional — NOT cluttered
 - Social media ready`;
   }
 
@@ -128,28 +167,37 @@ STYLE:
   if (data.area) infoLines.push(`Area info: "${data.area}"`);
   if (data.bedrooms) infoLines.push(`Bedrooms: "${data.bedrooms}"`);
   if (data.phone) infoLines.push(`Contact: "${data.phone}"`);
+  if (brand.slogan) infoLines.push(`Brand slogan at bottom: "${brand.slogan}"`);
 
   return `${baseEnhancement}
 
-GOAL: Add professional text overlays to this property photo for a ${dimensions} real estate advertisement.
+GOAL: Add professional text overlays to this EXACT property photo for a ${dimensions} real estate advertisement.
+CRITICAL: The original property photo must remain clearly visible. Do NOT replace or regenerate the building.
 
 COMPOSITION:
-- Maintain the building as the main focal point
-- Keep the property photo prominent and visible (at least 70% of frame)
+- Keep the ORIGINAL property photo prominent and visible (at least 70% of frame)
+- The building/property from the photo must be clearly recognizable
 
 Text to overlay:
 ${infoLines.map(l => `- ${l}`).join("\n")}
 
 Design instructions:
-- Add a subtle gradient or frosted glass blur effect behind the text area for readability
-- Use modern, bold sans-serif typography
-- Title should be large and impactful
-- Price should stand out with a distinct color (gold or brand accent)
+- Add a gradient or frosted glass blur effect behind text using secondary color (${secondaryColor}) for readability
+- Use ${fontFamily} font family for all text
+- Title should be large and impactful in white
+- Price should stand out in accent color (${accentColor})
+- Add thin accent lines or geometric elements in primary color (${primaryColor})
 - Text positioned at bottom third or as a clean sidebar
 - Add small icons next to bedroom/area/parking data
 - Professional, clean real estate ad aesthetic
 - Do NOT cover the main subject of the photo with text
-- Social media ready`;
+- Social media ready
+
+COLOR SCHEME:
+- Accent elements: ${primaryColor}
+- Price: ${accentColor}
+- Text background: ${secondaryColor} with transparency
+- Text: white`;
 }
 
 /** Resolve input image (http(s) URL or data URL) to a Blob file for OpenAI */

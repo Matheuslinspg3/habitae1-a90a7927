@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PropertyImage {
   id: string;
@@ -85,6 +87,7 @@ export function AdImageGenerator({
   generatedImage,
   onImageGenerated,
 }: AdImageGeneratorProps) {
+  const { profile } = useAuth();
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -96,10 +99,24 @@ export function AdImageGenerator({
   const [style, setStyle] = useState<EditStyle>("enhance");
   const [aiProvider, setAiProvider] = useState<AiProvider>("openai");
   const [usePipeline, setUsePipeline] = useState(true);
-  const [pipelineStep, setPipelineStep] = useState(0); // 0=enhance, 1=template, 2=overlay
-  const [pipelineImages, setPipelineImages] = useState<string[]>([]); // results of each step
+  const [pipelineStep, setPipelineStep] = useState(0);
+  const [pipelineImages, setPipelineImages] = useState<string[]>([]);
   const [processingStep, setProcessingStep] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch brand settings for the organization
+  const { data: brandSettings } = useQuery({
+    queryKey: ["brand-for-image-gen", profile?.organization_id],
+    enabled: !!profile?.organization_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("brand_settings")
+        .select("primary_color, secondary_color, accent_color, font_family, slogan, logo_url")
+        .eq("organization_id", profile!.organization_id)
+        .maybeSingle();
+      return data;
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,6 +168,16 @@ export function AdImageGenerator({
       neighborhood: formData.bairro_cidade || undefined,
     } : undefined;
 
+    // Build brand data to send
+    const brandData = brandSettings ? {
+      primaryColor: (brandSettings as any).primary_color,
+      secondaryColor: (brandSettings as any).secondary_color,
+      accentColor: (brandSettings as any).accent_color,
+      fontFamily: (brandSettings as any).font_family,
+      slogan: (brandSettings as any).slogan,
+      logoUrl: (brandSettings as any).logo_url,
+    } : undefined;
+
     const { data, error } = await supabase.functions.invoke("generate-ad-image", {
       body: {
         imageUrl: inputImageUrl,
@@ -159,6 +186,7 @@ export function AdImageGenerator({
         overlayData,
         customPrompt: customPrompt || undefined,
         aiProvider,
+        brandData,
       },
     });
 
