@@ -41,33 +41,33 @@ export default function Anuncios() {
       <div className="flex-1 p-4 sm:p-6 space-y-4">
         {/* Top-level sections */}
         <Tabs value={section} onValueChange={setSection}>
-          <TabsList className="w-full sm:w-auto flex-wrap">
-            <TabsTrigger value="meta" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+          <TabsList className="w-full sm:w-auto overflow-x-auto flex-nowrap justify-start scrollbar-hide">
+            <TabsTrigger value="meta" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Megaphone className="h-4 w-4" />
               Meta Ads
               {totalNew > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
+                <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] rounded-full bg-destructive text-destructive-foreground">
                   {totalNew}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="rdstation" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+            <TabsTrigger value="rdstation" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <BarChart3 className="h-4 w-4" />
               RD Station
             </TabsTrigger>
-            <TabsTrigger value="gerador" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+            <TabsTrigger value="gerador" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Sparkles className="h-4 w-4" />
               Gerador IA
             </TabsTrigger>
-            <TabsTrigger value="artes" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+            <TabsTrigger value="artes" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Palette className="h-4 w-4" />
-              Gerador de Artes
+              Artes
             </TabsTrigger>
-            <TabsTrigger value="video" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+            <TabsTrigger value="video" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Video className="h-4 w-4" />
-              Gerador de Vídeo
+              Vídeo
             </TabsTrigger>
-            <TabsTrigger value="marca" className="gap-2 flex-1 sm:flex-initial min-h-[44px]">
+            <TabsTrigger value="marca" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Stamp className="h-4 w-4" />
               Marca
             </TabsTrigger>
