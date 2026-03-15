@@ -192,7 +192,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
       if (!profile?.organization_id) return [];
       const { data } = await supabase
         .from("anuncios_gerados")
-        .select("id, created_at, dados_formulario, texto_portal, texto_instagram, texto_whatsapp, property_id, tone")
+        .select("id, created_at, dados_formulario, texto_portal, texto_instagram, texto_whatsapp, imagem_url, property_id, tone")
         .eq("organization_id", profile.organization_id)
         .order("created_at", { ascending: false })
         .limit(20);
