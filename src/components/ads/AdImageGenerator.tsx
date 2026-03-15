@@ -87,6 +87,7 @@ export function AdImageGenerator({
   generatedImage,
   onImageGenerated,
 }: AdImageGeneratorProps) {
+  const { profile } = useAuth();
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -98,10 +99,24 @@ export function AdImageGenerator({
   const [style, setStyle] = useState<EditStyle>("enhance");
   const [aiProvider, setAiProvider] = useState<AiProvider>("openai");
   const [usePipeline, setUsePipeline] = useState(true);
-  const [pipelineStep, setPipelineStep] = useState(0); // 0=enhance, 1=template, 2=overlay
-  const [pipelineImages, setPipelineImages] = useState<string[]>([]); // results of each step
+  const [pipelineStep, setPipelineStep] = useState(0);
+  const [pipelineImages, setPipelineImages] = useState<string[]>([]);
   const [processingStep, setProcessingStep] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch brand settings for the organization
+  const { data: brandSettings } = useQuery({
+    queryKey: ["brand-for-image-gen", profile?.organization_id],
+    enabled: !!profile?.organization_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("brand_settings")
+        .select("primary_color, secondary_color, accent_color, font_family, slogan, logo_url")
+        .eq("organization_id", profile!.organization_id)
+        .maybeSingle();
+      return data;
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
