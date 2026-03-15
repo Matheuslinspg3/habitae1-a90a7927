@@ -76,6 +76,8 @@ export function AdImageGenerator({
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
   const [format, setFormat] = useState<OutputFormat>("feed");
   const [style, setStyle] = useState<EditStyle>("template");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -151,6 +153,7 @@ export function AdImageGenerator({
       }
 
       onImageGenerated(data.imageUrl);
+      if (data.promptUsed) setLastPrompt(data.promptUsed);
       toast.success("Imagem gerada com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar imagem:", err);
@@ -351,10 +354,27 @@ export function AdImageGenerator({
                 format === "feed" ? "aspect-square object-cover" : "aspect-[9/16] object-cover"
               )}
             />
-            <Button variant="outline" size="sm" onClick={handleDownload} className="gap-2">
-              <Download className="h-4 w-4" />
-              Baixar Imagem
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={handleDownload} className="gap-2">
+                <Download className="h-4 w-4" />
+                Baixar Imagem
+              </Button>
+              {lastPrompt && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPrompt(!showPrompt)}
+                  className="gap-2 text-muted-foreground"
+                >
+                  {showPrompt ? "Ocultar prompt" : "Ver prompt usado"}
+                </Button>
+              )}
+            </div>
+            {showPrompt && lastPrompt && (
+              <div className="bg-muted/50 border rounded-md p-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
+                {lastPrompt}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

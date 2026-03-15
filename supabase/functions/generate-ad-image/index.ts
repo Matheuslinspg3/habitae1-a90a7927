@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
       success: true,
     });
 
-    return new Response(JSON.stringify({ imageUrl: generatedImageUrl }), {
+    return new Response(JSON.stringify({ imageUrl: generatedImageUrl, promptUsed: prompt }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
