@@ -41,7 +41,7 @@ export default function Anuncios() {
       <div className="flex-1 p-4 sm:p-6 space-y-4">
         {/* Top-level sections */}
         <Tabs value={section} onValueChange={setSection}>
-          <TabsList className="w-full sm:w-auto overflow-x-auto flex-nowrap justify-start no-scrollbar">
+          <TabsList className="w-full sm:w-auto overflow-x-auto flex-nowrap justify-start scrollbar-hide">
             <TabsTrigger value="meta" className="gap-1.5 shrink-0 min-h-[44px] px-3">
               <Megaphone className="h-4 w-4" />
               Meta Ads
