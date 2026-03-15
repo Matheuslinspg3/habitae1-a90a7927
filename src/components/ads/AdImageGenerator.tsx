@@ -329,6 +329,32 @@ export function AdImageGenerator({
           </p>
         </div>
 
+        {/* AI Provider selection */}
+        <div className="space-y-2">
+          <Label>Modelo de IA</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {AI_PROVIDER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setAiProvider(opt.value)}
+                className={cn(
+                  "flex flex-col items-start p-3 rounded-lg border-2 transition-all text-left",
+                  aiProvider === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {opt.icon}
+                  <span className="text-sm font-medium">{opt.label}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{opt.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Generate button */}
         <Button
           onClick={handleGenerate}
