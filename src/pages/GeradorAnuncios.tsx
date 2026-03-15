@@ -655,11 +655,21 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
             <div className="flex items-center gap-3 flex-wrap">
               <Button
                 onClick={handleGenerate}
-                disabled={loading}
+                disabled={loading || generatingFullAd}
                 className="w-full sm:w-auto gap-2 h-10"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {loading ? "Gerando textos..." : "Gerar Anúncios"}
+                {loading && !generatingFullAd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {loading && !generatingFullAd ? "Gerando textos..." : "Gerar Textos"}
+              </Button>
+
+              <Button
+                onClick={handleGenerateFullAd}
+                disabled={loading || generatingFullAd}
+                variant="default"
+                className="w-full sm:w-auto gap-2 h-10 bg-gradient-to-r from-primary to-primary/80"
+              >
+                {generatingFullAd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generatingFullAd ? "Gerando anúncio..." : "Gerar Anúncio Completo"}
               </Button>
 
               {aiProviderInfo && !loading && (
