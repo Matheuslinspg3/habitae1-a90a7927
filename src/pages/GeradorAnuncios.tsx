@@ -379,19 +379,20 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   };
 
   const handleSave = async () => {
-    if (!results || !user || !profile?.organization_id) return;
+    if ((!results && !generatedImage) || !user || !profile?.organization_id) return;
 
     setSaving(true);
     try {
       const { error } = await supabase.from("anuncios_gerados").insert({
         organization_id: profile.organization_id,
         corretor_id: user.id,
-        texto_portal: results.portal,
-        texto_instagram: results.instagram,
-        texto_whatsapp: results.whatsapp,
+        texto_portal: results?.portal || null,
+        texto_instagram: results?.instagram || null,
+        texto_whatsapp: results?.whatsapp || null,
         dados_formulario: { ...form, lead_name: selectedLead?.name, tone } as any,
         property_id: form.property_id || null,
         tone,
+        imagem_url: generatedImage || null,
       } as any);
 
       if (error) throw error;
