@@ -134,6 +134,18 @@ export default function Anuncios() {
               <GeradorVideoContent />
             </Suspense>
           </TabsContent>
+
+          {/* ── Marca / Identidade Visual ── */}
+          <TabsContent value="marca" className="mt-4">
+            <Suspense fallback={<TabLoader />}>
+              <BrandSettingsContent />
+            </Suspense>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
         </Tabs>
       </div>
     </div>
