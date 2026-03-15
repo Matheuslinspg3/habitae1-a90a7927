@@ -242,8 +242,8 @@ serve(async (req) => {
         result = extractToolResult(aiData);
         usedProvider = "anthropic";
       } else if (provider === "groq" && apiKey) {
-        usedModel = "llama-3.1-70b-versatile";
-        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: toolChoice };
+        usedModel = "llama-3.3-70b-versatile";
+        const body: any = { model: usedModel, messages, temperature: 0.7, tools, tool_choice: "auto" };
         const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
