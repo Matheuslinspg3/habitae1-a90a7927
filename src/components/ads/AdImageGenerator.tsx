@@ -40,11 +40,14 @@ interface AdImageGeneratorProps {
 
 type OutputFormat = "feed" | "story";
 type EditStyle = "enhance" | "template" | "overlay";
-type AiProvider = "openai" | "gemini";
+type AiProvider = "openai" | "gemini" | "stability" | "leonardo" | "flux";
 
 const AI_PROVIDER_OPTIONS: { value: AiProvider; label: string; description: string; icon: React.ReactNode }[] = [
-  { value: "openai", label: "OpenAI", description: "GPT Image-1 — alta qualidade e fidelidade", icon: <Sparkles className="h-4 w-4" /> },
+  { value: "openai", label: "OpenAI", description: "GPT Image-1 — alta qualidade", icon: <Sparkles className="h-4 w-4" /> },
   { value: "gemini", label: "Gemini", description: "Google Gemini — rápido e gratuito", icon: <Bot className="h-4 w-4" /> },
+  { value: "stability", label: "Stability AI", description: "Stable Diffusion XL", icon: <Sparkles className="h-4 w-4" /> },
+  { value: "leonardo", label: "Leonardo AI", description: "Especializado em produto — melhor custo", icon: <Sparkles className="h-4 w-4" /> },
+  { value: "flux", label: "Flux Pro", description: "Qualidade premium (BFL)", icon: <Sparkles className="h-4 w-4" /> },
 ];
 
 const STYLE_OPTIONS: { value: EditStyle; label: string; description: string; icon: React.ReactNode }[] = [
@@ -332,7 +335,7 @@ export function AdImageGenerator({
         {/* AI Provider selection */}
         <div className="space-y-2">
           <Label>Modelo de IA</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {AI_PROVIDER_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
