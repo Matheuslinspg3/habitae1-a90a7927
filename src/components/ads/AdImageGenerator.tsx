@@ -168,6 +168,16 @@ export function AdImageGenerator({
       neighborhood: formData.bairro_cidade || undefined,
     } : undefined;
 
+    // Build brand data to send
+    const brandData = brandSettings ? {
+      primaryColor: (brandSettings as any).primary_color,
+      secondaryColor: (brandSettings as any).secondary_color,
+      accentColor: (brandSettings as any).accent_color,
+      fontFamily: (brandSettings as any).font_family,
+      slogan: (brandSettings as any).slogan,
+      logoUrl: (brandSettings as any).logo_url,
+    } : undefined;
+
     const { data, error } = await supabase.functions.invoke("generate-ad-image", {
       body: {
         imageUrl: inputImageUrl,
@@ -176,6 +186,7 @@ export function AdImageGenerator({
         overlayData,
         customPrompt: customPrompt || undefined,
         aiProvider,
+        brandData,
       },
     });
 
