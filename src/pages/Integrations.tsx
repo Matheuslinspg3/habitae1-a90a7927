@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/PageHeader";
 import { ImobziIntegrationCard } from "@/components/integrations/ImobziIntegrationCard";
+import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { SyncHistorySection } from "@/components/integrations/SyncHistorySection";
 import { PortalFeedsSection } from "@/components/integrations/PortalFeedsSection";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +25,12 @@ export default function Integrations() {
       />
       
       <div className="relative flex-1 p-4 sm:p-6 space-y-6">
+        <div className="max-w-4xl">
+          <WhatsAppIntegrationCard />
+        </div>
+
+        <Separator />
+
         <div className="max-w-4xl">
           <ImobziIntegrationCard />
         </div>
