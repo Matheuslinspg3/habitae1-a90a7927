@@ -153,6 +153,7 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
               loading="lazy"
               decoding="async"
               onError={(e) => {
+                console.error('[PropertyCard] Image load error:', e.currentTarget.src);
                 const target = e.currentTarget;
                 target.style.display = 'none';
                 const fallback = target.nextElementSibling as HTMLElement;
