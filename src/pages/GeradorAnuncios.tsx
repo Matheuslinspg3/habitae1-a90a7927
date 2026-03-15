@@ -544,8 +544,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
           // Navigate to Marketing > Marca tab
           window.location.href = "/marketing?section=marca";
         }} />
-
-
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg">Dados do Imóvel</CardTitle>
           </CardHeader>
