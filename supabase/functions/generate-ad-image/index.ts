@@ -107,31 +107,35 @@ Design instructions:
 - Do NOT cover the main subject of the photo with text`;
 }
 
-/** Convert a URL to a base64 data URL suitable for OpenAI */
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    for (let j = 0; j < chunk.length; j++) {
-      binary += String.fromCharCode(chunk[j]);
-    }
-  }
-  return btoa(binary);
-}
+/** Resolve input image (http(s) URL or data URL) to a Blob file for OpenAI */
+async function resolveImageFile(url: string): Promise<{ imageBlob: Blob; mimeType: string; ext: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-async function urlToBase64(url: string): Promise<{ base64: string; mimeType: string }> {
-  if (url.startsWith("data:")) {
-    const match = url.match(/^data:(image\/[\w+]+);base64,(.+)$/);
-    if (match) return { base64: match[2], mimeType: match[1] };
-    throw new Error("Invalid data URL");
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+
+    const mimeType = (resp.headers.get("content-type") || "image/png").split(";")[0];
+    if (!mimeType.startsWith("image/")) {
+      throw new Error("Provided URL is not an image");
+    }
+
+    const imageBlob = await resp.blob();
+    const ext = mimeType.includes("jpeg")
+      ? "jpg"
+      : mimeType.includes("png")
+      ? "png"
+      : mimeType.includes("webp")
+      ? "webp"
+      : mimeType.includes("gif")
+      ? "gif"
+      : "png";
+
+    return { imageBlob, mimeType, ext };
+  } finally {
+    clearTimeout(timeoutId);
   }
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
-  const buf = await resp.arrayBuffer();
-  const base64 = uint8ToBase64(new Uint8Array(buf));
-  const ct = resp.headers.get("content-type") || "image/png";
-  return { base64, mimeType: ct.split(";")[0] };
 }
 
 Deno.serve(async (req) => {
@@ -183,15 +187,10 @@ Deno.serve(async (req) => {
     const size = body.format === "feed" ? "1024x1024" : "1024x1536";
     console.log(`[generate-ad-image] style=${body.style}, format=${body.format}, size=${size}`);
 
-    // Convert image to base64 for OpenAI
-    const { base64, mimeType } = await urlToBase64(imageUrl);
+    const { imageBlob, ext } = await resolveImageFile(imageUrl);
 
     // Use OpenAI Images Edit API with gpt-image-1
     const formData = new FormData();
-    // Convert base64 to blob for multipart
-    const imageBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const ext = mimeType.includes("png") ? "png" : mimeType.includes("webp") ? "webp" : "png";
-    const imageBlob = new Blob([imageBytes], { type: mimeType });
     formData.append("image", imageBlob, `input.${ext}`);
     formData.append("prompt", prompt);
     formData.append("model", "gpt-image-1");
