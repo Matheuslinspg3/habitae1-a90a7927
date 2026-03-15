@@ -23,6 +23,7 @@ interface RequestBody {
   style: "enhance" | "template" | "overlay";
   overlayData?: OverlayData;
   customPrompt?: string;
+  aiProvider?: "openai" | "gemini";
 }
 
 function buildPrompt(body: RequestBody): string {
@@ -167,6 +168,7 @@ Deno.serve(async (req) => {
 
     const body: RequestBody = await req.json();
     const { imageUrl } = body;
+    const provider = body.aiProvider || "openai";
 
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: "imageUrl is required" }), {
@@ -175,72 +177,121 @@ Deno.serve(async (req) => {
       });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_IMAGE_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_IMAGE_API_KEY not configured" }), {
-        status: 503,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const prompt = buildPrompt(body);
-    const size = body.format === "feed" ? "1024x1024" : "1024x1536";
-    console.log(`[generate-ad-image] style=${body.style}, format=${body.format}, size=${size}`);
+    console.log(`[generate-ad-image] provider=${provider}, style=${body.style}, format=${body.format}`);
 
-    const { imageBlob, ext } = await resolveImageFile(imageUrl);
-
-    // Use OpenAI Images Edit API with gpt-image-1
-    const formData = new FormData();
-    formData.append("image", imageBlob, `input.${ext}`);
-    formData.append("prompt", prompt);
-    formData.append("model", "gpt-image-1");
-    formData.append("size", size);
-    formData.append("quality", "high");
-
-    const aiResponse = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: formData,
-    });
-
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text().catch(() => "");
-      console.error(`OpenAI API error: ${aiResponse.status}`, errText.slice(0, 500));
-
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402 || aiResponse.status === 403) {
-        return new Response(JSON.stringify({ error: "Créditos insuficientes na API OpenAI ou chave inválida." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ error: `Falha ao processar imagem com OpenAI (${aiResponse.status}). Tente novamente.` }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await aiResponse.json();
-    // OpenAI returns: { data: [{ b64_json: "..." }] } or { data: [{ url: "..." }] }
-    const resultImage = data.data?.[0];
     let generatedImageUrl: string | null = null;
+    let modelUsed = "";
 
-    if (resultImage?.b64_json) {
-      generatedImageUrl = `data:image/png;base64,${resultImage.b64_json}`;
-    } else if (resultImage?.url) {
-      generatedImageUrl = resultImage.url;
+    if (provider === "gemini") {
+      // ── Gemini via Lovable AI Gateway ──
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      modelUsed = "gemini-3-pro-image-preview";
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: imageUrl } },
+              ],
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errText = await aiResponse.text().catch(() => "");
+        console.error(`Gemini gateway error: ${aiResponse.status}`, errText.slice(0, 300));
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (aiResponse.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: "Falha ao processar imagem com Gemini. Tente novamente." }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const geminiData = await aiResponse.json();
+      generatedImageUrl = geminiData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
+
+    } else {
+      // ── OpenAI gpt-image-1 ──
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_IMAGE_API_KEY");
+      if (!OPENAI_API_KEY) {
+        return new Response(JSON.stringify({ error: "OPENAI_IMAGE_API_KEY not configured" }), {
+          status: 503,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      modelUsed = "gpt-image-1";
+      const size = body.format === "feed" ? "1024x1024" : "1024x1536";
+
+      const { imageBlob, ext } = await resolveImageFile(imageUrl);
+      const formData = new FormData();
+      formData.append("image", imageBlob, `input.${ext}`);
+      formData.append("prompt", prompt);
+      formData.append("model", "gpt-image-1");
+      formData.append("size", size);
+      formData.append("quality", "high");
+
+      const aiResponse = await fetch("https://api.openai.com/v1/images/edits", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+        body: formData,
+      });
+
+      if (!aiResponse.ok) {
+        const errText = await aiResponse.text().catch(() => "");
+        console.error(`OpenAI API error: ${aiResponse.status}`, errText.slice(0, 500));
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns segundos." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (aiResponse.status === 402 || aiResponse.status === 403) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes na API OpenAI ou chave inválida." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: `Falha ao processar imagem com OpenAI (${aiResponse.status}). Tente novamente.` }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const openaiData = await aiResponse.json();
+      const resultImage = openaiData.data?.[0];
+      if (resultImage?.b64_json) {
+        generatedImageUrl = `data:image/png;base64,${resultImage.b64_json}`;
+      } else if (resultImage?.url) {
+        generatedImageUrl = resultImage.url;
+      }
     }
 
     if (!generatedImageUrl) {
-      console.error("No image in OpenAI response:", JSON.stringify(data).slice(0, 500));
       return new Response(JSON.stringify({ error: "Nenhuma imagem foi gerada. Tente novamente." }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -258,8 +309,8 @@ Deno.serve(async (req) => {
     await serviceClient.from("ai_usage_logs").insert({
       organization_id: profile?.organization_id || null,
       user_id: user.id,
-      provider: "openai",
-      model: "gpt-image-1",
+      provider,
+      model: modelUsed,
       function_name: "generate-ad-image",
       usage_type: "image_edit",
       tokens_input: 0,

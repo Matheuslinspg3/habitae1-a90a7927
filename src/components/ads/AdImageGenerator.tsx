@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ImagePlus, Download, Loader2, Upload, Check, Wand2, LayoutTemplate, Type } from "lucide-react";
+import { ImagePlus, Download, Loader2, Upload, Check, Wand2, LayoutTemplate, Type, Sparkles, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,12 @@ interface AdImageGeneratorProps {
 
 type OutputFormat = "feed" | "story";
 type EditStyle = "enhance" | "template" | "overlay";
+type AiProvider = "openai" | "gemini";
+
+const AI_PROVIDER_OPTIONS: { value: AiProvider; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: "openai", label: "OpenAI", description: "GPT Image-1 — alta qualidade e fidelidade", icon: <Sparkles className="h-4 w-4" /> },
+  { value: "gemini", label: "Gemini", description: "Google Gemini — rápido e gratuito", icon: <Bot className="h-4 w-4" /> },
+];
 
 const STYLE_OPTIONS: { value: EditStyle; label: string; description: string; icon: React.ReactNode }[] = [
   { value: "enhance", label: "Melhorar foto", description: "Correção de cor, brilho e qualidade profissional", icon: <Wand2 className="h-4 w-4" /> },
@@ -80,6 +86,7 @@ export function AdImageGenerator({
   const [showPrompt, setShowPrompt] = useState(false);
   const [format, setFormat] = useState<OutputFormat>("feed");
   const [style, setStyle] = useState<EditStyle>("template");
+  const [aiProvider, setAiProvider] = useState<AiProvider>("openai");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,6 +146,7 @@ export function AdImageGenerator({
           style,
           overlayData,
           customPrompt: customPrompt || undefined,
+          aiProvider,
         },
       });
 
@@ -319,6 +327,32 @@ export function AdImageGenerator({
           <p className="text-xs text-muted-foreground">
             Deixe vazio para usar o estilo padrão selecionado acima.
           </p>
+        </div>
+
+        {/* AI Provider selection */}
+        <div className="space-y-2">
+          <Label>Modelo de IA</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {AI_PROVIDER_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setAiProvider(opt.value)}
+                className={cn(
+                  "flex flex-col items-start p-3 rounded-lg border-2 transition-all text-left",
+                  aiProvider === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40"
+                )}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  {opt.icon}
+                  <span className="text-sm font-medium">{opt.label}</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{opt.description}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Generate button */}
