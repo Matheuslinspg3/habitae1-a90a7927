@@ -197,20 +197,39 @@ serve(async (req) => {
         throw new Error(`Uazapi status error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
       }
 
-      const rawStatus = String(uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
-      const rawQr =
-        uazapiData.qrcode ||
-        uazapiData.qr ||
-        uazapiData.base64 ||
-        uazapiData.data?.qrcode ||
-        uazapiData.data?.qr ||
-        uazapiData.data?.base64 ||
-        uazapiData.data?.qrCode ||
-        null;
+      const rawQr = extractQrCode(uazapiData);
 
-      const newStatus = rawStatus.includes("connect") && !rawStatus.includes("disconnect")
+      const statusText = [
+        uazapiData?.status,
+        uazapiData?.state,
+        uazapiData?.connectionStatus,
+        uazapiData?.session?.status,
+        uazapiData?.instance?.status,
+        uazapiData?.instance?.state,
+        uazapiData?.data?.status,
+        uazapiData?.data?.state,
+      ]
+        .map(asLowerText)
+        .join(" ");
+
+      const hasConnectedFlag = [
+        uazapiData?.connected,
+        uazapiData?.isConnected,
+        uazapiData?.instance?.connected,
+        uazapiData?.data?.connected,
+      ].some((value) => value === true || asLowerText(value) === "true");
+
+      const isConnectedByStatus =
+        /connected|authorized|open|online|ready|working/.test(statusText) &&
+        !/disconnected|disconnect|notauthorized|offline|closed/.test(statusText);
+
+      const isConnectingByStatus =
+        /connecting|scan|qrcode|qr|pairing|pending|notauthorized/.test(statusText) ||
+        !!rawQr;
+
+      const newStatus = hasConnectedFlag || isConnectedByStatus
         ? "connected"
-        : rawStatus.includes("connecting")
+        : isConnectingByStatus
           ? "connecting"
           : "disconnected";
 
