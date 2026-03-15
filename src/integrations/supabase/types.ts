@@ -869,6 +869,59 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_settings: {
+        Row: {
+          accent_color: string
+          font_family: string | null
+          id: string
+          logo_dark_url: string | null
+          logo_url: string | null
+          organization_id: string
+          primary_color: string
+          secondary_color: string
+          slogan: string | null
+          tagline: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accent_color?: string
+          font_family?: string | null
+          id?: string
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          organization_id: string
+          primary_color?: string
+          secondary_color?: string
+          slogan?: string | null
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accent_color?: string
+          font_family?: string | null
+          id?: string
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          organization_id?: string
+          primary_color?: string
+          secondary_color?: string
+          slogan?: string | null
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       city_codes: {
         Row: {
           code: string
