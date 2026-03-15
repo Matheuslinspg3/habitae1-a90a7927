@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export function WhatsAppIntegrationCard() {
   const {
@@ -34,25 +35,49 @@ export function WhatsAppIntegrationCard() {
 
   const [qrCode, setQrCode] = useState<string | null>(null);
 
+  const normalizeQrCodeSrc = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (trimmed.startsWith("data:image") || trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    return `data:image/png;base64,${trimmed}`;
+  };
+
   const handleCreate = async () => {
     await createInstance();
+
     // Auto-connect after creation to show QR code immediately
-    try {
-      const result = await connectInstance();
-      if (result?.qr_code) {
-        setQrCode(result.qr_code);
-      }
-    } catch (e) {
-      // Instance created but connect may need a moment
-      console.warn("Auto-connect after create:", e);
+    const connectResult = await connectInstance().catch(() => null);
+    if (connectResult?.qr_code) {
+      setQrCode(connectResult.qr_code);
+      return;
     }
+
+    // Fallback: some providers generate QR a few seconds later
+    const statusResult = await checkStatus().catch(() => null);
+    if (statusResult?.qr_code) {
+      setQrCode(statusResult.qr_code);
+      return;
+    }
+
+    toast.error("Instância criada, mas o QR Code ainda não foi gerado. Clique em 'Conectar' novamente em alguns segundos.");
   };
 
   const handleConnect = async () => {
     const result = await connectInstance();
     if (result?.qr_code) {
       setQrCode(result.qr_code);
+      return;
     }
+
+    const statusResult = await checkStatus().catch(() => null);
+    if (statusResult?.qr_code) {
+      setQrCode(statusResult.qr_code);
+      return;
+    }
+
+    toast.error("Não foi possível obter o QR Code agora. Tente novamente em alguns segundos.");
   };
 
   const handleCheckStatus = async () => {
@@ -64,10 +89,13 @@ export function WhatsAppIntegrationCard() {
 
     if (result?.qr_code) {
       setQrCode(result.qr_code);
+      return;
     }
+
+    toast.info("Ainda sem QR Code disponível. Aguarde alguns segundos e tente novamente.");
   };
 
-  const displayedQrCode = qrCode || instance?.qr_code || null;
+  const displayedQrCode = useMemo(() => normalizeQrCodeSrc(qrCode || instance?.qr_code || null), [qrCode, instance?.qr_code]);
 
   const statusBadge = () => {
     if (!instance) return null;
