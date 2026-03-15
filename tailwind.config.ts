@@ -16,6 +16,15 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Inter', 'system-ui', 'sans-serif'],
+        'dm-sans': ['DM Sans', 'system-ui', 'sans-serif'],
+        'playfair': ['Playfair Display', 'Georgia', 'serif'],
+        'montserrat': ['Montserrat', 'system-ui', 'sans-serif'],
+        'raleway': ['Raleway', 'system-ui', 'sans-serif'],
+        'poppins': ['Poppins', 'system-ui', 'sans-serif'],
+        'lora': ['Lora', 'Georgia', 'serif'],
+        'outfit': ['Outfit', 'system-ui', 'sans-serif'],
+        'space': ['Space Grotesk', 'system-ui', 'sans-serif'],
+        'sora': ['Sora', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
