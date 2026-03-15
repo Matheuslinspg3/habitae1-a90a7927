@@ -144,10 +144,10 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
         },
       }).catch((err) => console.error("AI diagnostic error:", err));
 
-      // Send to OQFP inbox (fire-and-forget, no edge function needed)
+      // Send to OQFP inbox
       try {
         const messageText = `[${category.toUpperCase()}] ${subject.trim()}\n\n${description.trim()}${attachments.length > 0 ? `\n\n📎 ${attachments.length} anexo(s): ${attachments.map(a => a.url).join(", ")}` : ""}`;
-        fetch("https://kanrkkvzjbznytensgst.supabase.co/functions/v1/intake-message", {
+        const oqfpResponse = await fetch("https://kanrkkvzjbznytensgst.supabase.co/functions/v1/intake-message", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -171,9 +171,15 @@ export function SupportTicketDialog({ trigger }: SupportTicketDialogProps) {
               attachments,
             },
           }),
-        }).catch((err) => console.warn("[OQFP] Failed to send:", err));
+        });
+        if (!oqfpResponse.ok) {
+          const errBody = await oqfpResponse.text();
+          console.error("[OQFP] HTTP error:", oqfpResponse.status, errBody);
+        } else {
+          console.log("[OQFP] Ticket enviado com sucesso");
+        }
       } catch (e) {
-        // Silent — don't block user flow
+        console.error("[OQFP] Failed to send ticket:", e);
       }
 
       toast.success("Ticket criado! A IA está analisando seu problema...");
