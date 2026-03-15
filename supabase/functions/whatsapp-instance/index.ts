@@ -98,7 +98,7 @@ serve(async (req) => {
 
       // Build instance name: orgName-userName-last4ofUserId
       const userIdSuffix = user.id.slice(-4);
-      const sanitize = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20);
+      const sanitize = (s: unknown) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20);
       const orgName = sanitize(body.orgName || "org");
       const userName = sanitize(body.userName || "user");
       const instanceName = `${orgName}-${userName}-${userIdSuffix}`;
