@@ -230,8 +230,8 @@ export function AIProviderCard() {
             </div>
 
             {!config.lovable_fallback_enabled && config.text_provider !== "lovable" && config.image_provider !== "lovable" && (
-              <Alert className="border-yellow-500/30 bg-yellow-500/5">
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
+              <Alert className="border-destructive/30 bg-destructive/5">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
                 <AlertDescription className="text-xs">
                   Sem fallback ativo. Se o provedor principal falhar, a geração não funcionará.
                 </AlertDescription>
