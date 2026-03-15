@@ -540,11 +540,10 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
           </CardContent>
         </Card>
 
-        {/* Brand Identity - collapsible */}
-        <BrandInlineCard onNavigate={() => {
-          // Navigate to Marketing > Marca tab
-          window.location.href = "/marketing?section=marca";
-        }} />
+        {/* Brand Identity - inline editor */}
+        <Suspense fallback={<div className="flex items-center justify-center p-6"><div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+          <BrandSettingsContent />
+        </Suspense>
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Dados do Imóvel</CardTitle>
