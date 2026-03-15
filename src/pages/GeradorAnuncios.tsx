@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AdImageGenerator } from "@/components/ads/AdImageGenerator";
-import { BrandInlineCard } from "@/components/marketing/BrandInlineCard";
+import { lazy, Suspense } from "react";
+const BrandSettingsContent = lazy(() => import("@/components/marketing/BrandSettingsContent"));
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
