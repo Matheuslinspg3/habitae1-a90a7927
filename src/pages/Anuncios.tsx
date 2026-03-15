@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
-import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video } from "lucide-react";
+import { Loader2, Megaphone, BarChart3, Sparkles, Palette, Video, Stamp } from "lucide-react";
 
 import MetaAdsListContent from "@/components/ads/MetaAdsListContent";
 import MetaLeadsInboxContent from "@/components/ads/MetaLeadsInboxContent";
