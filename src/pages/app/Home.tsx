@@ -8,6 +8,7 @@ import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
+import { proxyDriveImageUrl } from "@/lib/utils";
 
 export default function AppHome() {
   const navigate = useNavigate();

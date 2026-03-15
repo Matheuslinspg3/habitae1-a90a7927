@@ -6,6 +6,7 @@ import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { ConsumerPropertyCard } from "@/components/app/ConsumerPropertyCard";
 import { PropertyCardSkeleton } from "@/components/app/PropertyCardSkeleton";
 import { useQuery } from "@tanstack/react-query";
+import { proxyDriveImageUrl } from "@/lib/utils";
 
 export default function Favorites() {
   const navigate = useNavigate();

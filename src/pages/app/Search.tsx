@@ -10,6 +10,7 @@ import { useConsumerProperties } from "@/hooks/useConsumerProperties";
 import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { proxyDriveImageUrl } from "@/lib/utils";
 
 export default function AppSearch() {
   const navigate = useNavigate();
