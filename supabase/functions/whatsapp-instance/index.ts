@@ -166,8 +166,21 @@ serve(async (req) => {
       });
 
       const uazapiData = await uazapiRes.json();
+      if (!uazapiRes.ok) {
+        throw new Error(`Uazapi status error [${uazapiRes.status}]: ${JSON.stringify(uazapiData)}`);
+      }
 
       const rawStatus = (uazapiData.status || uazapiData.state || uazapiData.data?.status || "").toLowerCase();
+      const rawQr =
+        uazapiData.qrcode ||
+        uazapiData.qr ||
+        uazapiData.base64 ||
+        uazapiData.data?.qrcode ||
+        uazapiData.data?.qr ||
+        uazapiData.data?.base64 ||
+        uazapiData.data?.qrCode ||
+        null;
+
       const newStatus = rawStatus.includes("connect") && !rawStatus.includes("disconnect")
         ? "connected"
         : rawStatus.includes("connecting")
@@ -178,6 +191,8 @@ serve(async (req) => {
       if (newStatus === "connected") {
         updatePayload.qr_code = null;
         updatePayload.phone_number = uazapiData.phone || uazapiData.phoneNumber || uazapiData.data?.phone || instance.phone_number;
+      } else if (rawQr) {
+        updatePayload.qr_code = rawQr;
       }
 
       await supabaseClient
@@ -185,7 +200,7 @@ serve(async (req) => {
         .update(updatePayload)
         .eq("id", instance.id);
 
-      return new Response(JSON.stringify({ status: newStatus, phone: updatePayload.phone_number || instance.phone_number, raw: uazapiData }), {
+      return new Response(JSON.stringify({ status: newStatus, phone: updatePayload.phone_number || instance.phone_number, qr_code: updatePayload.qr_code ?? instance.qr_code ?? null, raw: uazapiData }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
