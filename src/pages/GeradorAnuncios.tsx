@@ -29,7 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp } from "lucide-react";
+import { Sparkles, Copy, Check, Globe, Instagram, MessageCircle, Home, Loader2, RefreshCw, Save, History, ChevronDown, RotateCcw, FileText, ChevronUp, ImagePlus } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +118,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
   const [confirmLoadItem, setConfirmLoadItem] = useState<any>(null);
   const [propertySearch, setPropertySearch] = useState("");
   const [generatingFullAd, setGeneratingFullAd] = useState(false);
+  const [showImageGenerator, setShowImageGenerator] = useState(false);
 
   // Debounced property search
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -675,6 +676,16 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
               </Button>
 
               <Button
+                onClick={() => setShowImageGenerator(true)}
+                disabled={loading || generatingFullAd}
+                variant="outline"
+                className="w-full sm:w-auto gap-2 h-10"
+              >
+                <ImagePlus className="h-4 w-4" />
+                Gerar Imagem
+              </Button>
+
+              <Button
                 onClick={handleGenerateFullAd}
                 disabled={loading || generatingFullAd}
                 variant="default"
@@ -810,7 +821,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
         )}
 
         {/* Image Generation - always visible when property selected or after text generation */}
-        {(form.property_id || results) && (
+        {(form.property_id || results || showImageGenerator) && (
           <AdImageGenerator
             propertyImages={propertyImages}
             formData={{
