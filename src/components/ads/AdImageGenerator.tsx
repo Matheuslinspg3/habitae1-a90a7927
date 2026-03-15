@@ -40,6 +40,12 @@ interface AdImageGeneratorProps {
 
 type OutputFormat = "feed" | "story";
 type EditStyle = "enhance" | "template" | "overlay";
+type AiProvider = "openai" | "gemini";
+
+const AI_PROVIDER_OPTIONS: { value: AiProvider; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: "openai", label: "OpenAI", description: "GPT Image-1 — alta qualidade e fidelidade", icon: <Sparkles className="h-4 w-4" /> },
+  { value: "gemini", label: "Gemini", description: "Google Gemini — rápido e gratuito", icon: <Bot className="h-4 w-4" /> },
+];
 
 const STYLE_OPTIONS: { value: EditStyle; label: string; description: string; icon: React.ReactNode }[] = [
   { value: "enhance", label: "Melhorar foto", description: "Correção de cor, brilho e qualidade profissional", icon: <Wand2 className="h-4 w-4" /> },
