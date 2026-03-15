@@ -23,7 +23,7 @@ import { AIUsageDashboard } from "@/components/developer/AIUsageDashboard";
 import { AILogsTable } from "@/components/developer/AILogsTable";
 import { SecurityAuditCard } from "@/components/developer/SecurityAuditCard";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 
 const tabs = [
   { id: "overview", label: "Uso por Org", icon: HardDrive },
@@ -70,28 +70,16 @@ export default function DeveloperDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        {isMobile ? (
-          <ScrollArea className="w-full">
-            <TabsList className="inline-flex w-max h-10 p-1 gap-0.5">
-              {tabs.map(({ id, label, icon: Icon }) => (
-                <TabsTrigger key={id} value={id} className="gap-1.5 px-3 text-xs whitespace-nowrap">
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        ) : (
-          <TabsList className="h-10 p-1 gap-0.5">
+        <div className="w-full overflow-x-auto -mx-1 px-1">
+          <TabsList className={`inline-flex w-max h-10 p-1 gap-0.5 ${isMobile ? '' : ''}`}>
             {tabs.map(({ id, label, icon: Icon }) => (
-              <TabsTrigger key={id} value={id} className="gap-1.5 text-sm">
-                <Icon className="h-4 w-4" />
+              <TabsTrigger key={id} value={id} className="gap-1.5 px-3 text-xs sm:text-sm whitespace-nowrap shrink-0">
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 {label}
               </TabsTrigger>
             ))}
           </TabsList>
-        )}
+        </div>
 
         <TabsContent value="overview"><OrgUsageTab /></TabsContent>
         <TabsContent value="storage"><StorageUsageTab /></TabsContent>
