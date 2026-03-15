@@ -685,16 +685,6 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
                 Gerar Imagem
               </Button>
 
-              <Button
-                onClick={handleGenerateFullAd}
-                disabled={loading || generatingFullAd}
-                variant="default"
-                className="w-full sm:w-auto gap-2 h-10 bg-gradient-to-r from-primary to-primary/80"
-              >
-                {generatingFullAd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {generatingFullAd ? "Gerando anúncio..." : "Gerar Anúncio Completo"}
-              </Button>
-
               {aiProviderInfo && !loading && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2.5 py-1.5 rounded-md border">
                   <span className="font-medium">
@@ -837,6 +827,32 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
             generatedImage={generatedImage}
             onImageGenerated={setGeneratedImage}
           />
+        )}
+
+        {/* Full Ad Generation - below image generator */}
+        {(form.property_id || results || showImageGenerator) && (
+          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  Anúncio Completo
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Gera textos + imagem automaticamente com pipeline completo
+                </p>
+              </div>
+              <Button
+                onClick={handleGenerateFullAd}
+                disabled={loading || generatingFullAd}
+                variant="default"
+                className="w-full sm:w-auto gap-2 h-10 bg-gradient-to-r from-primary to-primary/80 shrink-0"
+              >
+                {generatingFullAd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generatingFullAd ? "Gerando anúncio..." : "Gerar Anúncio Completo"}
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* History */}
