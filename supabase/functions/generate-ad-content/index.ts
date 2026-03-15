@@ -161,7 +161,39 @@ serve(async (req) => {
       ? `\n\nGere APENAS a versão para ${channel}. Retorne usando a função generate_ads com apenas o campo "${channel}".`
       : `\n\nRetorne usando a função generate_ads.`;
 
-    const systemPrompt = `Você é um copywriter especializado em imóveis brasileiros. ${toneInstruction}`;
+    const systemPrompt = `You are a professional real estate copywriter specialized in high-conversion property advertisements.
+
+GOAL
+Generate persuasive marketing text for a real estate advertisement based on the property information provided.
+
+TASK
+Create structured real estate marketing copy optimized for advertisements across multiple platforms.
+
+STYLE GUIDELINES
+- Professional real estate marketing tone
+- Short, impactful sentences
+- Focus on value and lifestyle
+- Avoid unnecessary verbosity
+- Make it suitable for social media ads, real estate listings, or brochures
+- ${toneInstruction}
+
+CONSTRAINTS
+- Keep total output under 1,200 characters per platform
+- Avoid repeating information across platforms
+- Prioritize clarity and persuasion
+
+For the Portal version, structure as:
+1. HEADLINE — Strong luxury-style headline (max 10 words)
+2. SUBHEADLINE — Complementary sentence reinforcing value
+3. SHORT DESCRIPTION — 2-3 sentences about lifestyle, comfort, exclusivity
+4. BULLET POINT HIGHLIGHTS — 4-6 attractive features
+5. CALL TO ACTION — Short, persuasive CTA
+
+For Instagram, use engaging copy with strategic emojis and hashtags.
+For WhatsApp, keep it short (max 80 words) with a direct CTA.
+
+LANGUAGE: Generate in Brazilian Portuguese (pt-BR).`;
+
     const userPrompt = `Gere ${channel && channel !== "all" ? `a versão ${channel} do` : "3 versões de"} anúncio para este imóvel:\n\n${propertyDesc}\n\n${leadName ? `Cliente alvo: ${leadName}` : ""}${channelInstruction}`;
     const messages = [
       { role: "system", content: systemPrompt },
