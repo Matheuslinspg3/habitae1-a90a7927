@@ -36,6 +36,16 @@ export function WhatsAppIntegrationCard() {
 
   const handleCreate = async () => {
     await createInstance();
+    // Auto-connect after creation to show QR code immediately
+    try {
+      const result = await connectInstance();
+      if (result?.qr_code) {
+        setQrCode(result.qr_code);
+      }
+    } catch (e) {
+      // Instance created but connect may need a moment
+      console.warn("Auto-connect after create:", e);
+    }
   };
 
   const handleConnect = async () => {

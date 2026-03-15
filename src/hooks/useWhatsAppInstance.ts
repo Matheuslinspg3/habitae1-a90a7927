@@ -27,8 +27,11 @@ export function useWhatsAppInstance() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      const orgName = profile?.organization_id ? 
+        await supabase.from("organizations").select("name").eq("id", profile.organization_id).single().then(r => r.data?.name || "org") : "org";
+      const userName = profile?.full_name || "user";
       const { data, error } = await supabase.functions.invoke("whatsapp-instance", {
-        body: { action: "create" },
+        body: { action: "create", orgName, userName },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
