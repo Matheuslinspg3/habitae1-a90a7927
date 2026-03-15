@@ -263,7 +263,7 @@ serve(async (req) => {
     }
 
     // Fallback to Lovable AI
-    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled)) {
+    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled || provider === "groq")) {
       try {
         console.log("Using Lovable AI...");
         aiData = await callLovable(messages, tools, toolChoice);
