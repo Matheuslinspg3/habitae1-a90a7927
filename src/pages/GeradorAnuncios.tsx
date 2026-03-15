@@ -382,12 +382,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     setResults({ ...results, [key]: value });
   };
 
-  const handleDownloadImage = (imageUrl: string, index: number) => {
-    const link = document.createElement("a");
-    link.href = imageUrl;
-    link.download = `anuncio-imagem-${index + 1}-${Date.now()}.png`;
-    link.click();
-  };
+
 
   const toggleExpand = (key: ResultKey) => {
     setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
