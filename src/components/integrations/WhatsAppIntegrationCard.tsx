@@ -56,11 +56,11 @@ export function WhatsAppIntegrationCard() {
     if (!instance) return null;
     switch (instance.status) {
       case "connected":
-        return <Badge variant="default" className="gap-1 bg-green-600"><CheckCircle2 className="h-3 w-3" /> Conectado</Badge>;
+        return <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Conectado</Badge>;
       case "connecting":
-        return <Badge variant="secondary" className="gap-1 bg-yellow-600 text-white"><RefreshCw className="h-3 w-3 animate-spin" /> Conectando</Badge>;
+        return <Badge variant="secondary" className="gap-1"><RefreshCw className="h-3 w-3 animate-spin" /> Conectando</Badge>;
       default:
-        return <Badge variant="secondary" className="gap-1"><XCircle className="h-3 w-3" /> Desconectado</Badge>;
+        return <Badge variant="outline" className="gap-1"><XCircle className="h-3 w-3" /> Desconectado</Badge>;
     }
   };
 
