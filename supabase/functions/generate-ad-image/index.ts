@@ -237,6 +237,178 @@ Deno.serve(async (req) => {
       const geminiData = await aiResponse.json();
       generatedImageUrl = geminiData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
 
+    } else if (provider === "stability") {
+      // ── Stability AI (SDXL) ──
+      const STABILITY_KEY = Deno.env.get("STABILITY_API_KEY") || Deno.env.get("IMAGE_STABILITY_KEY");
+      if (!STABILITY_KEY) {
+        // Try from ai_provider_config
+        const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: cfg } = await serviceClient.from("ai_provider_config").select("image_stability_key").eq("id", "singleton").single();
+        const key = (cfg as any)?.image_stability_key;
+        if (!key) {
+          return new Response(JSON.stringify({ error: "Chave da Stability AI não configurada. Configure em Provedores de IA." }), {
+            status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        // Use key from config
+        modelUsed = "stable-diffusion-xl-1024-v1-0";
+        const { imageBlob } = await resolveImageFile(imageUrl);
+        const formData = new FormData();
+        formData.append("init_image", imageBlob, "input.png");
+        formData.append("text_prompts[0][text]", prompt);
+        formData.append("text_prompts[0][weight]", "1");
+        formData.append("cfg_scale", "7");
+        formData.append("samples", "1");
+        formData.append("image_strength", "0.35");
+
+        const aiResponse = await fetch("https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+          body: formData,
+        });
+        if (!aiResponse.ok) {
+          const errText = await aiResponse.text().catch(() => "");
+          console.error(`Stability error: ${aiResponse.status}`, errText.slice(0, 300));
+          return new Response(JSON.stringify({ error: `Erro Stability AI (${aiResponse.status}). Verifique créditos e chave.` }), {
+            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const stabData = await aiResponse.json();
+        const b64 = stabData.artifacts?.[0]?.base64;
+        if (b64) generatedImageUrl = `data:image/png;base64,${b64}`;
+      } else {
+        modelUsed = "stable-diffusion-xl-1024-v1-0";
+        const { imageBlob } = await resolveImageFile(imageUrl);
+        const formData = new FormData();
+        formData.append("init_image", imageBlob, "input.png");
+        formData.append("text_prompts[0][text]", prompt);
+        formData.append("text_prompts[0][weight]", "1");
+        formData.append("cfg_scale", "7");
+        formData.append("samples", "1");
+        formData.append("image_strength", "0.35");
+
+        const aiResponse = await fetch("https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${STABILITY_KEY}`, Accept: "application/json" },
+          body: formData,
+        });
+        if (!aiResponse.ok) {
+          const errText = await aiResponse.text().catch(() => "");
+          console.error(`Stability error: ${aiResponse.status}`, errText.slice(0, 300));
+          return new Response(JSON.stringify({ error: `Erro Stability AI (${aiResponse.status}).` }), {
+            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const stabData = await aiResponse.json();
+        const b64 = stabData.artifacts?.[0]?.base64;
+        if (b64) generatedImageUrl = `data:image/png;base64,${b64}`;
+      }
+
+    } else if (provider === "leonardo") {
+      // ── Leonardo AI ──
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: cfg } = await serviceClient.from("ai_provider_config").select("image_leonardo_key").eq("id", "singleton").single();
+      const LEONARDO_KEY = (cfg as any)?.image_leonardo_key;
+      if (!LEONARDO_KEY) {
+        return new Response(JSON.stringify({ error: "Chave do Leonardo AI não configurada. Configure em Provedores de IA." }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      modelUsed = "leonardo-phoenix";
+      const size = body.format === "feed" ? { width: 1024, height: 1024 } : { width: 1024, height: 1536 };
+
+      // Leonardo uses generation endpoint with init image
+      const genResponse = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LEONARDO_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          modelId: "6b645e3a-d64f-4341-a6d8-7a3690fbf042", // Leonardo Phoenix
+          width: size.width,
+          height: size.height,
+          num_images: 1,
+          init_image: imageUrl.startsWith("data:") ? undefined : imageUrl,
+          init_strength: 0.35,
+        }),
+      });
+      if (!genResponse.ok) {
+        const errText = await genResponse.text().catch(() => "");
+        console.error(`Leonardo error: ${genResponse.status}`, errText.slice(0, 300));
+        return new Response(JSON.stringify({ error: `Erro Leonardo AI (${genResponse.status}). Verifique créditos e chave.` }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const genData = await genResponse.json();
+      const generationId = genData.sdGenerationJob?.generationId;
+      if (generationId) {
+        // Poll for result (up to 60s)
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const statusResp = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+            headers: { Authorization: `Bearer ${LEONARDO_KEY}` },
+          });
+          if (statusResp.ok) {
+            const statusData = await statusResp.json();
+            const images = statusData.generations_by_pk?.generated_images;
+            if (images?.length > 0) {
+              generatedImageUrl = images[0].url;
+              break;
+            }
+          }
+        }
+      }
+
+    } else if (provider === "flux") {
+      // ── Flux Pro (BFL) ──
+      const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: cfg } = await serviceClient.from("ai_provider_config").select("image_flux_key").eq("id", "singleton").single();
+      const FLUX_KEY = (cfg as any)?.image_flux_key;
+      if (!FLUX_KEY) {
+        return new Response(JSON.stringify({ error: "Chave do Flux (BFL) não configurada. Configure em Provedores de IA." }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      modelUsed = "flux-pro";
+      const size = body.format === "feed" ? { width: 1024, height: 1024 } : { width: 1024, height: 1536 };
+
+      const fluxResp = await fetch("https://api.bfl.ml/v1/flux-pro-1.1", {
+        method: "POST",
+        headers: { "X-Key": FLUX_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          width: size.width,
+          height: size.height,
+          image: imageUrl.startsWith("data:") ? undefined : imageUrl,
+          image_prompt_strength: 0.35,
+        }),
+      });
+      if (!fluxResp.ok) {
+        const errText = await fluxResp.text().catch(() => "");
+        console.error(`Flux error: ${fluxResp.status}`, errText.slice(0, 300));
+        return new Response(JSON.stringify({ error: `Erro Flux (${fluxResp.status}). Verifique créditos e chave.` }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const fluxData = await fluxResp.json();
+      const taskId = fluxData.id;
+      if (taskId) {
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 2000));
+          const pollResp = await fetch(`https://api.bfl.ml/v1/get_result?id=${taskId}`, {
+            headers: { "X-Key": FLUX_KEY },
+          });
+          if (pollResp.ok) {
+            const pollData = await pollResp.json();
+            if (pollData.status === "Ready" && pollData.result?.sample) {
+              generatedImageUrl = pollData.result.sample;
+              break;
+            }
+          }
+        }
+      }
+
     } else {
       // ── OpenAI gpt-image-1 ──
       const OPENAI_API_KEY = Deno.env.get("OPENAI_IMAGE_API_KEY");
