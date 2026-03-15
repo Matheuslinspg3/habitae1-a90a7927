@@ -793,7 +793,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
             </div>
 
             {/* Save button */}
-            {results && (
+            {(results || generatedImage) && (
               <div className="flex justify-end">
                 <Button onClick={handleSave} disabled={saving} className="gap-2 h-10">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
