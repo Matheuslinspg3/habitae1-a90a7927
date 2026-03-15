@@ -367,41 +367,7 @@ export default function GeradorAnuncios({ embedded }: { embedded?: boolean } = {
     toast.success("Geração carregada!");
   };
 
-  const handleGenerateImages = async () => {
-    if (imagePrompts.length === 0) {
-      toast.error("Gere os textos primeiro para obter os prompts de imagem.");
-      return;
-    }
-
-    setImageLoading(true);
-    setGeneratedImages([]);
-
-    try {
-      const results = await Promise.allSettled(
-        imagePrompts.slice(0, 3).map((prompt) =>
-          supabase.functions.invoke("generate-ad-image", { body: { prompt } })
-        )
-      );
-
-      const images: string[] = [];
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value.data?.imageUrl) {
-          images.push(result.value.data.imageUrl);
-        }
-      }
-
-      if (images.length === 0) {
-        throw new Error("Nenhuma imagem foi gerada. Tente novamente.");
-      }
-
-      setGeneratedImages(images);
-      toast.success(`${images.length} imagem(ns) gerada(s)!`);
-    } catch (err: any) {
-      toast.error(err.message || "Não foi possível gerar as imagens. Tente novamente.");
-    } finally {
-      setImageLoading(false);
-    }
-  };
+  // handleGenerateImages removed — now using AdImageGenerator component
 
   const handleCopy = async (key: ResultKey) => {
     if (!results) return;
