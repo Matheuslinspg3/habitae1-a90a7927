@@ -434,7 +434,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
           if (indices.length > 1) {
             indices.forEach(idx => {
               const matched = matchSubfolder(extractedList[idx], result.subfolders);
-              console.log(`Property ${idx} (${extractedList[idx].unit_identifier || 'no id'}): matched subfolder = ${matched || 'none'}`);
+              if (import.meta.env.DEV) console.log(`Property ${idx} (${extractedList[idx].unit_identifier || 'no id'}): matched subfolder = ${matched || 'none'}`);
               setSubfolderMatchMap(prev => ({ ...prev, [idx]: matched }));
             });
           }
