@@ -157,8 +157,9 @@ export function useTransactions() {
       .reduce((acc, t) => acc + Number(t.amount), 0),
   };
 
-  // Get last N months data for chart (max 12)
-  const getChartData = (monthCount = 12) => {
+  // Get last N months data for chart (max 12) - memoized
+  const chartData = useMemo(() => {
+    const monthCount = 12;
     const months = [];
     for (let i = monthCount - 1; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
