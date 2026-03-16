@@ -38,6 +38,7 @@ export function useContracts() {
 
   const { data: contracts = [], isLoading, error } = useQuery({
     queryKey: ['contracts'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       // Buscar contratos
       const { data: contractsData, error: contractsError } = await supabase

@@ -68,6 +68,7 @@ export function useProperties() {
 
   const { data: properties = [], isLoading, error, refetch } = useQuery({
     queryKey: ['properties', profile?.organization_id],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       if (!profile?.organization_id) {
         return [];

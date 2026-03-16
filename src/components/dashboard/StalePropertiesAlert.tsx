@@ -1,19 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, ChevronRight, Home, Bell, CheckCircle } from "lucide-react";
-import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { getDaysSinceUpdate, getFreshnessLevel } from "@/components/properties/PropertyFreshnessBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-
-interface StalePropertiesAlertProps {
-  properties: PropertyWithDetails[];
-  isLoading?: boolean;
-}
 
 interface StaleProperty {
   id: string;
@@ -22,21 +17,34 @@ interface StaleProperty {
   level: "warning" | "stale" | "critical";
 }
 
-export function StalePropertiesAlert({ properties, isLoading }: StalePropertiesAlertProps) {
+export function StalePropertiesAlert() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const { toast } = useToast();
   const [notified, setNotified] = useState(false);
 
+  // Lightweight query: only id, title, updated_at for active properties
+  const { data: properties = [], isLoading } = useQuery({
+    queryKey: ["stale_properties_check", profile?.organization_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("id, title, updated_at, status")
+        .in("status", ["disponivel", "com_proposta", "reservado"])
+        .order("updated_at", { ascending: true })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!profile?.organization_id,
+    staleTime: 5 * 60_000,
+  });
+
   const staleProperties = useMemo(() => {
     if (!properties.length) return [];
-    
-    const active = properties.filter(p => 
-      ["disponivel", "com_proposta", "reservado"].includes(p.status)
-    );
 
     const stale: StaleProperty[] = [];
-    for (const p of active) {
+    for (const p of properties) {
       const days = getDaysSinceUpdate(p.updated_at);
       const level = getFreshnessLevel(days);
       if (level !== "fresh") {

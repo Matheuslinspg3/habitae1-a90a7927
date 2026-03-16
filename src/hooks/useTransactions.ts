@@ -28,6 +28,7 @@ export function useTransactions() {
 
   const { data: transactions = [], isLoading, error } = useQuery({
     queryKey: ['transactions'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
