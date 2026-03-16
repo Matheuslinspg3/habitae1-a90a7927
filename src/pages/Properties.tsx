@@ -725,11 +725,13 @@ export default function Properties() {
             )}
 
             {viewMode === "map" && (
-              <PropertyMapView 
-                properties={paginatedProperties} 
-                onPropertyClick={(p) => navigate(`/imoveis/${p.id}`)}
-                onRefresh={() => refetch()}
-              />
+              <Suspense fallback={<Skeleton className="h-[500px] w-full rounded-xl" />}>
+                <PropertyMapView 
+                  properties={paginatedProperties} 
+                  onPropertyClick={(p) => navigate(`/imoveis/${p.id}`)}
+                  onRefresh={() => refetch()}
+                />
+              </Suspense>
             )}
           </>
         )}
