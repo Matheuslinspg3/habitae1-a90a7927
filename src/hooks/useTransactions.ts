@@ -182,14 +182,14 @@ export function useTransactions() {
       });
     }
     return months;
-  };
+  }, [transactions]);
 
   return {
     transactions,
     isLoading,
     error,
     stats,
-    chartData: getChartData(12),
+    chartData,
     createTransaction: createTransaction.mutate,
     updateTransaction: updateTransaction.mutate,
     deleteTransaction: deleteTransaction.mutate,
