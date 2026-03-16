@@ -213,25 +213,29 @@ serve(async (req) => {
         });
       }
 
-      // Credit/Debit Card: create payment with UNDEFINED billingType
-      // Asaas generates an invoiceUrl where the user can pay with card
+      // Credit/Debit Card: create RECURRING SUBSCRIPTION on Asaas
+      // Asaas manages billing automatically; user can cancel anytime
       if (paymentMethod === "credit_card") {
-        const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-          .toISOString().split("T")[0];
+        const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
 
-        const payment = await asaasFetch("/payments", {
+        const asaasSub = await asaasFetch("/subscriptions", {
           method: "POST",
           body: JSON.stringify({
             customer: customerId,
-            billingType: "UNDEFINED",
+            billingType: "CREDIT_CARD",
             value: Number(price),
-            dueDate,
+            cycle,
             description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
             externalReference: orgId,
           }),
         });
 
-        // Create local subscription as pending
+        // Get the first payment's invoiceUrl so the user can enter card details
+        const payments = await asaasFetch(`/subscriptions/${asaasSub.id}/payments?limit=1`);
+        const firstPayment = payments.data?.[0];
+        const invoiceUrl = firstPayment?.invoiceUrl || null;
+
+        // Create local subscription as pending (will be activated by webhook on payment)
         const { data: newSub, error: subErr } = await supabase
           .from("subscriptions")
           .insert({
@@ -241,7 +245,7 @@ serve(async (req) => {
             billing_cycle: billingCycle,
             provider: "asaas",
             provider_customer_id: customerId,
-            provider_subscription_id: null,
+            provider_subscription_id: asaasSub.id,
             payment_method: "credit_card",
             current_period_start: now.toISOString(),
             current_period_end: periodEnd.toISOString(),
@@ -258,21 +262,23 @@ serve(async (req) => {
           .in("status", ["active", "trial"])
           .neq("id", newSub.id);
 
-        // Save payment record
-        await supabase.from("billing_payments").insert({
-          organization_id: orgId,
-          subscription_id: newSub.id,
-          provider: "asaas",
-          provider_payment_id: payment.id,
-          amount_cents: Math.round(Number(price) * 100),
-          method: "credit_card",
-          status: "pending",
-          invoice_url: payment.invoiceUrl,
-        });
+        // Save payment record if we have a first payment
+        if (firstPayment) {
+          await supabase.from("billing_payments").insert({
+            organization_id: orgId,
+            subscription_id: newSub.id,
+            provider: "asaas",
+            provider_payment_id: firstPayment.id,
+            amount_cents: Math.round(Number(price) * 100),
+            method: "credit_card",
+            status: "pending",
+            invoice_url: invoiceUrl,
+          });
+        }
 
         return new Response(JSON.stringify({
           subscription: newSub,
-          invoiceUrl: payment.invoiceUrl,
+          invoiceUrl,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
