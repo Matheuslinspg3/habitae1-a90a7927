@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Phone,
@@ -51,7 +52,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
-import { LeadScoreSection } from './LeadScoreSection';
+// PERF: lazy load - LeadScoreSection imports recharts (~200KB), only needed when lead detail opens
+const LeadScoreSection = lazy(() => import('./LeadScoreSection').then(m => ({ default: m.LeadScoreSection })));
 import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
@@ -313,7 +315,9 @@ export function LeadDetails({
           <Separator />
 
           {/* Lead Score Section */}
-          <LeadScoreSection lead={lead} />
+          <Suspense fallback={<Skeleton className="h-64 w-full rounded-lg" />}>
+            <LeadScoreSection lead={lead} />
+          </Suspense>
 
           <Separator />
 

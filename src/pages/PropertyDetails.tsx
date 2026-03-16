@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,8 @@ import { ImageGallery } from "@/components/properties/ImageViewer";
 import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
-import { PropertyForm } from "@/components/properties/PropertyForm";
+// PERF: lazy load - PropertyForm is heavy (~800 lines), only needed when editing
+const PropertyForm = lazy(() => import("@/components/properties/PropertyForm").then(m => ({ default: m.PropertyForm })));
 import { useAuth } from "@/contexts/AuthContext";
 import { useShareLink } from "@/hooks/useShareLink";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
@@ -55,7 +56,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LandingPageEditor } from "@/components/properties/LandingPageEditor";
+// PERF: lazy load - LandingPageEditor only needed when user opens editor
+const LandingPageEditor = lazy(() => import("@/components/properties/LandingPageEditor").then(m => ({ default: m.LandingPageEditor })));
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
 import { PropertyHistory } from "@/components/properties/PropertyHistory";
 
@@ -843,22 +845,26 @@ export default function PropertyDetails() {
       </div>
 
       {/* Inline Edit Form */}
-      <PropertyForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        property={property}
-        onSubmit={handleFormSubmit}
-        isSubmitting={isUpdating}
-      />
+      <Suspense fallback={null}>
+        <PropertyForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          property={property}
+          onSubmit={handleFormSubmit}
+          isSubmitting={isUpdating}
+        />
+      </Suspense>
 
       {/* Landing Page Editor */}
       {id && (
-        <LandingPageEditor
-          propertyId={id}
-          propertyCode={property?.property_code}
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-        />
+        <Suspense fallback={null}>
+          <LandingPageEditor
+            propertyId={id}
+            propertyCode={property?.property_code}
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+          />
+        </Suspense>
       )}
       {id && (
         <PropertyQRCode

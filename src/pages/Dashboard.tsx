@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { MobileDashboardSummary } from "@/components/dashboard/MobileDashboardSummary";
@@ -18,7 +19,8 @@ import { ConversionFunnel } from "@/components/dashboard/ConversionFunnel";
 import { InactivityAlerts } from "@/components/dashboard/InactivityAlerts";
 import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
 import { AdvancedKPIs } from "@/components/dashboard/AdvancedKPIs";
-import { DetailedFunnel } from "@/components/dashboard/DetailedFunnel";
+// PERF: lazy load - DetailedFunnel imports recharts (~200KB), only visible when scrolled into view
+const DetailedFunnel = lazy(() => import("@/components/dashboard/DetailedFunnel").then(m => ({ default: m.DetailedFunnel })));
 import { AgentRanking } from "@/components/dashboard/AgentRanking";
 import { LiveIndicator } from "@/components/dashboard/LiveIndicator";
 import { LazySection } from "@/components/dashboard/LazySection";
@@ -139,7 +141,9 @@ export default function Dashboard() {
         </LazySection>
 
         <LazySection>
-          <DetailedFunnel dateRange={dateRange} />
+          <Suspense fallback={<Skeleton className="h-80 w-full rounded-xl" />}>
+            <DetailedFunnel dateRange={dateRange} />
+          </Suspense>
         </LazySection>
 
         <LazySection>

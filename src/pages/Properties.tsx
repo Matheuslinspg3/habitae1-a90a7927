@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { findDuplicateProperties, DuplicatePropertyMatch } from "@/lib/duplicatePropertyDetector";
-import { DuplicatePropertyDialog } from "@/components/properties/DuplicatePropertyDialog";
-import { DuplicateReviewDialog, DuplicateCandidate } from "@/components/properties/DuplicateReviewDialog";
+import type { DuplicateCandidate } from "@/components/properties/DuplicateReviewDialog";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
 import { SelectablePropertyCard } from "@/components/properties/SelectablePropertyCard";
 import { PropertyListItem } from "@/components/properties/PropertyListItem";
-import { PropertyMapView } from "@/components/properties/PropertyMapView";
 import { PropertyEmptyState } from "@/components/properties/PropertyEmptyState";
-import { PropertyForm } from "@/components/properties/PropertyForm";
 import { BulkActionsToolbar } from "@/components/properties/BulkActionsToolbar";
 import { UnifiedPropertySearch } from "@/components/properties/UnifiedPropertySearch";
 import { PropertyFilters } from "@/components/properties/PropertyFilters";
@@ -34,8 +31,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PdfImportDialog, ExtractedPropertyData } from "@/components/properties/PdfImportDialog";
+import type { ExtractedPropertyData } from "@/components/properties/PdfImportDialog";
 import { ImportReviewBanner } from "@/components/properties/ImportReviewBanner";
+
+// PERF: lazy load - PropertyMapView imports leaflet (~40KB), only needed when map view selected
+const PropertyMapView = lazy(() => import("@/components/properties/PropertyMapView").then(m => ({ default: m.PropertyMapView })));
+// PERF: lazy load - PropertyForm is ~800 lines + sub-tabs, only needed when creating/editing
+const PropertyForm = lazy(() => import("@/components/properties/PropertyForm").then(m => ({ default: m.PropertyForm })));
+// PERF: lazy load - PdfImportDialog only needed when user clicks import
+const PdfImportDialog = lazy(() => import("@/components/properties/PdfImportDialog").then(m => ({ default: m.PdfImportDialog })));
+// PERF: lazy load - Duplicate dialogs only needed when duplicates detected
+const DuplicatePropertyDialog = lazy(() => import("@/components/properties/DuplicatePropertyDialog").then(m => ({ default: m.DuplicatePropertyDialog })));
+const DuplicateReviewDialog = lazy(() => import("@/components/properties/DuplicateReviewDialog").then(m => ({ default: m.DuplicateReviewDialog })));
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { toast } from "sonner";
 // useImageUpload still used by PropertyForm; keep import but don't destructure for scraper
@@ -718,11 +725,13 @@ export default function Properties() {
             )}
 
             {viewMode === "map" && (
-              <PropertyMapView 
-                properties={paginatedProperties} 
-                onPropertyClick={(p) => navigate(`/imoveis/${p.id}`)}
-                onRefresh={() => refetch()}
-              />
+              <Suspense fallback={<Skeleton className="h-[500px] w-full rounded-xl" />}>
+                <PropertyMapView 
+                  properties={paginatedProperties} 
+                  onPropertyClick={(p) => navigate(`/imoveis/${p.id}`)}
+                  onRefresh={() => refetch()}
+                />
+              </Suspense>
             )}
           </>
         )}
@@ -743,21 +752,25 @@ export default function Properties() {
         )}
       </div>
 
-      <PropertyForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        property={editingProperty}
-        onSubmit={handleFormSubmit}
-        isSubmitting={isCreating || isUpdating}
-        prefillData={prefillData}
-      />
+      <Suspense fallback={null}>
+        <PropertyForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          property={editingProperty}
+          onSubmit={handleFormSubmit}
+          isSubmitting={isCreating || isUpdating}
+          prefillData={prefillData}
+        />
+      </Suspense>
 
-      <PdfImportDialog
-        open={pdfImportOpen}
-        onOpenChange={setPdfImportOpen}
-        onDataExtracted={handlePdfDataExtracted}
-        onBatchExtracted={handlePdfBatchExtracted}
-      />
+      <Suspense fallback={null}>
+        <PdfImportDialog
+          open={pdfImportOpen}
+          onOpenChange={setPdfImportOpen}
+          onDataExtracted={handlePdfDataExtracted}
+          onBatchExtracted={handlePdfBatchExtracted}
+        />
+      </Suspense>
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
@@ -776,21 +789,25 @@ export default function Properties() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <DuplicatePropertyDialog
-        open={duplicateDialogOpen}
-        onOpenChange={setDuplicateDialogOpen}
-        duplicates={foundDuplicates}
-        onConfirm={handleDuplicateConfirm}
-        onCancel={handleDuplicateCancel}
-      />
+      <Suspense fallback={null}>
+        <DuplicatePropertyDialog
+          open={duplicateDialogOpen}
+          onOpenChange={setDuplicateDialogOpen}
+          duplicates={foundDuplicates}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+        />
+      </Suspense>
 
-      <DuplicateReviewDialog
-        open={duplicateReviewOpen}
-        candidates={duplicateCandidates}
-        importedCount={duplicateImportedCount}
-        onConfirm={handleDuplicateReviewConfirm}
-        onCancel={handleDuplicateReviewCancel}
-      />
+      <Suspense fallback={null}>
+        <DuplicateReviewDialog
+          open={duplicateReviewOpen}
+          candidates={duplicateCandidates}
+          importedCount={duplicateImportedCount}
+          onConfirm={handleDuplicateReviewConfirm}
+          onCancel={handleDuplicateReviewCancel}
+        />
+      </Suspense>
     </div>
   );
 }

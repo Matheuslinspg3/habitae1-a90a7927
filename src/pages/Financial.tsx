@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,8 +19,10 @@ import { CashFlowChart } from "@/components/financial/CashFlowChart";
 import { TransactionsTab } from "@/components/financial/TransactionsTab";
 import { InvoicesTab } from "@/components/financial/InvoicesTab";
 import { CommissionsTab } from "@/components/financial/CommissionsTab";
-import { ContractForm } from "@/components/contracts/ContractForm";
-import { ContractDetails } from "@/components/contracts/ContractDetails";
+// PERF: lazy load - ContractForm only needed when creating/editing contracts
+const ContractForm = lazy(() => import("@/components/contracts/ContractForm").then(m => ({ default: m.ContractForm })));
+// PERF: lazy load - ContractDetails only needed when viewing contract details
+const ContractDetails = lazy(() => import("@/components/contracts/ContractDetails").then(m => ({ default: m.ContractDetails })));
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -361,8 +363,12 @@ export default function Financial() {
 
       <TransactionForm open={transactionFormOpen} onOpenChange={setTransactionFormOpen} transaction={editingTransaction} />
       <InvoiceForm open={invoiceFormOpen} onOpenChange={setInvoiceFormOpen} invoice={editingInvoice} />
-      <ContractForm open={contractFormOpen} onOpenChange={setContractFormOpen} contract={selectedContract} onSubmit={handleSubmitContract} isSubmitting={isCreating || isUpdating} />
-      <ContractDetails contract={selectedContract} open={contractDetailsOpen} onOpenChange={setContractDetailsOpen} onEdit={handleEditContract} onDelete={deleteContractFn} />
+      <Suspense fallback={null}>
+        <ContractForm open={contractFormOpen} onOpenChange={setContractFormOpen} contract={selectedContract} onSubmit={handleSubmitContract} isSubmitting={isCreating || isUpdating} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ContractDetails contract={selectedContract} open={contractDetailsOpen} onOpenChange={setContractDetailsOpen} onEdit={handleEditContract} onDelete={deleteContractFn} />
+      </Suspense>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
