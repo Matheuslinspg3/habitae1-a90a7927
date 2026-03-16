@@ -15,7 +15,8 @@ import { ImageGallery } from "@/components/properties/ImageViewer";
 import { proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useProperties, PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
-import { PropertyForm } from "@/components/properties/PropertyForm";
+// PERF: lazy load - PropertyForm is heavy (~800 lines), only needed when editing
+const PropertyForm = lazy(() => import("@/components/properties/PropertyForm").then(m => ({ default: m.PropertyForm })));
 import { useAuth } from "@/contexts/AuthContext";
 import { useShareLink } from "@/hooks/useShareLink";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
