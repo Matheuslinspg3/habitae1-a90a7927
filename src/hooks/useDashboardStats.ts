@@ -31,7 +31,7 @@ export function useDashboardStats() {
     queryKey: ["dashboard_stats", profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return EMPTY_STATS;
-      const { data, error } = await supabase.rpc("fn_dashboard_stats", {
+      const { data, error } = await supabase.rpc("fn_dashboard_stats" as any, {
         p_org_id: profile.organization_id,
       });
       if (error) throw error;
