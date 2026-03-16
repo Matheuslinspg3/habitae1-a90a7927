@@ -159,8 +159,7 @@ Deno.serve(async (req) => {
     let query = supabaseAdmin
       .from("property_images")
       .select("id, url, property_id, cached_thumbnail_url, storage_provider")
-      .or("storage_provider.eq.cloudinary,storage_provider.is.null")
-      .like("url", "%res.cloudinary.com%")
+      .eq("storage_provider", "cloudinary")
       .is("r2_key_full", null)
       .order("created_at", { ascending: true })
       .limit(batchSize);
@@ -170,6 +169,8 @@ Deno.serve(async (req) => {
     }
 
     const { data: images, error: fetchErr } = await query;
+
+    console.log(`[migrate] Query returned ${images?.length ?? 0} images, error: ${fetchErr?.message ?? 'none'}`);
 
     if (fetchErr) {
       return new Response(JSON.stringify({ error: fetchErr.message }), {
@@ -181,8 +182,7 @@ Deno.serve(async (req) => {
     let countQuery = supabaseAdmin
       .from("property_images")
       .select("id", { count: "exact", head: true })
-      .or("storage_provider.eq.cloudinary,storage_provider.is.null")
-      .like("url", "%res.cloudinary.com%")
+      .eq("storage_provider", "cloudinary")
       .is("r2_key_full", null);
 
     if (propertyIds) {
@@ -193,8 +193,8 @@ Deno.serve(async (req) => {
 
     if (!images?.length) {
       return new Response(JSON.stringify({
-        migrated: 0, failed: 0, skipped: 0, remaining: 0,
-        errors: [], message: "✅ Nenhuma imagem pendente — migração concluída!",
+        migrated: 0, failed: 0, skipped: 0, remaining: totalRemaining || 0,
+        errors: [], message: totalRemaining ? `0 processadas neste lote. ${totalRemaining} pendentes.` : "✅ Migração concluída!",
         elapsed_ms: Date.now() - startTime,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
