@@ -115,7 +115,7 @@ async function uploadToR2Proxy(
 
     const fullKB = (variants.full.blob.size / 1024).toFixed(0);
     const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0);
-    console.log(`[R2] Proxy upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${data.r2KeyFull}`);
+    if (import.meta.env.DEV) console.log(`[R2] Proxy upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${data.r2KeyFull}`);
 
     return {
       url: data.publicUrlFull,
