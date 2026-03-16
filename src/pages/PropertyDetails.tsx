@@ -849,19 +849,22 @@ export default function PropertyDetails() {
         <PropertyForm
           open={formOpen}
           onOpenChange={setFormOpen}
-        property={property}
-        onSubmit={handleFormSubmit}
-        isSubmitting={isUpdating}
-      />
+          property={property}
+          onSubmit={handleFormSubmit}
+          isSubmitting={isUpdating}
+        />
+      </Suspense>
 
       {/* Landing Page Editor */}
       {id && (
-        <LandingPageEditor
-          propertyId={id}
-          propertyCode={property?.property_code}
-          open={editorOpen}
-          onOpenChange={setEditorOpen}
-        />
+        <Suspense fallback={null}>
+          <LandingPageEditor
+            propertyId={id}
+            propertyCode={property?.property_code}
+            open={editorOpen}
+            onOpenChange={setEditorOpen}
+          />
+        </Suspense>
       )}
       {id && (
         <PropertyQRCode

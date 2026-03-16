@@ -18,7 +18,8 @@ import { ConversionFunnel } from "@/components/dashboard/ConversionFunnel";
 import { InactivityAlerts } from "@/components/dashboard/InactivityAlerts";
 import { DashboardPeriodFilter } from "@/components/dashboard/DashboardPeriodFilter";
 import { AdvancedKPIs } from "@/components/dashboard/AdvancedKPIs";
-import { DetailedFunnel } from "@/components/dashboard/DetailedFunnel";
+// PERF: lazy load - DetailedFunnel imports recharts (~200KB), only visible when scrolled into view
+const DetailedFunnel = lazy(() => import("@/components/dashboard/DetailedFunnel").then(m => ({ default: m.DetailedFunnel })));
 import { AgentRanking } from "@/components/dashboard/AgentRanking";
 import { LiveIndicator } from "@/components/dashboard/LiveIndicator";
 import { LazySection } from "@/components/dashboard/LazySection";
