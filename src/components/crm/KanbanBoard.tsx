@@ -124,8 +124,8 @@ export function KanbanBoard() {
     }
   });
 
-  // Persist temperature filter
-  const handleTemperatureChange = (value: string | null) => {
+  // PERF: useCallback stabilizes handler passed to LeadFilters
+  const handleTemperatureChange = useCallback((value: string | null) => {
     setSelectedTemperature(value);
     trackFilterUsed(`crm_temperature_${value || 'clear'}`);
     try {
@@ -135,7 +135,7 @@ export function KanbanBoard() {
         localStorage.removeItem('crm_temperature_filter');
       }
     } catch { /* ignore */ }
-  };
+  }, []);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [columnReorderMode, setColumnReorderMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

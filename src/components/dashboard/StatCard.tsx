@@ -112,4 +112,4 @@ export const StatCard = memo(function StatCard({ title, value, subtitle, icon: I
       </CardContent>
     </Card>
   );
-}
+});

@@ -500,9 +500,10 @@ export default function Properties() {
   const isSelectionMode = selectedIds.size > 0;
   const allSelected = filteredProperties.length > 0 && selectedIds.size === filteredProperties.length;
 
-  const handleCreateClick = () => { setEditingProperty(null); setPrefillData(null); setFormOpen(true); };
-  const handleEditClick = (property: PropertyWithDetails) => { setEditingProperty(property); setPrefillData(null); setFormOpen(true); };
-  const handleDeleteClick = (id: string) => { setDeleteId(id); };
+  // PERF: useCallback stabilizes handlers passed as props to memoized list items
+  const handleCreateClick = useCallback(() => { setEditingProperty(null); setPrefillData(null); setFormOpen(true); }, []);
+  const handleEditClick = useCallback((property: PropertyWithDetails) => { setEditingProperty(property); setPrefillData(null); setFormOpen(true); }, []);
+  const handleDeleteClick = useCallback((id: string) => { setDeleteId(id); }, []);
 
   const handleConfirmDelete = async () => {
     if (deleteId) { await deleteProperty(deleteId); setDeleteId(null); }

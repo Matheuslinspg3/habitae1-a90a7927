@@ -17,14 +17,14 @@ export function DetailedFunnel({ dateRange }: Props) {
   const { data: stages = [], isLoading } = useDashboardFunnel(dateRange);
   const [selectedStage, setSelectedStage] = useState<FunnelStage | null>(null);
 
-  // Compute advancement rates
-  const stagesWithRates = stages.map((stage, i) => {
+  // PERF: memoize derived advancement rates to avoid recalculating on unrelated re-renders
+  const stagesWithRates = useMemo(() => stages.map((stage, i) => {
     const nextCount = i < stages.length - 1 ? stages[i + 1]?.count : undefined;
     const advancementRate = stage.count > 0 && nextCount !== undefined
       ? Math.round((nextCount / stage.count) * 100)
       : null;
     return { ...stage, advancementRate };
-  });
+  }), [stages]);
 
   // Leads in selected stage
   const { data: stageLeads = [] } = useQuery({

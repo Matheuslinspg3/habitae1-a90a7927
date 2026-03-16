@@ -49,24 +49,25 @@ export function OwnerTable({ owners, isLoading, onSelect, onEdit, onDelete, onAd
   const allSelected = filtered.length > 0 && filtered.every((o) => selectedIds.has(o.id));
   const someSelected = filtered.some((o) => selectedIds.has(o.id));
 
-  const toggleAll = () => {
+  // PERF: useCallback stabilizes handlers passed to memoized children
+  const toggleAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(filtered.map((o) => o.id)));
     }
-  };
+  }, [allSelected, filtered]);
 
-  const toggleOne = (id: string) => {
+  const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = useCallback(() => {
     if (onBulkDelete) {
       onBulkDelete(Array.from(selectedIds));
     } else {
@@ -74,7 +75,7 @@ export function OwnerTable({ owners, isLoading, onSelect, onEdit, onDelete, onAd
     }
     setSelectedIds(new Set());
     setBulkDeleteOpen(false);
-  };
+  }, [selectedIds, onBulkDelete, onDelete]);
 
   const clearSelection = () => setSelectedIds(new Set());
 

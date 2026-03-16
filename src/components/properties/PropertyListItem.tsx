@@ -235,4 +235,4 @@ export const PropertyListItem = memo(function PropertyListItem({
       </div>
     </div>
   );
-}
+});

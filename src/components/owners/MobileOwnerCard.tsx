@@ -59,4 +59,4 @@ export const MobileOwnerCard = memo(function MobileOwnerCard({ owner, onSelect, 
       </CardContent>
     </Card>
   );
-}
+});

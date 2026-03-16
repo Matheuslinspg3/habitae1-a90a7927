@@ -125,4 +125,4 @@ export const SelectablePropertyCard = memo(function SelectablePropertyCard({
       />
     </div>
   );
-}
+});

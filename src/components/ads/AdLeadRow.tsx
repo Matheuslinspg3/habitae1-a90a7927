@@ -150,4 +150,4 @@ export const AdLeadRow = memo(function AdLeadRow({ lead, adName, showAdName }: A
       </Dialog>
     </>
   );
-}
+});

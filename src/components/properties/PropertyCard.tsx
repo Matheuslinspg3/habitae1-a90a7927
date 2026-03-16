@@ -322,4 +322,4 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
       </CardFooter>
     </Card>
   );
-}
+});
