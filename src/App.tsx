@@ -123,8 +123,8 @@ const App = () => (
                         <Route path="/app/perfil" element={<AppProfile />} />
                       </Route>
                       <Route path="/app/imovel/:id" element={<AppPropertyDetail />} />
-                      
-                      
+                        <Route path="/planos" element={<Plans />} />
+                        
                       <Route
                         element={
                           <ProtectedRoute>
