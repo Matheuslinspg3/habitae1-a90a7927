@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { AdLead, useAdLeads } from "@/hooks/useAdLeads";
 import { useLeadStages } from "@/hooks/useLeadStages";
 import { useAdSettings } from "@/hooks/useAdSettings";
