@@ -209,10 +209,12 @@ export function useLeads() {
     enabled: !!user,
   });
 
-  // Query for inactive leads
+  // PERF: Inactive leads query with org filter and limit
   const { data: inactiveLeads = [], isLoading: isLoadingInactive } = useQuery({
-    queryKey: ['leads', 'inactive'],
+    queryKey: ['leads', 'inactive', profile?.organization_id],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
       const { data, error } = await supabase
         .from('leads')
         .select(`
@@ -221,12 +223,14 @@ export function useLeads() {
           interested_property_type:property_types(*)
         `)
         .eq('is_active', false)
-        .order('updated_at', { ascending: false });
+        .eq('organization_id', profile.organization_id)
+        .order('updated_at', { ascending: false })
+        .limit(100);
 
       if (error) throw error;
       return data as Lead[];
     },
-    enabled: !!user,
+    enabled: !!user && !!profile?.organization_id,
   });
 
   const isLoading = isLoadingLeads || isLoadingStages;

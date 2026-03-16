@@ -3,11 +3,12 @@ import { CalendarCheck, Clock, AlertTriangle, ChevronRight } from "lucide-react"
 import { useNavigate } from "react-router-dom";
 import { useTasks } from "@/hooks/useTasks";
 import { useAppointments } from "@/hooks/useAppointments";
-import { useLeads } from "@/hooks/useLeads";
 import { useDemo } from "@/contexts/DemoContext";
 import { isToday, format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { trackQuickAction } from "@/hooks/useAnalytics";
+// PERF: Uses single RPC instead of full useLeads() hook
+import { useDashboardPipeline } from "@/hooks/useDashboardPipeline";
 
 /**
  * Mobile-only "Resumo do Dia" card — shows at-a-glance what needs attention today.
@@ -17,9 +18,10 @@ export function MobileTodaySummary() {
   const { isDemoMode } = useDemo();
   const { tasks, isLoading: loadingTasks } = useTasks();
   const { appointments, isLoading: loadingAppts } = useAppointments();
-  const { leads, isLoading: loadingLeads } = useLeads();
+  // PERF: Lightweight pipeline data instead of full useLeads()
+  const { inactiveLeads, isLoading: loadingPipeline } = useDashboardPipeline();
 
-  const isLoading = !isDemoMode && (loadingTasks || loadingAppts || loadingLeads);
+  const isLoading = !isDemoMode && (loadingTasks || loadingAppts || loadingPipeline);
 
   // Today's tasks
   const todayTasks = tasks.filter(t => t.due_date && isToday(new Date(t.due_date)));
@@ -33,12 +35,8 @@ export function MobileTodaySummary() {
     .filter(a => new Date(a.start_time) >= now)
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
 
-  // Leads needing attention (new in last 24h without interaction)
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const newLeads = leads.filter(l =>
-    new Date(l.created_at) >= oneDayAgo &&
-    !["fechado_ganho", "fechado_perdido"].includes(l.stage)
-  ).length;
+  // Use inactive leads count as attention indicator
+  const attentionCount = inactiveLeads.length;
 
   const items = [
     {
@@ -55,9 +53,9 @@ export function MobileTodaySummary() {
       action: () => { trackQuickAction("mobile_today_appointments"); navigate("/agenda"); },
       highlight: !!nextAppt,
     },
-    ...(newLeads > 0 ? [{
+    ...(attentionCount > 0 ? [{
       icon: AlertTriangle,
-      label: `${newLeads} lead${newLeads > 1 ? 's' : ''} novo${newLeads > 1 ? 's' : ''}`,
+      label: `${attentionCount} lead${attentionCount > 1 ? 's' : ''} sem interação`,
       sub: "Aguardando atenção",
       action: () => { trackQuickAction("mobile_today_leads"); navigate("/crm"); },
       highlight: true,

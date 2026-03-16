@@ -37,6 +37,7 @@ export function useVisits(filters?: VisitFilters) {
 
   const { data: visits = [], isLoading } = useQuery({
     queryKey: ["property_visits", filters],
+    staleTime: 2 * 60_000, // PERF: 2min stale for visits
     queryFn: async () => {
       let query = supabase
         .from("property_visits")

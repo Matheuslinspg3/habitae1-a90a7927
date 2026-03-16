@@ -70,10 +70,12 @@ const PageLoader = () => (
   </div>
 );
 
+// PERF: gcTime 10min keeps cache longer; staleTime 1min default
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       retry: 1,
     },
   },

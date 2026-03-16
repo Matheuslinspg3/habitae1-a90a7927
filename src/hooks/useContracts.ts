@@ -42,9 +42,10 @@ export function useContracts() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
       // Buscar contratos
+      // PERF: Select only columns used in listing
       const { data: contractsData, error: contractsError } = await supabase
         .from('contracts')
-        .select('*')
+        .select('id, code, type, status, value, commission_percentage, start_date, end_date, payment_day, readjustment_index, notes, property_id, lead_id, broker_id, created_at, created_by, updated_at, organization_id')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 

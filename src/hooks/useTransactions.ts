@@ -32,15 +32,17 @@ export function useTransactions() {
     staleTime: 5 * 60_000,
     queryFn: async () => {
       if (!profile?.organization_id) return [];
+      // PERF: Select only needed columns + limit to 500
       const { data, error } = await supabase
         .from('transactions')
         .select(`
-          *,
+          id, type, description, amount, date, paid, paid_at, notes, category_id, contract_id, organization_id, created_by, created_at,
           category:transaction_categories(id, name),
           contract:contracts(id, code)
         `)
         .eq('organization_id', profile.organization_id)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       return data as Transaction[];

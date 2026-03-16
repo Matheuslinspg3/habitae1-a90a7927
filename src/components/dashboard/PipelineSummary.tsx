@@ -1,23 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLeads } from "@/hooks/useLeads";
 import { useNavigate } from "react-router-dom";
 import { useDemo } from "@/contexts/DemoContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
+// PERF: Uses single RPC instead of full useLeads() hook
+import { useDashboardPipeline } from "@/hooks/useDashboardPipeline";
 
 export function PipelineSummary() {
-  const { leadStages, stageStats, isLoading } = useLeads();
+  const { isLoading, stages } = useDashboardPipeline();
   const { isDemoMode } = useDemo();
   const navigate = useNavigate();
 
-  // Exclude loss stages from pipeline view
-  const pipelineStages = useMemo(() => 
-    leadStages.filter(s => !s.is_loss), 
-    [leadStages]
+  // PERF: Filter pipeline stages (exclude loss) with useMemo
+  const pipelineStages = useMemo(() =>
+    stages.filter(s => !s.is_loss),
+    [stages]
   );
 
-  const totalLeads = pipelineStages.reduce((sum, stage) => sum + (stageStats[stage.id]?.count || 0), 0);
-  const maxCount = Math.max(...pipelineStages.map(s => stageStats[s.id]?.count || 0), 1);
+  const totalLeads = pipelineStages.reduce((sum, s) => sum + s.count, 0);
+  const maxCount = Math.max(...pipelineStages.map(s => s.count), 1);
 
   if (isLoading && !isDemoMode) {
     return (
@@ -46,9 +47,8 @@ export function PipelineSummary() {
       </CardHeader>
       <CardContent className="space-y-2.5">
         {pipelineStages.map(stage => {
-          const count = stageStats[stage.id]?.count || 0;
-          if (count === 0) return null;
-          const widthPct = Math.max((count / maxCount) * 100, 8);
+          if (stage.count === 0) return null;
+          const widthPct = Math.max((stage.count / maxCount) * 100, 8);
 
           return (
             <button
@@ -65,7 +65,7 @@ export function PipelineSummary() {
                   style={{ width: `${widthPct}%`, backgroundColor: stage.color }}
                 />
               </div>
-              <span className="text-sm font-semibold w-8 text-right">{count}</span>
+              <span className="text-sm font-semibold w-8 text-right">{stage.count}</span>
             </button>
           );
         })}
