@@ -140,7 +140,9 @@ export default function Dashboard() {
         </LazySection>
 
         <LazySection>
-          <DetailedFunnel dateRange={dateRange} />
+          <Suspense fallback={<Skeleton className="h-80 w-full rounded-xl" />}>
+            <DetailedFunnel dateRange={dateRange} />
+          </Suspense>
         </LazySection>
 
         <LazySection>
