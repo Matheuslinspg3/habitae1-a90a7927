@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAdInsights } from "@/hooks/useAdInsights";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3 } from "lucide-react";
 import { subDays } from "date-fns";

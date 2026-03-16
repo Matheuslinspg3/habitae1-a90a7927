@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { useAdLeadsCount } from "@/hooks/useAdLeads";
 import { AdDetailLeads } from "@/components/ads/AdDetailLeads";
