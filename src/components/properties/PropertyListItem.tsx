@@ -103,11 +103,11 @@ export const PropertyListItem = memo(function PropertyListItem({
           />
         </div>
 
-        {/* Thumbnail */}
+        {/* PERF: OptimizedImage with skeleton placeholder */}
         {isAvailable && (
           <div className="w-14 h-14 sm:w-20 sm:h-14 rounded-md overflow-hidden bg-muted flex-shrink-0">
             {coverImage ? (
-              <img src={coverImage} alt={property.title || "Imóvel"} className="w-full h-full object-cover" loading="lazy" />
+              <OptimizedImage src={coverImage} alt={property.title || "Imóvel"} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <Building2 className="h-5 w-5 text-muted-foreground/40" />
