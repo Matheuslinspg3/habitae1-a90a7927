@@ -218,6 +218,10 @@ export default function Financial() {
               <FileText className="h-4 w-4" />
               Contratos
             </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+              <LayoutTemplate className="h-4 w-4" />
+              Templates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
