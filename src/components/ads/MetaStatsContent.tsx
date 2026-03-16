@@ -75,7 +75,13 @@ export default function MetaStatsContent() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Carregando...</p>
+        // PERF: UX — skeleton table rows
+        <Card>
+          <CardHeader><Skeleton className="h-5 w-48" /></CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+          </CardContent>
+        </Card>
       ) : insights.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">

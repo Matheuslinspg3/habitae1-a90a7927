@@ -135,7 +135,18 @@ export function LeadInteractionTimeline({ leadId, leadName }: LeadInteractionTim
       )}
 
       {isLoading ? (
-        <p className="text-xs text-muted-foreground">Carregando...</p>
+        // PERF: UX — skeleton timeline items
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex gap-3 py-2">
+              <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : interactions.length === 0 ? (
         <p className="text-xs text-muted-foreground">Nenhuma interação registrada.</p>
       ) : (

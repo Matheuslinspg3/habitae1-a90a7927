@@ -18,7 +18,23 @@ export default function MetaAdDetail() {
   const [tab, setTab] = useState("leads");
 
   if (isLoading) {
-    return <div className="p-4 md:p-6"><p className="text-muted-foreground">Carregando...</p></div>;
+    // PERF: UX — skeleton instead of plain text
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <Skeleton className="h-8 w-20" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-16 h-16 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-64" />
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+      </div>
+    );
   }
 
   if (!ad) {

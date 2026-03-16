@@ -105,8 +105,18 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
             </div>
 
             {loadingProperties ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
-            ) : properties.length === 0 ? (
+              // PERF: UX — skeleton property rows
+              <div className="space-y-2">
+                {[1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                ))}
+              </div>
               <p className="text-sm text-muted-foreground">Nenhum imóvel vinculado.</p>
             ) : (
               <div className="space-y-2">

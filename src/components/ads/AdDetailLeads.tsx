@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { useAdLeads } from "@/hooks/useAdLeads";
 import { Card, CardContent } from "@/components/ui/card";
 import { Inbox } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdLeadRow } from "./AdLeadRow";
 
 interface AdDetailLeadsProps {
@@ -11,7 +12,21 @@ interface AdDetailLeadsProps {
 export function AdDetailLeads({ externalAdId }: AdDetailLeadsProps) {
   const { leads, isLoading } = useAdLeads({ externalAdId });
 
-  if (isLoading) return <p className="text-muted-foreground text-sm py-4">Carregando leads...</p>;
+  // PERF: UX — skeleton rows instead of plain text
+  if (isLoading) return (
+    <div className="space-y-2 mt-4">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="flex items-center gap-3 p-3 border rounded-lg">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+          <Skeleton className="h-5 w-16" />
+        </div>
+      ))}
+    </div>
+  );
 
   if (leads.length === 0) {
     return (
