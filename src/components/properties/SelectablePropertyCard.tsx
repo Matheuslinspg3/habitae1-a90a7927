@@ -16,7 +16,8 @@ interface SelectablePropertyCardProps {
   onLongPressSelect?: (id: string) => void;
 }
 
-export function SelectablePropertyCard({
+// PERF: memo prevents re-render of unaffected cards in selection mode
+export const SelectablePropertyCard = memo(function SelectablePropertyCard({
   property,
   isSelected,
   isSelectionMode,
