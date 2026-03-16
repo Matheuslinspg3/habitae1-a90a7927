@@ -494,7 +494,7 @@ export default function Settings() {
 
               <VerificationSection />
 
-              <UnifiedPlanSection />
+              
             </div>
           </TabsContent>
 
