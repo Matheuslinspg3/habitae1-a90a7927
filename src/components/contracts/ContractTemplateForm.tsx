@@ -59,7 +59,6 @@ function renderPreviewHtml(html: string): string {
   let rendered = html;
   for (const [key, value] of Object.entries(sampleData)) {
     rendered = rendered.split(key).join(
-      key,
       `<span style="background: hsl(var(--primary) / 0.15); color: hsl(var(--primary)); padding: 1px 4px; border-radius: 4px; font-weight: 500;">${value}</span>`
     );
   }
