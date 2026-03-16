@@ -17,6 +17,7 @@ import {
   UserCog,
   Megaphone,
   Search,
+  CreditCard,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";

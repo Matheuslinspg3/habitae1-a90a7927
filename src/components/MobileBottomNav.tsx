@@ -46,6 +46,7 @@ const menuGroups: MenuGroup[] = [
   {
     title: "Sistema",
     items: [
+      { icon: CreditCard, label: "Planos", path: "/planos" },
       { icon: Settings, label: "Configurações", path: "/configuracoes" },
       { icon: Terminal, label: "Developer", path: "/developer", developerOnly: true },
     ],
