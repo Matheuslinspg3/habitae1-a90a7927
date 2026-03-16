@@ -141,13 +141,10 @@ serve(async (req) => {
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
         : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-      // AH-04: Don't cancel existing subscriptions yet — only after new one is confirmed
-      // Mark them as "pending" for cleanup, actual cancel happens after success below
-
-      // PIX: create individual payment (not subscription)
+      // PIX: create individual payment with PIX QR code
       if (paymentMethod === "pix") {
         const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-          .toISOString().split("T")[0]; // 3 days from now
+          .toISOString().split("T")[0];
 
         const payment = await asaasFetch("/payments", {
           method: "POST",
@@ -183,7 +180,7 @@ serve(async (req) => {
           .single();
         if (subErr) throw subErr;
 
-        // AH-04: Cancel old subscriptions AFTER new one is created successfully
+        // Cancel old subscriptions
         await supabase
           .from("subscriptions")
           .update({ status: "cancelled", cancelled_at: now.toISOString() })
@@ -216,9 +213,73 @@ serve(async (req) => {
         });
       }
 
-      // Non-PIX: create Asaas subscription (recurring)
+      // Credit/Debit Card: create payment with UNDEFINED billingType
+      // Asaas generates an invoiceUrl where the user can pay with card
+      if (paymentMethod === "credit_card") {
+        const dueDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
+          .toISOString().split("T")[0];
+
+        const payment = await asaasFetch("/payments", {
+          method: "POST",
+          body: JSON.stringify({
+            customer: customerId,
+            billingType: "UNDEFINED",
+            value: Number(price),
+            dueDate,
+            description: `Habitae ${plan.name} - ${billingCycle === "yearly" ? "Anual" : "Mensal"}`,
+            externalReference: orgId,
+          }),
+        });
+
+        // Create local subscription as pending
+        const { data: newSub, error: subErr } = await supabase
+          .from("subscriptions")
+          .insert({
+            organization_id: orgId,
+            plan_id: planId,
+            status: "pending",
+            billing_cycle: billingCycle,
+            provider: "asaas",
+            provider_customer_id: customerId,
+            provider_subscription_id: null,
+            payment_method: "credit_card",
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
+          .select()
+          .single();
+        if (subErr) throw subErr;
+
+        // Cancel old subscriptions
+        await supabase
+          .from("subscriptions")
+          .update({ status: "cancelled", cancelled_at: now.toISOString() })
+          .eq("organization_id", orgId)
+          .in("status", ["active", "trial"])
+          .neq("id", newSub.id);
+
+        // Save payment record
+        await supabase.from("billing_payments").insert({
+          organization_id: orgId,
+          subscription_id: newSub.id,
+          provider: "asaas",
+          provider_payment_id: payment.id,
+          amount_cents: Math.round(Number(price) * 100),
+          method: "credit_card",
+          status: "pending",
+          invoice_url: payment.invoiceUrl,
+        });
+
+        return new Response(JSON.stringify({
+          subscription: newSub,
+          invoiceUrl: payment.invoiceUrl,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Boleto fallback
       const billingTypeMap: Record<string, string> = {
-        credit: "CREDIT_CARD",
         boleto: "BOLETO",
       };
       const cycle = billingCycle === "yearly" ? "YEARLY" : "MONTHLY";
@@ -253,7 +314,7 @@ serve(async (req) => {
         .single();
       if (subErr) throw subErr;
 
-      // AH-04: Cancel old subscriptions AFTER new one is created successfully
+      // Cancel old subscriptions
       await supabase
         .from("subscriptions")
         .update({ status: "cancelled", cancelled_at: now.toISOString() })
