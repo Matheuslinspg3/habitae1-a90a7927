@@ -37,7 +37,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 const methodLabels: Record<string, string> = {
   pix: "PIX",
   credit: "Cartão de Crédito",
-  credit_card: "Cartão de Crédito",
+  credit_card: "Cartão de Crédito/Débito",
   boleto: "Boleto Bancário",
 };
 
