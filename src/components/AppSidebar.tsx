@@ -64,6 +64,22 @@ export function AppSidebar() {
   const { isDeveloperOrLeader, isDeveloper, isAdminOrAbove } = useUserRoles();
   const currentPath = location.pathname;
   const { data: newAdLeadsCount = 0 } = useAdLeadsCount();
+  const qc = useQueryClient();
+
+  // PERF: Prefetch route data on hover for faster navigation
+  const prefetchRoute = useCallback((url: string) => {
+    const orgId = profile?.organization_id;
+    if (!orgId) return;
+    if (url === '/imoveis') {
+      qc.prefetchQuery({ queryKey: ['properties', orgId], staleTime: 60_000 });
+    } else if (url === '/crm') {
+      qc.prefetchQuery({ queryKey: ['leads', orgId], staleTime: 60_000 });
+    } else if (url === '/financeiro') {
+      qc.prefetchQuery({ queryKey: ['transactions', orgId], staleTime: 60_000 });
+    } else if (url === '/agenda') {
+      qc.prefetchQuery({ queryKey: ['appointments', orgId], staleTime: 60_000 });
+    }
+  }, [qc, profile?.organization_id]);
 
   const [orgName, setOrgName] = React.useState<string>("");
   React.useEffect(() => {
