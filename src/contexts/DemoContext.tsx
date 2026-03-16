@@ -97,12 +97,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [demoUser, setDemoUser] = useState<DemoUser | null>(null);
   const navigate = useNavigate();
 
-  // Calculate stats
-  const demoStats = calculateDemoStats();
+  // Calculate stats (memoized)
+  const demoStats = useMemo(() => calculateDemoStats(), []);
   
-  // Get today's items
-  const todayTasks = getTodayDemoTasks();
-  const todayAppointments = getTodayDemoAppointments();
+  // Get today's items (memoized)
+  const todayTasks = useMemo(() => getTodayDemoTasks(), []);
+  const todayAppointments = useMemo(() => getTodayDemoAppointments(), []);
 
   // Check for existing demo session on mount
   useEffect(() => {
