@@ -427,7 +427,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
 
         // Store subfolders for per-property matching
         if (access === "public" && result.subfolders?.length > 0) {
-          console.log(`Folder has ${result.subfolders.length} subfolders:`, result.subfolders.map((s: any) => s.name));
+          if (import.meta.env.DEV) console.log(`Folder has ${result.subfolders.length} subfolders:`, result.subfolders.map((s: any) => s.name));
           setSubfoldersByUrl(prev => ({ ...prev, [photosUrl]: result.subfolders }));
           
           // Auto-match subfolders when URL is shared among multiple properties
