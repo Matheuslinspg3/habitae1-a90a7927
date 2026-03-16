@@ -7,6 +7,7 @@ import { useProperties } from '@/hooks/useProperties';
 import { useNavigate } from 'react-router-dom';
 import type { Lead } from '@/hooks/useLeads';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OptimizedImage } from '@/components/ui/optimized-image';
 
 interface ScoredProperty {
   property: PropertyWithDetails;

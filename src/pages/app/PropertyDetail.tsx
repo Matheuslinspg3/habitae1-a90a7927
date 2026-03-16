@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { useState, useEffect, useCallback } from "react";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import useEmblaCarousel from "embla-carousel-react";
 
 function formatPrice(value: number) {

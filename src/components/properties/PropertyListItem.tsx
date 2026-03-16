@@ -18,6 +18,7 @@ import { AvailabilityBadge } from "./AvailabilityBadge";
 import type { PropertyWithDetails } from "@/hooks/useProperties";
 import { cn, proxyDriveImageUrl } from "@/lib/utils";
 import { getImageUrl, type ImageRecord } from "@/lib/imageUrl";
+import { OptimizedImage } from "@/components/ui/optimized-image";
 import { usePropertyPublicUrl } from "@/hooks/usePropertyPublicUrl";
 
 interface PropertyListItemProps {
