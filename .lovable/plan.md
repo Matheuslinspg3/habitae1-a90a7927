@@ -1,53 +1,79 @@
 
 
-## Diagnóstico: RD Station nao puxa leads via API
+## Etapa 4 — Code Splitting e Lazy Loading
 
-Após análise completa do código, identifiquei o problema:
+### Estado atual
+- Todas as rotas ja usam `React.lazy()` com um unico `<Suspense>` no topo do App — OK
+- Componentes pesados (mapas, charts, forms, modais) sao importados eagerly dentro das paginas
+- Nao ha lodash no projeto. `date-fns` e `lucide-react` usam imports individuais (tree-shaking funciona)
 
-**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
+### Plano de mudancas
 
-1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
-2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
+**1. Lazy-load componentes pesados com bibliotecas grandes**
 
-Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
+| Componente | Biblioteca | Onde e importado | Acao |
+|---|---|---|---|
+| `PropertyMapView` | leaflet (~40KB) | `Properties.tsx` | `lazy()` — so carrega quando `viewMode === "map"` |
+| `DetailedFunnel` | recharts (~200KB) | Dashboard (ja em `LazySection`) | Trocar import estatico por `lazy()` dentro do `LazySection` |
+| `LeadScoreSection` | recharts (~200KB) | `LeadDetails.tsx` | `lazy()` com Suspense — so carrega quando lead detail abre |
 
----
+**2. Lazy-load formularios e modais pesados**
 
-### Plano: Criar sincronização ativa de leads via API do RD Station
+| Componente | Onde | Acao |
+|---|---|---|
+| `PropertyForm` (~800 linhas + sub-tabs) | `Properties.tsx`, `PropertyDetails.tsx` | `lazy()` — so carrega quando usuario clica "Novo" ou "Editar" |
+| `ContractForm` | `Financial.tsx` | `lazy()` — so carrega quando usuario abre form |
+| `ContractDetails` | `Financial.tsx` | `lazy()` — so carrega quando usuario clica "Ver detalhes" |
+| `LandingPageEditor` | `PropertyDetails.tsx` | `lazy()` — so carrega quando usuario abre editor |
+| `PdfImportDialog` | `Properties.tsx` | `lazy()` — so carrega quando usuario clica importar |
+| `DuplicatePropertyDialog` | `Properties.tsx` | `lazy()` — so carrega quando duplicatas sao detectadas |
+| `DuplicateReviewDialog` | `Properties.tsx` | `lazy()` — so carrega quando revisao de duplicatas |
 
-**1. Nova Edge Function `rd-station-sync-leads`**
-- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
-- Chamar `GET https://api.rd.services/platform/contacts` com paginação
-- Para cada contato retornado, verificar duplicata por email na tabela `leads`
-- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
-- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
-- Retornar resumo (criados, duplicados, erros)
+**3. Nao precisa de mudanca**
+- Rotas: ja sao todas `lazy()` — OK
+- `lodash`: nao usado — OK
+- `date-fns`, `lucide-react`: imports individuais, tree-shaking funciona — OK
+- `ImageViewer`/`ImageGallery`: importados em paginas que ja sao lazy — ja sao code-split naturalmente
 
-**2. Botão "Sincronizar Leads" na interface**
-- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
-- Ao clicar, invocar a nova edge function
-- Mostrar progresso e resultado (quantos leads importados/duplicados)
+### Arquivos modificados
 
-**3. Validações**
-- Exigir que `api_private_key` esteja configurada
-- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
-- Respeitar deduplicação por email
+- `src/pages/Properties.tsx` — lazy PropertyMapView, PropertyForm, PdfImportDialog, DuplicatePropertyDialog, DuplicateReviewDialog
+- `src/pages/PropertyDetails.tsx` — lazy PropertyForm, LandingPageEditor
+- `src/pages/Financial.tsx` — lazy ContractForm, ContractDetails
+- `src/components/dashboard/DetailedFunnel.tsx` — lazy recharts (dynamic import)
+- `src/components/crm/LeadDetails.tsx` — lazy LeadScoreSection
 
-### Detalhes Técnicos
+### Padrao de implementacao
 
-```text
-Fluxo:
-  Botão "Sincronizar" 
-    → supabase.functions.invoke("rd-station-sync-leads")
-      → GET api.rd.services/platform/contacts?limit=100
-      → Para cada contato:
-         ├─ email existe em leads? → skip (duplicate)
-         └─ não existe → INSERT leads + log em rd_station_webhook_logs
-      → Retorna { created: N, duplicates: N, errors: N }
+Para cada componente lazy-loaded dentro de uma pagina:
+```tsx
+// PERF: lazy load - [motivo] avoids loading [lib] until needed
+const PropertyMapView = lazy(() => import("@/components/properties/PropertyMapView"));
+
+// No JSX, wrapping com Suspense local:
+{viewMode === "map" && (
+  <Suspense fallback={<Skeleton className="h-[500px] w-full rounded-xl" />}>
+    <PropertyMapView ... />
+  </Suspense>
+)}
 ```
 
-Arquivos a criar/modificar:
-- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
-- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
-- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+Para o recharts no `DetailedFunnel`, usar dynamic import dos componentes do recharts dentro do componente (ou extrair o chart para um sub-componente lazy).
+
+### Chunks criados e motivos
+
+1. **`PropertyMapView` chunk** — isola leaflet (~40KB gzip). So carrega quando usuario seleciona view "mapa"
+2. **`PropertyForm` chunk** — formulario complexo com ~800 linhas + sub-componentes. So carrega ao clicar "Novo/Editar"
+3. **`ContractForm` chunk** — formulario com zod schema + sub-tabs. So carrega ao abrir form
+4. **`ContractDetails` chunk** — painel de detalhes. So carrega ao clicar "Ver"
+5. **`LandingPageEditor` chunk** — editor de landing page. So carrega ao abrir editor
+6. **`PdfImportDialog` chunk** — dialog de importacao PDF. So carrega ao clicar importar
+7. **`DuplicatePropertyDialog` + `DuplicateReviewDialog` chunk** — dialogs de duplicatas. So carregam quando detectadas
+8. **`LeadScoreSection` chunk** — isola recharts do detail view. So carrega ao abrir lead
+9. **`DetailedFunnel` chart sub-component** — isola recharts do dashboard. So carrega quando secao visivel
+
+### Regras
+- Zero mudancas visuais (Suspense fallbacks usam Skeleton matching o layout)
+- Comportamento identico
+- Comentarios `// PERF: lazy load` em cada mudanca
 
