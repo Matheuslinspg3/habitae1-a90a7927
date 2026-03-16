@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Home, Users, Calendar, Menu, DollarSign, Store, Megaphone, Settings, Plug, UserCog, X, Building2, Zap, Terminal, ChevronDown, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
