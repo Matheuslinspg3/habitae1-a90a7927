@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
 import { useAuth } from "@/contexts/AuthContext";
-import { QrCode, Copy, Check, Loader2, CreditCard } from "lucide-react";
+import { QrCode, Copy, Check, Loader2, CreditCard, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +29,11 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
   const { profile } = useAuth();
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "boleto">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "credit_card">("pix");
   const [customerName, setCustomerName] = useState(profile?.full_name || "");
   const [customerCpf, setCustomerCpf] = useState("");
   const [pixData, setPixData] = useState<{ qrCode: string; copyPaste: string } | null>(null);
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   if (!plan) return null;
@@ -81,6 +82,8 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
               qrCode: data.pixData.qrCode,
               copyPaste: data.pixData.copyPaste,
             });
+          } else if (data?.invoiceUrl) {
+            setInvoiceUrl(data.invoiceUrl);
           } else {
             onOpenChange(false);
           }
@@ -100,9 +103,59 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
 
   const handleClose = () => {
     setPixData(null);
+    setInvoiceUrl(null);
     setCopied(false);
     onOpenChange(false);
   };
+
+  // Invoice URL view (credit/debit card)
+  if (invoiceUrl) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Pague com Cartão
+            </DialogTitle>
+            <DialogDescription>
+              Clique no botão abaixo para inserir os dados do cartão de forma segura
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="p-6 rounded-xl border bg-muted/30 text-center space-y-3">
+              <CreditCard className="h-12 w-12 mx-auto text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Você será redirecionado para um ambiente seguro de pagamento onde poderá inserir os dados do seu cartão de crédito ou débito.
+              </p>
+              <p className="text-sm font-medium">R$ {Number(price).toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">
+                Plano {plan.name} — {billingCycle === "yearly" ? "Anual" : "Mensal"}
+              </p>
+            </div>
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => window.open(invoiceUrl, "_blank")}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Abrir página de pagamento
+            </Button>
+
+            <p className="text-xs text-muted-foreground text-center">
+              ⏱️ Após o pagamento, sua assinatura será ativada automaticamente
+            </p>
+          </div>
+
+          <Button variant="outline" onClick={handleClose} className="w-full">
+            Fechar
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   // PIX QR Code view
   if (pixData) {
@@ -237,6 +290,9 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
                 placeholder="000.000.000-00"
                 maxLength={18}
               />
+              <p className="text-xs text-muted-foreground">
+                O CPF/CNPJ será validado automaticamente ao processar o pagamento
+              </p>
             </div>
           </div>
 
@@ -247,7 +303,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
             <Label className="text-sm font-medium">Forma de pagamento</Label>
             <RadioGroup
               value={paymentMethod}
-              onValueChange={(v) => setPaymentMethod(v as "pix" | "boleto")}
+              onValueChange={(v) => setPaymentMethod(v as "pix" | "credit_card")}
               className="grid grid-cols-2 gap-2"
             >
               <label
@@ -263,12 +319,15 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
               <label
                 className={cn(
                   "flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all",
-                  paymentMethod === "boleto" && "border-primary bg-primary/5 ring-1 ring-primary"
+                  paymentMethod === "credit_card" && "border-primary bg-primary/5 ring-1 ring-primary"
                 )}
               >
-                <RadioGroupItem value="boleto" />
+                <RadioGroupItem value="credit_card" />
                 <CreditCard className="h-4 w-4" />
-                <span className="text-sm font-medium">Boleto</span>
+                <div>
+                  <span className="text-sm font-medium">Cartão</span>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Crédito ou débito</p>
+                </div>
               </label>
             </RadioGroup>
           </div>
@@ -280,7 +339,7 @@ export function CheckoutDialog({ open, onOpenChange, plan }: CheckoutDialogProps
               <span className="font-medium">R$ {Number(price).toFixed(2)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Boleto"}
+              {billingCycle === "yearly" ? "Cobrado anualmente" : "Cobrado mensalmente"} via {paymentMethod === "pix" ? "PIX" : "Cartão"}
             </p>
           </div>
 
