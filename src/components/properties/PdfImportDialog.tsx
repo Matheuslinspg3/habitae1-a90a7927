@@ -475,7 +475,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
           const positionInGroup = propIndicesWithSameUrl.indexOf(idx);
           if (positionInGroup >= 0 && positionInGroup < subfolders.length) {
             scrapeUrl = `https://drive.google.com/drive/folders/${subfolders[positionInGroup].id}`;
-            console.log(`Property ${idx}: no name match, using subfolder by position: "${subfolders[positionInGroup].name}"`);
+            if (import.meta.env.DEV) console.log(`Property ${idx}: no name match, using subfolder by position: "${subfolders[positionInGroup].name}"`);
           }
         }
       }
