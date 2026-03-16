@@ -329,7 +329,7 @@ export function useImageUpload() {
       setUploadProgress(80);
 
       if (!result) {
-        console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
+        if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
         setUploadProgress(50);
         const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
         result = await uploadToCloudinary(file, orgFolder);
