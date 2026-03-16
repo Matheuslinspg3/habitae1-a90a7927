@@ -130,10 +130,14 @@ Deno.serve(async (req) => {
     // ── Parse params ──
     let batchSize = 10;
     let dryRun = false;
+    let propertyIds: string[] | null = null;
     try {
       const body = await req.json();
       batchSize = Math.min(Math.max(body.batchSize || 10, 1), 50);
       dryRun = body.dryRun === true;
+      if (Array.isArray(body.propertyIds) && body.propertyIds.length > 0) {
+        propertyIds = body.propertyIds;
+      }
     } catch { /* defaults */ }
 
     // ── R2 config ──
