@@ -45,10 +45,22 @@ export function getImageUrl(
 
   // Cloudinary / legacy images
   if (variant === 'thumb' && image.cached_thumbnail_url) {
-    return image.cached_thumbnail_url;
+    return proxyCloudinaryUrl(image.cached_thumbnail_url);
   }
 
-  return image.url || '/placeholder.svg';
+  return image.url ? proxyCloudinaryUrl(image.url) : '/placeholder.svg';
+}
+
+/**
+ * Proxy Cloudinary URLs through Edge Function to avoid 401 errors.
+ * Non-Cloudinary URLs are returned as-is.
+ */
+function proxyCloudinaryUrl(url: string): string {
+  if (!url || !SUPABASE_URL) return url;
+  if (url.includes('res.cloudinary.com')) {
+    return `${SUPABASE_URL}/functions/v1/cloudinary-image-proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
 }
 
 /**
