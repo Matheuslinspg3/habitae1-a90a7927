@@ -24,6 +24,7 @@ import { ContractDetails } from "@/components/contracts/ContractDetails";
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ContractTemplatesTab } from "@/components/contracts/ContractTemplatesTab";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
