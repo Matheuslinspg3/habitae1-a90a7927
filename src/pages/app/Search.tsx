@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search as SearchIcon, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,8 @@ import { PropertyCardSkeleton } from "@/components/app/PropertyCardSkeleton";
 import { useConsumerProperties } from "@/hooks/useConsumerProperties";
 import { useConsumerFavorites } from "@/hooks/useConsumerFavorites";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 import { proxyDriveImageUrl } from "@/lib/utils";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function AppSearch() {
   const navigate = useNavigate();
