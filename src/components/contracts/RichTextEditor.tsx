@@ -61,7 +61,7 @@ export function RichTextEditor({ content, onChange, placeholder, className, onAi
   // Sync editor content when it changes externally (e.g. AI generation)
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content);
     }
   }, [content, editor]);
 
