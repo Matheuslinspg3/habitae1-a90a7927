@@ -233,21 +233,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       await fetchProfile(user.id);
     }
-  };
+  }, [user]);
+
+  const contextValue = useMemo(() => ({ 
+    user, 
+    session, 
+    profile, 
+    organizationType,
+    trialInfo,
+    loading, 
+    signUp, 
+    signIn, 
+    signOut, 
+    refreshProfile
+  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signOut, refreshProfile]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      profile, 
-      organizationType,
-      trialInfo,
-      loading, 
-      signUp, 
-      signIn, 
-      signOut, 
-      refreshProfile
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

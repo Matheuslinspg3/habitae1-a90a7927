@@ -85,8 +85,7 @@ export function useProperties() {
           .from('properties')
           .select(`
             *,
-            property_type:property_types(*),
-            images:property_images(*)
+            property_type:property_types(*)
           `)
           .eq('organization_id', profile.organization_id)
           .order('created_at', { ascending: false })

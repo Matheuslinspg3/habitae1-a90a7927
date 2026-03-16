@@ -351,9 +351,7 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('[ImportProgress] Error checking running imports:', err);
       }
-    };
-
-    checkRunningImports();
+    }
   }, [startTracking]);
 
   return (

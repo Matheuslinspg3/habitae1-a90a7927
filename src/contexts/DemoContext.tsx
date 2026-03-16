@@ -120,7 +120,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const startDemo = () => {
+  const startDemo = useCallback(() => {
     const newDemoUser: DemoUser = {
       id: generateDemoId(),
       email: "demo@habitae.app",
@@ -133,30 +133,30 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setDemoUser(newDemoUser);
     sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(newDemoUser));
     navigate("/dashboard");
-  };
+  }, [navigate]);
 
-  const endDemo = () => {
+  const endDemo = useCallback(() => {
     setDemoUser(null);
     sessionStorage.removeItem(DEMO_SESSION_KEY);
     navigate("/demo");
-  };
+  }, [navigate]);
 
   const isDemoMode = demoUser !== null;
 
+  const contextValue = useMemo(() => ({
+    isDemoMode,
+    demoUser,
+    startDemo,
+    endDemo,
+    demoData: initialDemoData,
+    demoStats,
+    recentActivities: demoActivities,
+    todayTasks,
+    todayAppointments,
+  }), [isDemoMode, demoUser, startDemo, endDemo, demoStats, todayTasks, todayAppointments]);
+
   return (
-    <DemoContext.Provider
-      value={{
-        isDemoMode,
-        demoUser,
-        startDemo,
-        endDemo,
-        demoData: initialDemoData,
-        demoStats,
-        recentActivities: demoActivities,
-        todayTasks,
-        todayAppointments,
-      }}
-    >
+    <DemoContext.Provider value={contextValue}>
       {children}
     </DemoContext.Provider>
   );

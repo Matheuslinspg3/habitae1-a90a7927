@@ -37,13 +37,15 @@ export function useContracts() {
   const queryClient = useQueryClient();
 
   const { data: contracts = [], isLoading, error } = useQuery({
-    queryKey: ['contracts'],
+    queryKey: ['contracts', profile?.organization_id],
     staleTime: 5 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
       // Buscar contratos
       const { data: contractsData, error: contractsError } = await supabase
         .from('contracts')
         .select('*')
+        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
