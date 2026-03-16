@@ -5174,6 +5174,7 @@ export type Database = {
         Args: { p_end: string; p_org_id: string; p_start: string }
         Returns: Json
       }
+      fn_dashboard_stats: { Args: { p_org_id: string }; Returns: Json }
       fn_funnel_detail: {
         Args: { p_end: string; p_org_id: string; p_start: string }
         Returns: Json
