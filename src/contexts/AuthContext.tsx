@@ -227,9 +227,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrganizationType(null);
     logoutOneSignal();
     await supabase.auth.signOut();
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id);
     }
