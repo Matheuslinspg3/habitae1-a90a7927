@@ -175,7 +175,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       const originalSize = file.size;
       const compressed = await compressPdf(file);
       const compressionRatio = ((1 - compressed.length / originalSize) * 100).toFixed(0);
-      console.log(`PDF compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressed.length)} (${compressionRatio}% reduction)`);
+      if (import.meta.env.DEV) console.log(`PDF compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressed.length)} (${compressionRatio}% reduction)`);
 
       // Method 3: Split into chunks if still large
       const CHUNK_LIMIT = 8 * 1024 * 1024; // 8MB per chunk
