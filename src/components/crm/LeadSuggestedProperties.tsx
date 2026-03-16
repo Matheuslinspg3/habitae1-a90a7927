@@ -178,7 +178,7 @@ export function LeadSuggestedProperties({ lead }: { lead: Lead }) {
 
                 {img && (
                   <div className="flex-shrink-0 w-14 h-12 rounded-md overflow-hidden bg-muted">
-                    <img src={img} alt={p.title} className="w-full h-full object-cover" />
+                    <OptimizedImage src={img} alt={p.title} className="w-full h-full object-cover" />
                   </div>
                 )}
 
