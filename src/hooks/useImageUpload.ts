@@ -323,7 +323,7 @@ export function useImageUpload() {
 
       // Always try R2 first — use a temp UUID if propertyId is not yet available
       const effectivePropertyId = options?.propertyId || crypto.randomUUID();
-      console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
+      if (import.meta.env.DEV) console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
       setUploadProgress(30);
       result = await uploadToR2Proxy(file, effectivePropertyId);
       setUploadProgress(80);
