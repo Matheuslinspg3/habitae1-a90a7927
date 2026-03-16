@@ -17,6 +17,7 @@ import {
   UserCog,
   Megaphone,
   Search,
+  CreditCard,
 } from "lucide-react";
 import { NotificationBell } from "@/components/NotificationBell";
 import { NavLink } from "@/components/NavLink";
@@ -197,6 +198,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {renderMenuItem({ title: "Planos", url: "/planos", icon: CreditCard })}
               {renderMenuItem({ title: "Configurações", url: "/configuracoes", icon: Settings })}
             </SidebarMenu>
           </SidebarGroupContent>
