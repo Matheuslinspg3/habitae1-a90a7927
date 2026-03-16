@@ -17,9 +17,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MAX_FUNCTION_TIME_MS = 50_000; // leave 10s buffer before 60s timeout
-const DOWNLOAD_TIMEOUT_MS = 12_000;  // 12s per image download
-const MAX_RETRIES = 2;
+const MAX_FUNCTION_TIME_MS = 45_000; // leave 15s buffer before 60s timeout
+const DOWNLOAD_TIMEOUT_MS = 8_000;   // 8s per image download
+const MAX_RETRIES = 1;
 
 async function putObjectToR2(
   aws: AwsClient, body: Uint8Array, key: string, ct: string, endpoint: string, bucket: string,
