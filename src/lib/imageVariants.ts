@@ -125,12 +125,15 @@ export async function generateImageVariants(
     resizeToBlob(img, opts.thumbMaxWidth, opts.thumbQuality),
   ]);
 
-  const originalKB = (file.size / 1024).toFixed(0);
-  const fullKB = (full.blob.size / 1024).toFixed(0);
-  const thumbKB = (thumb.blob.size / 1024).toFixed(0);
-  console.log(
-    `[VARIANTS] ${originalKB}KB → full: ${fullKB}KB (${full.width}×${full.height}), thumb: ${thumbKB}KB (${thumb.width}×${thumb.height})`,
-  );
+  // PERF: UX — conditional logging in production
+  if (import.meta.env.DEV) {
+    const originalKB = (file.size / 1024).toFixed(0);
+    const fullKB = (full.blob.size / 1024).toFixed(0);
+    const thumbKB = (thumb.blob.size / 1024).toFixed(0);
+    console.log(
+      `[VARIANTS] ${originalKB}KB → full: ${fullKB}KB (${full.width}×${full.height}), thumb: ${thumbKB}KB (${thumb.width}×${thumb.height})`,
+    );
+  }
 
   return { full, thumb };
 }

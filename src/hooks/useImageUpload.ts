@@ -381,7 +381,7 @@ export function useImageUpload() {
   }, [uploadImage, duplicatesFound, toast]);
 
   const deleteImage = useCallback(async (publicId: string): Promise<boolean> => {
-    console.log('Imagem marcada para remoção:', publicId);
+    if (import.meta.env.DEV) console.log('Imagem marcada para remoção:', publicId);
     return true;
   }, []);
 
