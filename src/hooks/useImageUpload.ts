@@ -343,7 +343,7 @@ export function useImageUpload() {
       }
 
       setUploadProgress(100);
-      console.log(`[UPLOAD] Concluído via ${result.storageProvider}: ${result.url}`);
+      if (import.meta.env.DEV) console.log(`[UPLOAD] Concluído via ${result.storageProvider}: ${result.url}`);
       return { ...result, phash };
     } catch (error: any) {
       console.error('Erro no upload:', error);
