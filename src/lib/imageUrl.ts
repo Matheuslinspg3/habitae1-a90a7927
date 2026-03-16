@@ -4,6 +4,7 @@
  */
 
 const R2_PUBLIC_BASE = import.meta.env.VITE_R2_PUBLIC_URL || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 
 export type ImageVariantType = 'thumb' | 'full';
 
