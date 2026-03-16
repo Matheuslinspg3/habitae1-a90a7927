@@ -1,66 +1,53 @@
 
 
-## Etapa 5 — Otimização de Assets e Imagens
+## Diagnóstico: RD Station nao puxa leads via API
 
-### Estado atual
-- `OptimizedImage` componente existe mas **não é usado em nenhum lugar** — apenas definido
-- 34 arquivos usam `<img>` direto, sem placeholders skeleton nem aspect-ratio consistente
-- Google Fonts já usa `&display=swap` — OK
-- `preconnect` para fonts.googleapis.com e fonts.gstatic.com já existe — OK
-- Fontes dinâmicas usam `loadFont()` sob demanda — OK, não precisa de mudança
-- Ícones usam lucide-react com imports individuais (tree-shaking funciona) — OK
-- `PropertyCard` já tem `loading="lazy"` e `decoding="async"` nas imagens, mas sem skeleton placeholder
+Após análise completa do código, identifiquei o problema:
 
-### Plano de mudanças
+**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
 
-**1. Aprimorar `OptimizedImage` para ser o componente universal**
+1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
+2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
 
-Adicionar ao componente existente:
-- Prop `aspectRatio` (default `"video"` = 16/9) para reservar espaço e eliminar CLS
-- Prop `fetchPriority` para imagens above-the-fold
-- Skeleton placeholder animado enquanto a imagem carrega (bg-muted com pulse)
-- Wrapper `<div>` com aspect-ratio que reserva o espaço antes do load
+Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
 
-**2. Substituir `<img>` direto pelo `OptimizedImage` nos componentes principais**
+---
 
-Arquivos com maior impacto (listas com muitas imagens):
-- `PropertyCard.tsx` — cover image (lista principal de imóveis)
-- `PropertyListItem.tsx` — thumbnail da lista
-- `ImageViewer.tsx` — galeria de imagens (thumbnails + grid)
-- `MarketplacePropertyDetails.tsx` — galeria pública
-- `PropertyDetail.tsx` (app/) — carrossel público
-- `AdImageGenerator.tsx` — seletor de fotos para anúncios
-- `BrandSettingsContent.tsx` — logo da marca
-- `LeadSuggestedProperties.tsx` — thumbnails de sugestões
+### Plano: Criar sincronização ativa de leads via API do RD Station
 
-**3. Fontes — reduzir carga inicial no `index.html`**
+**1. Nova Edge Function `rd-station-sync-leads`**
+- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
+- Chamar `GET https://api.rd.services/platform/contacts` com paginação
+- Para cada contato retornado, verificar duplicata por email na tabela `leads`
+- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
+- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
+- Retornar resumo (criados, duplicados, erros)
 
-O `index.html` carrega 10 famílias de fontes eagerly (Inter, DM Sans, Playfair, Montserrat, Raleway, Poppins, Lora, Outfit, Space Grotesk, Sora). Apenas **Inter** e **DM Sans** são usadas no CSS base. As outras 8 são fontes opcionais para branding/marketing e já têm o sistema `loadFont()` dinâmico.
+**2. Botão "Sincronizar Leads" na interface**
+- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
+- Ao clicar, invocar a nova edge function
+- Mostrar progresso e resultado (quantos leads importados/duplicados)
 
-Ação: remover as 8 fontes opcionais do `<link>` no `index.html`, manter apenas Inter e DM Sans. As outras serão carregadas sob demanda pelo `loadFont()` quando necessário.
+**3. Validações**
+- Exigir que `api_private_key` esteja configurada
+- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
+- Respeitar deduplicação por email
 
-**4. Não precisa de mudança**
-- `font-display: swap` — já configurado via `&display=swap` no Google Fonts URL
-- `preconnect` — já existe para fonts.googleapis e gstatic
-- SVGs/ícones — todos via lucide-react (componentes React inline), sem SVGs externos pesados
-- `loadFont()` dinâmico — já funciona bem para fontes opcionais
+### Detalhes Técnicos
 
-### Arquivos modificados
+```text
+Fluxo:
+  Botão "Sincronizar" 
+    → supabase.functions.invoke("rd-station-sync-leads")
+      → GET api.rd.services/platform/contacts?limit=100
+      → Para cada contato:
+         ├─ email existe em leads? → skip (duplicate)
+         └─ não existe → INSERT leads + log em rd_station_webhook_logs
+      → Retorna { created: N, duplicates: N, errors: N }
+```
 
-- `src/components/ui/optimized-image.tsx` — adicionar aspectRatio, fetchPriority, skeleton placeholder
-- `src/components/properties/PropertyCard.tsx` — usar OptimizedImage
-- `src/components/properties/PropertyListItem.tsx` — usar OptimizedImage
-- `src/components/properties/ImageViewer.tsx` — usar OptimizedImage nos thumbnails/grid
-- `src/pages/MarketplacePropertyDetails.tsx` — usar OptimizedImage
-- `src/pages/app/PropertyDetail.tsx` — usar OptimizedImage
-- `src/components/ads/AdImageGenerator.tsx` — usar OptimizedImage
-- `src/components/crm/LeadSuggestedProperties.tsx` — usar OptimizedImage
-- `index.html` — remover 8 fontes opcionais do link (manter Inter + DM Sans)
-
-### Impacto estimado
-
-- **~30+ imagens** otimizadas com skeleton placeholder + aspect-ratio
-- **CLS eliminado** em todas as listas de imóveis (PropertyCard, PropertyListItem, ImageViewer)
-- **~200KB de fontes** removidas do carregamento inicial (8 famílias × ~25KB cada)
-- **Carregamento inicial** significativamente mais rápido (menos fontes blocking render)
+Arquivos a criar/modificar:
+- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
+- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
+- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
 
