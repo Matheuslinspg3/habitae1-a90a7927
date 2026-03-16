@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Pencil } from "lucide-react";
+import { Loader2, Eye, Pencil, Sparkles } from "lucide-react";
 import { RichTextEditor, AVAILABLE_VARIABLES } from "./RichTextEditor";
 import { supabase } from "@/integrations/supabase/client";
 import type { ContractTemplate, ContractTemplateFormData } from "@/hooks/useContractTemplates";
@@ -74,19 +74,27 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
   const [bodyHtml, setBodyHtml] = useState("");
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
   const isMobile = useIsMobile();
 
   const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Descreva o que deseja no template.");
+      return;
+    }
     setIsAiGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-contract-template", {
-        body: { contractType, templateName: name, description },
+        body: { contractType, templateName: name, description: aiPrompt },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.html) {
         setBodyHtml(data.html);
         toast.success("Template gerado com IA!");
+        setAiDialogOpen(false);
+        setAiPrompt("");
       }
     } catch (err: any) {
       console.error(err);
@@ -192,7 +200,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           onChange={setBodyHtml}
           placeholder="Escreva o modelo do contrato aqui. Use o botão 'Inserir Variável' para adicionar campos dinâmicos..."
           className="h-full [&_.ProseMirror]:min-h-[400px]"
-          onAiGenerate={handleAiGenerate}
+          onAiGenerate={() => setAiDialogOpen(true)}
           isAiGenerating={isAiGenerating}
         />
       </div>
@@ -255,6 +263,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] h-[90dvh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-3 border-b shrink-0">
@@ -343,5 +352,48 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* AI Generation Dialog */}
+    <Dialog open={aiDialogOpen} onOpenChange={(v) => { if (!isAiGenerating) setAiDialogOpen(v); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Gerar Template com IA
+          </DialogTitle>
+          <DialogDescription>
+            Descreva o que deseja no contrato. A IA irá redigir o documento completo com as variáveis dinâmicas.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label htmlFor="ai-prompt">O que este contrato deve conter?</Label>
+            <Textarea
+              id="ai-prompt"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Ex: Contrato de locação residencial com cláusulas de garantia, multa por atraso, e vistoria de entrada e saída..."
+              className="mt-1.5 min-h-[120px] resize-none"
+              disabled={isAiGenerating}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={() => setAiDialogOpen(false)} disabled={isAiGenerating}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleAiGenerate}
+            disabled={isAiGenerating || !aiPrompt.trim()}
+            className="gap-1.5"
+          >
+            {isAiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isAiGenerating ? "Gerando..." : "Gerar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

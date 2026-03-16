@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -56,6 +57,13 @@ export function RichTextEditor({ content, onChange, placeholder, className, onAi
       onChange(editor.getHTML());
     },
   });
+
+  // Sync editor content when it changes externally (e.g. AI generation)
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
 
   if (!editor) return null;
 
