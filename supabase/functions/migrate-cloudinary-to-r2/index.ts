@@ -200,6 +200,7 @@ Deno.serve(async (req) => {
     // ── Process images ──
     let migrated = 0, failed = 0, skipped = 0;
     const errors: string[] = [];
+    console.log(`[migrate] Starting loop for ${images.length} images, time elapsed: ${Date.now() - startTime}ms`);
 
     for (const img of images) {
       // Time guard: stop if approaching timeout
