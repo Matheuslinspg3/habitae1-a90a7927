@@ -352,6 +352,10 @@ export default function Financial() {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="templates" className="mt-4">
+            <ContractTemplatesTab />
+          </TabsContent>
         </Tabs>
       </div>
 
