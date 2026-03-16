@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Home, Users, FileText, DollarSign } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
