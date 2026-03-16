@@ -21,7 +21,7 @@ export function AdvancedKPIs({ dateRange }: Props) {
 
   return (
     <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 stagger-children">
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <StatCard
           key={card.title}
           title={card.title}
@@ -30,6 +30,7 @@ export function AdvancedKPIs({ dateRange }: Props) {
           icon={card.icon}
           trend={card.trend}
           isLoading={isLoading}
+          colorIndex={index}
         />
       ))}
     </div>

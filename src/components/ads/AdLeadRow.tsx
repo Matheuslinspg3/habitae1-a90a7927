@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { AdLead, useAdLeads } from "@/hooks/useAdLeads";
 import { useLeadStages } from "@/hooks/useLeadStages";
 import { useAdSettings } from "@/hooks/useAdSettings";
@@ -27,7 +27,8 @@ interface AdLeadRowProps {
   showAdName?: boolean;
 }
 
-export function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
+// PERF: memo prevents re-render of unaffected lead rows
+export const AdLeadRow = memo(function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
   const { updateStatus, sendToCrm, isSending } = useAdLeads();
   const { leadStages } = useLeadStages();
   const { settings } = useAdSettings();
@@ -149,4 +150,4 @@ export function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
       </Dialog>
     </>
   );
-}
+});

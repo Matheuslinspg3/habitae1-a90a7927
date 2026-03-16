@@ -1,52 +1,53 @@
 
-## Etapa 3 — Otimizacao de Componentes React (Re-renders)
 
-### Estado atual
-- `LeadCard` e `KanbanColumn` ja usam `memo` — nao precisam de mudanca
-- `PropertyCard`, `PropertyListItem`, `SelectablePropertyCard`, `StatCard`, `MobileOwnerCard`, `AdLeadRow` nao usam `memo`
-- `Properties.tsx` ja usa `useCallback` e `useMemo` extensivamente (bom estado)
-- `OwnerTable.tsx` tem filtro `filtered` sem `useMemo` e handlers inline sem `useCallback`
-- `StatCard` usa um module-level `cardIndex++` que e problematico (nao determinista em re-renders)
-- `DetailedFunnel.tsx` tem `stagesWithRates` sem `useMemo`
+## Diagnóstico: RD Station nao puxa leads via API
 
-### Plano de mudancas
+Após análise completa do código, identifiquei o problema:
 
-**1. Adicionar `React.memo` a componentes de lista** (maior impacto)
-- `PropertyCard` — wrap com `memo`
-- `PropertyListItem` — wrap com `memo`
-- `SelectablePropertyCard` — wrap com `memo`
-- `StatCard` — wrap com `memo`, remover `cardIndex` global (passar cor via prop ou usar index do array)
-- `MobileOwnerCard` — wrap com `memo`
-- `AdLeadRow` — wrap com `memo`
+**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
 
-**2. Memoizar calculos derivados**
-- `OwnerTable.tsx`: memoizar `filtered` com `useMemo`
-- `DetailedFunnel.tsx`: memoizar `stagesWithRates` com `useMemo`
-- `KanbanBoard.tsx` linha 373: `propertyOptions` ja esta memoizado (ok)
+1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
+2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
 
-**3. Estabilizar handlers com `useCallback`**
-- `OwnerTable.tsx`: `toggleAll`, `toggleOne`, `handleBulkDelete` — wrap com `useCallback`
-- `Properties.tsx` linhas 503-505: `handleCreateClick`, `handleEditClick`, `handleDeleteClick` — wrap com `useCallback` (sao passados como props para list items)
-- `KanbanBoard.tsx`: `handleTemperatureChange` — wrap com `useCallback`
+Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
 
-**4. Corrigir `StatCard` cardIndex**
-- O module-level `cardIndex++` e um anti-pattern que produz cores inconsistentes em re-renders
-- Passar `colorIndex` como prop ou usar a posicao do array no Dashboard
+---
 
-### Arquivos modificados
-- `src/components/properties/PropertyCard.tsx` — memo
-- `src/components/properties/PropertyListItem.tsx` — memo
-- `src/components/properties/SelectablePropertyCard.tsx` — memo
-- `src/components/dashboard/StatCard.tsx` — memo + colorIndex prop
-- `src/components/owners/MobileOwnerCard.tsx` — memo
-- `src/components/ads/AdLeadRow.tsx` — memo
-- `src/components/owners/OwnerTable.tsx` — useMemo + useCallback
-- `src/components/dashboard/DetailedFunnel.tsx` — useMemo
-- `src/pages/Properties.tsx` — useCallback para 3 handlers
-- `src/components/crm/KanbanBoard.tsx` — useCallback para handleTemperatureChange
-- `src/pages/Dashboard.tsx` — pass colorIndex to StatCard
+### Plano: Criar sincronização ativa de leads via API do RD Station
 
-### Regras
-- Zero mudancas visuais
-- Zero mudancas de logica de negocio
-- Comentarios `// PERF:` em cada mudanca
+**1. Nova Edge Function `rd-station-sync-leads`**
+- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
+- Chamar `GET https://api.rd.services/platform/contacts` com paginação
+- Para cada contato retornado, verificar duplicata por email na tabela `leads`
+- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
+- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
+- Retornar resumo (criados, duplicados, erros)
+
+**2. Botão "Sincronizar Leads" na interface**
+- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
+- Ao clicar, invocar a nova edge function
+- Mostrar progresso e resultado (quantos leads importados/duplicados)
+
+**3. Validações**
+- Exigir que `api_private_key` esteja configurada
+- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
+- Respeitar deduplicação por email
+
+### Detalhes Técnicos
+
+```text
+Fluxo:
+  Botão "Sincronizar" 
+    → supabase.functions.invoke("rd-station-sync-leads")
+      → GET api.rd.services/platform/contacts?limit=100
+      → Para cada contato:
+         ├─ email existe em leads? → skip (duplicate)
+         └─ não existe → INSERT leads + log em rd_station_webhook_logs
+      → Retorna { created: N, duplicates: N, errors: N }
+```
+
+Arquivos a criar/modificar:
+- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
+- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
+- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+

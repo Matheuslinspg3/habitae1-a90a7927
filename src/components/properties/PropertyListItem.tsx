@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,8 @@ interface PropertyListItemProps {
   isPublished?: boolean;
 }
 
-export function PropertyListItem({
+// PERF: memo prevents re-render when sibling list items change
+export const PropertyListItem = memo(function PropertyListItem({
   property,
   isSelected,
   isSelectionMode,
@@ -233,4 +235,4 @@ export function PropertyListItem({
       </div>
     </div>
   );
-}
+});

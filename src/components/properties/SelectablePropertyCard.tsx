@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, memo } from "react";
 import { PropertyWithDetails } from "@/hooks/useProperties";
 import { PropertyCard } from "./PropertyCard";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,7 +16,8 @@ interface SelectablePropertyCardProps {
   onLongPressSelect?: (id: string) => void;
 }
 
-export function SelectablePropertyCard({
+// PERF: memo prevents re-render of unaffected cards in selection mode
+export const SelectablePropertyCard = memo(function SelectablePropertyCard({
   property,
   isSelected,
   isSelectionMode,
@@ -124,4 +125,4 @@ export function SelectablePropertyCard({
       />
     </div>
   );
-}
+});

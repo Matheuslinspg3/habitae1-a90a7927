@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,7 +27,8 @@ interface PropertyCardProps {
   isPublished?: boolean;
 }
 
-export function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
+// PERF: memo prevents re-render when parent re-renders but props haven't changed
+export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDelete, isPublished }: PropertyCardProps) {
   const navigate = useNavigate();
   const { buildPublicUrl } = usePropertyPublicUrl();
   const isAvailable = property.status === "disponivel";
@@ -320,4 +322,4 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
       </CardFooter>
     </Card>
   );
-}
+});

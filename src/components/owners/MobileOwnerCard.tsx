@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,8 @@ interface MobileOwnerCardProps {
   onToggleSelect?: () => void;
 }
 
-export function MobileOwnerCard({ owner, onSelect, onEdit, onDelete, selected, onToggleSelect }: MobileOwnerCardProps) {
+// PERF: memo prevents re-render of unaffected owner cards
+export const MobileOwnerCard = memo(function MobileOwnerCard({ owner, onSelect, onEdit, onDelete, selected, onToggleSelect }: MobileOwnerCardProps) {
   return (
     <Card className={`cursor-pointer active:scale-[0.98] transition-transform ${selected ? "ring-2 ring-primary/40 bg-primary/5" : ""}`} onClick={() => onSelect(owner)}>
       <CardContent className="p-4">
@@ -57,4 +59,4 @@ export function MobileOwnerCard({ owner, onSelect, onEdit, onDelete, selected, o
       </CardContent>
     </Card>
   );
-}
+});
