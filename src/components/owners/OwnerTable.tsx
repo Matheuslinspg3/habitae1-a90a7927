@@ -33,7 +33,8 @@ export function OwnerTable({ owners, isLoading, onSelect, onEdit, onDelete, onAd
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const filtered = owners.filter((o) => {
+  // PERF: memoize filtered list to avoid recalculating on unrelated state changes
+  const filtered = useMemo(() => owners.filter((o) => {
     const q = search.toLowerCase();
     if (!q) return true;
     return (
@@ -43,7 +44,7 @@ export function OwnerTable({ owners, isLoading, onSelect, onEdit, onDelete, onAd
       o.document?.includes(q) ||
       o.aliases.some((a) => a.name.toLowerCase().includes(q))
     );
-  });
+  }), [owners, search]);
 
   const allSelected = filtered.length > 0 && filtered.every((o) => selectedIds.has(o.id));
   const someSelected = filtered.some((o) => selectedIds.has(o.id));
