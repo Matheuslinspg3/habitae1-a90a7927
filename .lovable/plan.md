@@ -1,53 +1,81 @@
 
 
-## Diagnóstico: RD Station nao puxa leads via API
+## Etapa 6 — Performance Percebida e Polimento Final
 
-Após análise completa do código, identifiquei o problema:
+### Diagnóstico
 
-**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
+**Skeletons ausentes (texto "Carregando..." em vez de skeleton):**
+- `MetaAdDetail.tsx` — texto puro "Carregando..."
+- `MetaLeadsInboxContent.tsx` — texto puro
+- `AdDetailStats.tsx` — texto puro
+- `AdDetailLeads.tsx` — texto puro
+- `MetaStatsContent.tsx` — texto puro
+- `MetaLeadsInbox.tsx` — texto puro
+- `MetaStats.tsx` — texto puro
+- `LeadInteractionTimeline.tsx` — texto puro
+- `OwnerDetails.tsx` — texto puro
+- `ImportPendencies.tsx` — spinner sem skeleton
 
-1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
-2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
+**Debounce ausente:**
+- `Search.tsx` (app consumer) — `city` input dispara query a cada tecla, sem debounce. Precisa de debounce 300ms.
 
-Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
+**Debounce já implementado (OK):**
+- `GlobalCommandPalette` (250ms), `GeradorVideoContent` (300ms), `GeradorAnuncios` (300ms), `UnifiedPropertySearch` — todos OK.
 
----
+**Console.logs em produção:**
+- ~196 `console.log` em 16 arquivos. Maioria são logs de debug em `PdfImportDialog`, `useImageUpload`, `onesignal`, `imageVariants`, `usePushNotifications`. Estes são úteis para debugging de upload/push — não remover, mas converter para condicional `import.meta.env.DEV`.
 
-### Plano: Criar sincronização ativa de leads via API do RD Station
+**Keys com index:**
+- 75 usos de `key={index}` em 8 arquivos. Maioria são listas estáticas (amenities, features, breadcrumbs, image galleries) onde index key é aceitável. Não há listas reordenáveis usando index keys.
 
-**1. Nova Edge Function `rd-station-sync-leads`**
-- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
-- Chamar `GET https://api.rd.services/platform/contacts` com paginação
-- Para cada contato retornado, verificar duplicata por email na tabela `leads`
-- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
-- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
-- Retornar resumo (criados, duplicados, erros)
+**Marketplace skeleton:**
+- Usa `<Skeleton className="h-[420px]" />` genérico em vez de card skeleton estruturado.
 
-**2. Botão "Sincronizar Leads" na interface**
-- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
-- Ao clicar, invocar a nova edge function
-- Mostrar progresso e resultado (quantos leads importados/duplicados)
+### Plano de mudanças
 
-**3. Validações**
-- Exigir que `api_private_key` esteja configurada
-- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
-- Respeitar deduplicação por email
+**1. Debounce no Search.tsx do consumer app**
+- Adicionar `debouncedCity` com debounce de 300ms
+- Passar `debouncedCity` para `useConsumerProperties` em vez de `city`
 
-### Detalhes Técnicos
+**2. Substituir "Carregando..." por skeletons nos componentes de ads/meta**
+- `MetaAdDetail.tsx` — skeleton com tabs layout
+- `AdDetailLeads.tsx` — skeleton com rows
+- `AdDetailStats.tsx` — skeleton com cards
+- `MetaLeadsInboxContent.tsx` — skeleton com list items
+- `MetaStatsContent.tsx` — skeleton com chart placeholder
+- `LeadInteractionTimeline.tsx` — skeleton com timeline items
+- `OwnerDetails.tsx` — skeleton com info blocks
+- `ImportPendencies.tsx` — skeleton com table rows
 
-```text
-Fluxo:
-  Botão "Sincronizar" 
-    → supabase.functions.invoke("rd-station-sync-leads")
-      → GET api.rd.services/platform/contacts?limit=100
-      → Para cada contato:
-         ├─ email existe em leads? → skip (duplicate)
-         └─ não existe → INSERT leads + log em rd_station_webhook_logs
-      → Retorna { created: N, duplicates: N, errors: N }
-```
+**3. Marketplace skeleton melhorado**
+- Trocar `<Skeleton className="h-[420px]" />` por card skeletons estruturados (imagem + texto + badges)
 
-Arquivos a criar/modificar:
-- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
-- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
-- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+**4. Console.logs condicionais**
+- Criar helper `debugLog()` que só loga em dev
+- Substituir `console.log` nos arquivos de produção por `if (import.meta.env.DEV)` guard nos principais: `useImageUpload.ts`, `PdfImportDialog.tsx`, `imageVariants.ts`
+
+**5. Optimistic update no ConsumerPropertyCard (favoritar)**
+- Já implementado no `useConsumerFavorites` com `onMutate` — OK, não precisa de mudança
+
+### Arquivos modificados
+
+- `src/pages/app/Search.tsx` — debounce no input de cidade
+- `src/pages/ads/MetaAdDetail.tsx` — skeleton
+- `src/components/ads/AdDetailLeads.tsx` — skeleton
+- `src/components/ads/AdDetailStats.tsx` — skeleton
+- `src/components/ads/MetaLeadsInboxContent.tsx` — skeleton
+- `src/components/ads/MetaStatsContent.tsx` — skeleton
+- `src/components/crm/LeadInteractionTimeline.tsx` — skeleton
+- `src/components/owners/OwnerDetails.tsx` — skeleton
+- `src/pages/ImportPendencies.tsx` — skeleton
+- `src/pages/Marketplace.tsx` — card skeleton melhorado
+- `src/hooks/useImageUpload.ts` — console.log condicional
+- `src/components/properties/PdfImportDialog.tsx` — console.log condicional
+- `src/lib/imageVariants.ts` — console.log condicional
+
+### Resumo geral das 6 etapas (será incluído na implementação)
+
+Ao final, incluirei um resumo consolidado de todas as etapas com:
+- O que foi encontrado e corrigido em cada etapa
+- Sugestões de melhorias manuais (índices no banco, compressão de imagens, CDN)
 
