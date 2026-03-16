@@ -352,5 +352,48 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* AI Generation Dialog */}
+    <Dialog open={aiDialogOpen} onOpenChange={(v) => { if (!isAiGenerating) setAiDialogOpen(v); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Gerar Template com IA
+          </DialogTitle>
+          <DialogDescription>
+            Descreva o que deseja no contrato. A IA irá redigir o documento completo com as variáveis dinâmicas.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <Label htmlFor="ai-prompt">O que este contrato deve conter?</Label>
+            <Textarea
+              id="ai-prompt"
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              placeholder="Ex: Contrato de locação residencial com cláusulas de garantia, multa por atraso, e vistoria de entrada e saída..."
+              className="mt-1.5 min-h-[120px] resize-none"
+              disabled={isAiGenerating}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={() => setAiDialogOpen(false)} disabled={isAiGenerating}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleAiGenerate}
+            disabled={isAiGenerating || !aiPrompt.trim()}
+            className="gap-1.5"
+          >
+            {isAiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {isAiGenerating ? "Gerando..." : "Gerar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
