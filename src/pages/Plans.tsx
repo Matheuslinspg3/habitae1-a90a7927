@@ -1,38 +1,47 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
 import {
-  Building2,
-  Search,
-  Send,
-  Users,
-  Heart,
-  BarChart3,
-  MessageCircle,
-  Clock,
-  Shield,
-  Check,
-  Crown,
-  Star,
-  Briefcase,
-  Sparkles,
-  Image,
-  Video,
-  Megaphone,
-  FileText,
-  CalendarDays,
-  Link,
-  Import,
-  Activity,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Building2, Search, Send, Users, Heart, BarChart3, MessageCircle, Clock,
+  Shield, Check, Crown, Star, Briefcase, Sparkles, Image, Video, Megaphone,
+  FileText, CalendarDays, Link, Import, Activity, CreditCard, Calendar,
+  CheckCircle2, AlertTriangle, XCircle, RefreshCw, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSubscription, SubscriptionPlan } from "@/hooks/useSubscription";
+import { useAuth } from "@/contexts/AuthContext";
 import { CheckoutDialog } from "@/components/billing/CheckoutDialog";
+import { format, differenceInDays, differenceInHours, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
+/* ─── Status config ─── */
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
+  active: { label: "Ativo", variant: "default", icon: CheckCircle2 },
+  trial: { label: "Período de teste", variant: "secondary", icon: Clock },
+  overdue: { label: "Pagamento pendente", variant: "destructive", icon: AlertTriangle },
+  cancelled: { label: "Cancelado", variant: "outline", icon: XCircle },
+  suspended: { label: "Suspenso", variant: "destructive", icon: AlertTriangle },
+  expired: { label: "Expirado", variant: "outline", icon: XCircle },
+  pending: { label: "Pendente", variant: "secondary", icon: Clock },
+};
+
+const methodLabels: Record<string, string> = {
+  pix: "PIX",
+  credit: "Cartão de Crédito",
+  credit_card: "Cartão de Crédito",
+  boleto: "Boleto Bancário",
+};
+
+/* ─── Plan UI map ─── */
 interface PlanUI {
   slug: string;
   tagline: string;
@@ -123,6 +132,228 @@ const planUIMap: Record<string, PlanUI> = {
   },
 };
 
+/* ─── Current Plan Section ─── */
+function CurrentPlanSection() {
+  const { trialInfo } = useAuth();
+  const { subscription, payments, loadingSub, loadingPayments, cancel, isOverdue, isCancelled } = useSubscription();
+
+  const status = subscription?.status || "cancelled";
+  const cfg = statusConfig[status] || statusConfig.cancelled;
+  const StatusIcon = cfg.icon;
+
+  // Trial info
+  const hasTrial = trialInfo && trialInfo.trial_ends_at;
+  const now = new Date();
+  const endsAt = hasTrial ? parseISO(trialInfo.trial_ends_at!) : null;
+  const startedAt = hasTrial && trialInfo.trial_started_at ? parseISO(trialInfo.trial_started_at) : null;
+  const isExpired = trialInfo?.is_trial_expired || false;
+  const daysRemaining = endsAt ? Math.max(0, differenceInDays(endsAt, now)) : 0;
+  const hoursRemaining = endsAt ? Math.max(0, differenceInHours(endsAt, now) % 24) : 0;
+  const totalTrialDays = startedAt && endsAt ? differenceInDays(endsAt, startedAt) : 7;
+  const daysElapsed = startedAt ? differenceInDays(now, startedAt) : totalTrialDays - daysRemaining;
+  const progressPercent = Math.min(100, Math.max(0, (daysElapsed / totalTrialDays) * 100));
+
+  const recentPayments = (payments || []).slice(0, 3);
+
+  if (loadingSub) {
+    return <Skeleton className="h-40 rounded-xl" />;
+  }
+
+  if (!subscription && !hasTrial) return null;
+
+  return (
+    <Card className="mb-8 border-primary/20">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Sua assinatura
+            </CardTitle>
+            <CardDescription>Gerencie seu plano, renovação e pagamento</CardDescription>
+          </div>
+          <Badge variant={cfg.variant} className="gap-1">
+            <StatusIcon className="h-3 w-3" />
+            {cfg.label}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Subscription details */}
+        {subscription && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Plano atual</p>
+              <p className="font-semibold text-lg">{subscription.plan?.name || "—"}</p>
+              <p className="text-sm font-medium text-primary">
+                R$ {Number(subscription.plan?.price_monthly || 0).toFixed(0)}/mês
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Próxima renovação</p>
+                  <p className="text-sm font-medium">
+                    {subscription.current_period_end
+                      ? format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Método de pagamento</p>
+                  <p className="text-sm font-medium">
+                    {methodLabels[subscription.payment_method || ""] || "Não definido"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Trial countdown */}
+        {hasTrial && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <div className={cn(
+                "flex items-center gap-4 p-4 rounded-xl border",
+                isExpired
+                  ? "bg-destructive/10 border-destructive/20"
+                  : daysRemaining <= 3
+                    ? "bg-warning/10 border-warning/20"
+                    : "bg-primary/5 border-primary/20"
+              )}>
+                {isExpired ? (
+                  <AlertTriangle className="h-10 w-10 flex-shrink-0 text-destructive" />
+                ) : daysRemaining <= 3 ? (
+                  <Clock className="h-10 w-10 flex-shrink-0 text-warning" />
+                ) : (
+                  <CheckCircle2 className="h-10 w-10 flex-shrink-0 text-primary" />
+                )}
+                <div className="flex-1 min-w-0">
+                  {isExpired ? (
+                    <>
+                      <p className="font-bold text-sm">Período de teste encerrado</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Seu teste gratuito expirou em {endsAt && format(endsAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold tabular-nums">{daysRemaining}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {daysRemaining === 1 ? "dia" : "dias"}
+                          {hoursRemaining > 0 && ` e ${hoursRemaining}h`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Teste gratuito até {endsAt && format(endsAt, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{startedAt && `Início: ${format(startedAt, "dd/MM/yyyy")}`}</span>
+                  <span>{endsAt && `Término: ${format(endsAt, "dd/MM/yyyy")}`}</span>
+                </div>
+                <Progress value={progressPercent} className="h-2.5" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Overdue banner */}
+        {isOverdue && (
+          <div className="flex items-center gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/5">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Pagamento pendente</p>
+              <p className="text-xs text-muted-foreground">Sua assinatura está com pagamento em atraso.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Recent payments */}
+        {recentPayments.length > 0 && !loadingPayments && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Últimos pagamentos</p>
+              <div className="space-y-2">
+                {recentPayments.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>R$ {(p.amount_cents / 100).toFixed(2)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {methodLabels[p.method || ""] || p.method}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(p.created_at), "dd/MM/yyyy")}
+                      </span>
+                      <Badge variant={p.status === "confirmed" ? "default" : p.status === "pending" ? "secondary" : "destructive"} className="text-xs h-5">
+                        {p.status === "confirmed" ? "Pago" : p.status === "pending" ? "Pendente" : p.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Cancel action */}
+        {subscription && !isCancelled && subscription.status !== "expired" && (
+          <>
+            <Separator />
+            <div className="flex justify-end">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                    <XCircle className="h-3.5 w-3.5 mr-1" /> Cancelar assinatura
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancelar assinatura</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja cancelar sua assinatura do plano <strong>{subscription.plan?.name}</strong>?
+                      Você perderá acesso às funcionalidades premium ao final do período atual.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Manter plano</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => cancel.mutate()}
+                      disabled={cancel.isPending}
+                    >
+                      {cancel.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Confirmar cancelamento
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─── Main Page ─── */
 export default function Plans() {
   const { plans, subscription, loadingPlans } = useSubscription();
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -144,6 +375,7 @@ export default function Plans() {
       <div className="flex flex-col min-h-screen page-enter">
         <PageHeader title="Planos" description="Escolha o plano ideal para o seu negócio" />
         <div className="flex-1 p-4 sm:p-6">
+          <Skeleton className="h-40 rounded-xl mb-8" />
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
               <Skeleton key={i} className="h-96 rounded-xl" />
@@ -154,17 +386,16 @@ export default function Plans() {
     );
   }
 
-  // Sort plans by display_order and merge with UI config
   const sortedPlans = [...plans].sort((a, b) => a.display_order - b.display_order);
 
   return (
     <div className="flex flex-col min-h-screen page-enter">
-      <PageHeader
-        title="Planos"
-        description="Escolha o plano ideal para o seu negócio"
-      />
+      <PageHeader title="Planos" description="Escolha o plano ideal para o seu negócio" />
 
       <div className="flex-1 p-4 sm:p-6">
+        {/* Current plan section */}
+        <CurrentPlanSection />
+
         {/* Value ladder */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           {sortedPlans.map((plan) => {
@@ -181,19 +412,6 @@ export default function Plans() {
             );
           })}
         </div>
-
-        {/* Current plan indicator */}
-        {subscription && currentPlanSlug && (
-          <div className="mb-6 p-3 rounded-lg border bg-primary/5 border-primary/20 flex items-center gap-2">
-            <Check className="h-4 w-4 text-primary" />
-            <p className="text-sm">
-              Seu plano atual: <strong>{subscription.plan?.name}</strong>
-              {subscription.status === "active" && <Badge variant="outline" className="ml-2 text-xs">Ativo</Badge>}
-              {subscription.status === "pending" && <Badge variant="secondary" className="ml-2 text-xs">Pendente</Badge>}
-              {subscription.status === "trial" && <Badge variant="secondary" className="ml-2 text-xs">Trial</Badge>}
-            </p>
-          </div>
-        )}
 
         {/* Plan cards */}
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -217,6 +435,12 @@ export default function Plans() {
                 {ui.badge && (
                   <Badge className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs">
                     {ui.badge}
+                  </Badge>
+                )}
+
+                {isCurrentPlan && (
+                  <Badge variant="outline" className="absolute top-4 right-4 text-xs border-primary text-primary">
+                    Plano atual
                   </Badge>
                 )}
 
