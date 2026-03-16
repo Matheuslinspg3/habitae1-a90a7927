@@ -30,13 +30,15 @@ export function useLeadInteractions(leadId: string | null) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // PERF: staleTime + select only needed columns
   const { data: interactions = [], isLoading } = useQuery({
     queryKey: ['lead-interactions', leadId],
+    staleTime: 60_000,
     queryFn: async () => {
       if (!leadId) return [];
       const { data, error } = await supabase
         .from('lead_interactions')
-        .select('*')
+        .select('id, lead_id, type, description, occurred_at, created_by, created_at, appointment_id')
         .eq('lead_id', leadId)
         .order('occurred_at', { ascending: false });
 

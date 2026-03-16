@@ -1,33 +1,29 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useLeads } from "@/hooks/useLeads";
 import { useDemo } from "@/contexts/DemoContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, ArrowRight } from "lucide-react";
+// PERF: Uses single RPC instead of full useLeads() hook
+import { useDashboardPipeline } from "@/hooks/useDashboardPipeline";
 
 export function ConversionFunnel() {
-  const { leadStages, stageStats, isLoading } = useLeads();
+  const { stages, overallRate, isLoading } = useDashboardPipeline();
   const { isDemoMode } = useDemo();
 
-  const funnelStages = useMemo(() => 
-    leadStages.filter(s => !s.is_loss),
-    [leadStages]
+  const funnelStages = useMemo(() =>
+    stages.filter(s => !s.is_loss),
+    [stages]
   );
 
   const funnelData = useMemo(() => {
-    const stages = funnelStages.map((stage, index) => {
-      const count = stageStats[stage.id]?.count || 0;
-      const prevCount = index > 0 ? (stageStats[funnelStages[index - 1].id]?.count || 0) : count;
-      const conversionRate = prevCount > 0 && index > 0 ? ((count / prevCount) * 100).toFixed(0) : null;
-      return { ...stage, count, conversionRate };
+    const mapped = funnelStages.map((stage, index) => {
+      const prevCount = index > 0 ? funnelStages[index - 1].count : stage.count;
+      const conversionRate = prevCount > 0 && index > 0 ? ((stage.count / prevCount) * 100).toFixed(0) : null;
+      return { ...stage, conversionRate };
     });
-    
-    const totalLeads = stages.reduce((sum, s) => sum + s.count, 0);
-    const wonLeads = leadStages.filter(s => s.is_win).reduce((sum, s) => sum + (stageStats[s.id]?.count || 0), 0);
-    const overallRate = totalLeads > 0 ? ((wonLeads / totalLeads) * 100).toFixed(1) : '0';
-    
-    return { stages, totalLeads, wonLeads, overallRate };
-  }, [funnelStages, leadStages, stageStats]);
+    const totalLeads = mapped.reduce((sum, s) => sum + s.count, 0);
+    return { stages: mapped, totalLeads };
+  }, [funnelStages]);
 
   if (isLoading && !isDemoMode) {
     return (
@@ -53,7 +49,7 @@ export function ConversionFunnel() {
             Funil de Conversão
           </CardTitle>
           <div className="text-right">
-            <span className="text-2xl font-bold text-primary">{funnelData.overallRate}%</span>
+            <span className="text-2xl font-bold text-primary">{overallRate}%</span>
             <p className="text-[10px] text-muted-foreground">taxa geral</p>
           </div>
         </div>
