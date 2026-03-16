@@ -19,13 +19,15 @@ export default function AppSearch() {
   const [bedrooms, setBedrooms] = useState<number>();
   const [showFilters, setShowFilters] = useState(false);
   const [userId, setUserId] = useState<string>();
+  // PERF: UX — debounce city input to avoid query on every keystroke
+  const debouncedCity = useDebounce(city, 300);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id));
   }, []);
 
   const { data: properties, isLoading } = useConsumerProperties({
-    city: city || undefined,
+    city: debouncedCity || undefined,
     transactionType: type,
     bedrooms,
   });
