@@ -352,6 +352,9 @@ export function StorageUsageTab() {
         </Card>
       )}
 
+      {/* Migração Cloudinary → R2 */}
+      <CloudinaryMigrationCard />
+
       {/* Cloudinary Cleanup - Account 1 */}
       <CloudinaryCleanupSection account={undefined} label="Cloudinary 1" />
 
