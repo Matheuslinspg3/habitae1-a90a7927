@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, memo } from "react";
 import { PropertyWithDetails } from "@/hooks/useProperties";
 import { PropertyCard } from "./PropertyCard";
 import { Checkbox } from "@/components/ui/checkbox";
