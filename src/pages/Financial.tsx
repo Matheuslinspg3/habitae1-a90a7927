@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, FileText } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, FileText, LayoutTemplate } from "lucide-react";
 import { useTransactions, type Transaction } from "@/hooks/useTransactions";
 import { useInvoices, type Invoice } from "@/hooks/useInvoices";
 import { useCommissions } from "@/hooks/useCommissions";
