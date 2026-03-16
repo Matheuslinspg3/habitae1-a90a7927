@@ -56,6 +56,7 @@ const _GeradorAnuncios = lazy(() => import("./pages/GeradorAnuncios")); // embed
 const PublicPropertyBySlug = lazy(() => import("./pages/PublicPropertyBySlug"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Maintenance = lazy(() => import("./pages/Maintenance"));
+const Plans = lazy(() => import("./pages/Plans"));
 const Onboarding = lazy(() => import("./pages/app/Onboarding"));
 const AppAuth = lazy(() => import("./pages/app/AppAuth"));
 const AppHome = lazy(() => import("./pages/app/Home"));
@@ -123,7 +124,6 @@ const App = () => (
                       </Route>
                       <Route path="/app/imovel/:id" element={<AppPropertyDetail />} />
                       
-                      
                       <Route
                         element={
                           <ProtectedRoute>
@@ -149,6 +149,7 @@ const App = () => (
                         <Route path="/administracao" element={<Administration />} />
                         <Route path="/integracoes" element={<Integrations />} />
                         <Route path="/configuracoes" element={<Settings />} />
+                        <Route path="/planos" element={<Plans />} />
                         
                         {/* Marketing module - consolidated */}
                         <Route path="/marketing" element={<Anuncios />} />
