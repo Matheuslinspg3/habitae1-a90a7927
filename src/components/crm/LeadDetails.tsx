@@ -314,7 +314,9 @@ export function LeadDetails({
           <Separator />
 
           {/* Lead Score Section */}
-          <LeadScoreSection lead={lead} />
+          <Suspense fallback={<Skeleton className="h-64 w-full rounded-lg" />}>
+            <LeadScoreSection lead={lead} />
+          </Suspense>
 
           <Separator />
 

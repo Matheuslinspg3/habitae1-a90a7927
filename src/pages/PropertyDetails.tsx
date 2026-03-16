@@ -845,9 +845,10 @@ export default function PropertyDetails() {
       </div>
 
       {/* Inline Edit Form */}
-      <PropertyForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
+      <Suspense fallback={null}>
+        <PropertyForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
         property={property}
         onSubmit={handleFormSubmit}
         isSubmitting={isUpdating}

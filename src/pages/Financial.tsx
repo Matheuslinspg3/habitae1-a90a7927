@@ -363,8 +363,12 @@ export default function Financial() {
 
       <TransactionForm open={transactionFormOpen} onOpenChange={setTransactionFormOpen} transaction={editingTransaction} />
       <InvoiceForm open={invoiceFormOpen} onOpenChange={setInvoiceFormOpen} invoice={editingInvoice} />
-      <ContractForm open={contractFormOpen} onOpenChange={setContractFormOpen} contract={selectedContract} onSubmit={handleSubmitContract} isSubmitting={isCreating || isUpdating} />
-      <ContractDetails contract={selectedContract} open={contractDetailsOpen} onOpenChange={setContractDetailsOpen} onEdit={handleEditContract} onDelete={deleteContractFn} />
+      <Suspense fallback={null}>
+        <ContractForm open={contractFormOpen} onOpenChange={setContractFormOpen} contract={selectedContract} onSubmit={handleSubmitContract} isSubmitting={isCreating || isUpdating} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ContractDetails contract={selectedContract} open={contractDetailsOpen} onOpenChange={setContractDetailsOpen} onEdit={handleEditContract} onDelete={deleteContractFn} />
+      </Suspense>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

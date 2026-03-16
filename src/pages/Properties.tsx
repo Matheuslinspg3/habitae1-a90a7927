@@ -789,21 +789,25 @@ export default function Properties() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <DuplicatePropertyDialog
-        open={duplicateDialogOpen}
-        onOpenChange={setDuplicateDialogOpen}
-        duplicates={foundDuplicates}
-        onConfirm={handleDuplicateConfirm}
-        onCancel={handleDuplicateCancel}
-      />
+      <Suspense fallback={null}>
+        <DuplicatePropertyDialog
+          open={duplicateDialogOpen}
+          onOpenChange={setDuplicateDialogOpen}
+          duplicates={foundDuplicates}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+        />
+      </Suspense>
 
-      <DuplicateReviewDialog
-        open={duplicateReviewOpen}
-        candidates={duplicateCandidates}
-        importedCount={duplicateImportedCount}
-        onConfirm={handleDuplicateReviewConfirm}
-        onCancel={handleDuplicateReviewCancel}
-      />
+      <Suspense fallback={null}>
+        <DuplicateReviewDialog
+          open={duplicateReviewOpen}
+          candidates={duplicateCandidates}
+          importedCount={duplicateImportedCount}
+          onConfirm={handleDuplicateReviewConfirm}
+          onCancel={handleDuplicateReviewCancel}
+        />
+      </Suspense>
     </div>
   );
 }
