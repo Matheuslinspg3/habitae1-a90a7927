@@ -45,45 +45,35 @@ async function downloadWithTimeout(url: string, timeoutMs: number): Promise<Resp
   }
 }
 
-async function downloadImage(
-  url: string, retries = MAX_RETRIES,
-): Promise<{ data: Uint8Array; contentType: string } | null> {
-  // Try original URL first, then without transformations
-  const urls = [url];
-  const cleaned = url.replace(/\/image\/upload\/[^/]*\//, "/image/upload/");
-  if (cleaned !== url) urls.push(cleaned);
-
-  for (const tryUrl of urls) {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const resp = await downloadWithTimeout(tryUrl, DOWNLOAD_TIMEOUT_MS);
-        if (resp.ok) {
-          const ct = resp.headers.get("content-type") || "image/jpeg";
-          if (!ct.startsWith("image/") && ct !== "application/octet-stream") {
-            await resp.body?.cancel();
-            continue;
-          }
-          const buf = new Uint8Array(await resp.arrayBuffer());
-          if (buf.length < 100) continue; // too small, probably error page
-          return { data: buf, contentType: ct.startsWith("image/") ? ct : "image/jpeg" };
-        }
-        // 401/403 = account blocked, no point retrying
-        if (resp.status === 401 || resp.status === 403) {
-          await resp.body?.cancel();
-          break;
-        }
-        await resp.body?.cancel();
-      } catch (e) {
-        if (e.name === "AbortError") {
-          console.warn(`[migrate] Timeout downloading: ${tryUrl} (attempt ${attempt + 1})`);
-        }
-        // retry on network errors
-      }
-      // Wait before retry (exponential backoff)
-      if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+async function downloadImage(url: string): Promise<{ data: Uint8Array; contentType: string } | null> {
+  try {
+    const resp = await downloadWithTimeout(url, DOWNLOAD_TIMEOUT_MS);
+    
+    // 401/403 = account blocked, fail immediately
+    if (resp.status === 401 || resp.status === 403) {
+      await resp.body?.cancel();
+      console.log(`[migrate] 401/403 for: ${url.substring(0, 60)}...`);
+      return null;
     }
+    
+    if (!resp.ok) {
+      await resp.body?.cancel();
+      return null;
+    }
+
+    const ct = resp.headers.get("content-type") || "image/jpeg";
+    if (!ct.startsWith("image/") && ct !== "application/octet-stream") {
+      await resp.body?.cancel();
+      return null;
+    }
+    
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    if (buf.length < 100) return null;
+    return { data: buf, contentType: ct.startsWith("image/") ? ct : "image/jpeg" };
+  } catch (e) {
+    console.warn(`[migrate] Download error: ${e.name} - ${url.substring(0, 60)}`);
+    return null;
   }
-  return null;
 }
 
 Deno.serve(async (req) => {
