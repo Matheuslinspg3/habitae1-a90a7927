@@ -1,45 +1,53 @@
 
-Problema identificado no código atual:
 
-1. O `ImageViewer` ainda usa o `DialogContent` padrão centralizado (`fixed + translate + max-w/max-h`), ou seja, no celular ele não abre como visualizador fullscreen real.
-2. O botão com ícone `Maximize2` não “maximiza” nada: ele chama `handleReset()`. Isso explica a sensação de bug.
-3. A `ImageGallery` exibe a capa (`is_cover`) mas abre o viewer por índice da lista original. Se a capa não estiver na posição 0, a foto aberta pode ser diferente da foto tocada.
-4. O `DialogContent` compartilhado adiciona um botão de fechar extra automaticamente, enquanto o viewer já renderiza outro `X`, o que também piora o layout.
-5. Em fotos verticais, o espaço útil fica ainda menor porque header + thumbnails + dialog centralizado comprimem a imagem.
+## Diagnóstico: RD Station nao puxa leads via API
 
-Plano de correção:
+Após análise completa do código, identifiquei o problema:
 
-1. Normalizar a ordem das imagens
-- Criar uma lista ordenada com a capa primeiro.
-- Fazer a galeria e o viewer usarem exatamente essa mesma ordem.
-- Corrigir os cliques da capa e das miniaturas para abrir a imagem certa.
+**A integração atual NÃO possui funcionalidade de puxar leads do RD Station via API.** Existem apenas dois mecanismos implementados:
 
-2. Reestruturar o visualizador para mobile-first
-- Trocar o container atual por um viewer fullscreen de verdade no mobile (`w-screen h-screen`).
-- Reduzir o impacto do header e da faixa de thumbnails.
-- Garantir área útil máxima para fotos verticais e horizontais.
+1. **Webhook (passivo)** — recebe leads quando o RD Station envia via webhook configurado. Armazena em `rd_station_webhook_logs` e opcionalmente cria no CRM.
+2. **Estatísticas (API)** — usa as chaves de API apenas para consultar métricas (funil, emails). Não importa leads.
 
-3. Corrigir o botão “maximizar”
-- Separar claramente “resetar zoom” de “maximizar”.
-- No mínimo, renomear/trocar o ícone para refletir o comportamento real.
-- Em mobile, remover esse botão se ele não agregar valor.
+Ou seja, mesmo com as chaves de API configuradas, nenhum lead é puxado automaticamente. Para que leads apareçam, seria necessário que o webhook estivesse configurado no lado do RD Station apontando para a URL gerada, OU que existisse uma função de sincronização ativa.
 
-4. Ajustar o palco da imagem
-- Manter a imagem centralizada com `object-contain`.
-- Aplicar `touch-action` adequada.
-- Resetar zoom/posição ao trocar imagem.
-- Impedir estados que causem deslocamento estranho ao abrir.
+---
 
-5. Limpar conflitos do dialog
-- Evitar o botão de fechar duplicado.
-- Usar uma estrutura de overlay/viewer específica para imagem, em vez de depender do `DialogContent` padrão sem adaptação.
+### Plano: Criar sincronização ativa de leads via API do RD Station
 
-Arquivos a ajustar:
-- `src/components/properties/ImageViewer.tsx`
-- possivelmente `src/components/ui/dialog.tsx` apenas se eu precisar permitir uma variante sem botão close automático; se não, resolvo tudo no próprio viewer.
+**1. Nova Edge Function `rd-station-sync-leads`**
+- Autenticar o usuário e buscar as chaves de API da tabela `rd_station_settings`
+- Chamar `GET https://api.rd.services/platform/contacts` com paginação
+- Para cada contato retornado, verificar duplicata por email na tabela `leads`
+- Se `auto_send_to_crm` estiver ativo, criar o lead no CRM
+- Registrar cada lead processado em `rd_station_webhook_logs` com `event_type = 'api_sync'`
+- Retornar resumo (criados, duplicados, erros)
 
-Resultado esperado:
-- Ao tocar na imagem, ela abre corretamente e em tela cheia no celular.
-- A foto aberta corresponde exatamente à miniatura tocada.
-- O botão atual deixa de “bugar” porque passa a ter função correta ou some no mobile.
-- Fotos verticais deixam de ficar espremidas ou visualmente quebradas.
+**2. Botão "Sincronizar Leads" na interface**
+- Adicionar um botão na aba de Configurações ou Estatísticas do RD Station
+- Ao clicar, invocar a nova edge function
+- Mostrar progresso e resultado (quantos leads importados/duplicados)
+
+**3. Validações**
+- Exigir que `api_private_key` esteja configurada
+- Limitar sincronização a leads dos últimos 30 dias para evitar sobrecarga
+- Respeitar deduplicação por email
+
+### Detalhes Técnicos
+
+```text
+Fluxo:
+  Botão "Sincronizar" 
+    → supabase.functions.invoke("rd-station-sync-leads")
+      → GET api.rd.services/platform/contacts?limit=100
+      → Para cada contato:
+         ├─ email existe em leads? → skip (duplicate)
+         └─ não existe → INSERT leads + log em rd_station_webhook_logs
+      → Retorna { created: N, duplicates: N, errors: N }
+```
+
+Arquivos a criar/modificar:
+- `supabase/functions/rd-station-sync-leads/index.ts` (nova edge function)
+- `src/components/ads/RDStationSettingsContent.tsx` (botão de sync)
+- `supabase/config.toml` (registrar nova function com `verify_jwt = false`)
+
