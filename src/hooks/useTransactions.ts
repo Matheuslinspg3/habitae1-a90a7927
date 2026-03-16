@@ -27,9 +27,10 @@ export function useTransactions() {
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', profile?.organization_id],
     staleTime: 5 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -37,11 +38,13 @@ export function useTransactions() {
           category:transaction_categories(id, name),
           contract:contracts(id, code)
         `)
+        .eq('organization_id', profile.organization_id)
         .order('date', { ascending: false });
 
       if (error) throw error;
       return data as Transaction[];
     },
+    enabled: !!profile?.organization_id,
   });
 
   const createTransaction = useMutation({
