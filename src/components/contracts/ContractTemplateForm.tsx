@@ -200,7 +200,7 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           onChange={setBodyHtml}
           placeholder="Escreva o modelo do contrato aqui. Use o botão 'Inserir Variável' para adicionar campos dinâmicos..."
           className="h-full [&_.ProseMirror]:min-h-[400px]"
-          onAiGenerate={handleAiGenerate}
+          onAiGenerate={() => setAiDialogOpen(true)}
           isAiGenerating={isAiGenerating}
         />
       </div>
