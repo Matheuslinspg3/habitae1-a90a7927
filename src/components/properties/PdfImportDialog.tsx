@@ -464,7 +464,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       if (isSharedUrl && matchedSubfolderId) {
         // Scrape the specific matched subfolder
         scrapeUrl = `https://drive.google.com/drive/folders/${matchedSubfolderId}`;
-        console.log(`Property ${idx}: scraping matched subfolder ${matchedSubfolderId}`);
+        if (import.meta.env.DEV) console.log(`Property ${idx}: scraping matched subfolder ${matchedSubfolderId}`);
       } else if (isSharedUrl && !matchedSubfolderId) {
         // Shared URL but no name match - try using subfolders by index order
         const subfolders = subfoldersByUrl[photosUrl];
