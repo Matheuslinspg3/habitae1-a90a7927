@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Pencil } from "lucide-react";
+import { Loader2, Eye, Pencil, Sparkles } from "lucide-react";
 import { RichTextEditor, AVAILABLE_VARIABLES } from "./RichTextEditor";
 import { supabase } from "@/integrations/supabase/client";
 import type { ContractTemplate, ContractTemplateFormData } from "@/hooks/useContractTemplates";
