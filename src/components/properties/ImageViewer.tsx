@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +42,18 @@ export function ImageViewer({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [hoveredHotspot, setHoveredHotspot] = useState<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Reset index when initialIndex changes (re-open)
+  useEffect(() => {
+    if (open) {
+      setCurrentIndex(initialIndex);
+      setZoom(1);
+      setRotation(0);
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [open, initialIndex]);
 
   const currentImage = images[currentIndex];
 
@@ -80,6 +91,7 @@ export function ImageViewer({
     handleReset();
   }, [images.length, handleReset]);
 
+  // Mouse drag (desktop)
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (zoom > 1) {
@@ -118,6 +130,38 @@ export function ImageViewer({
     [handleZoomIn, handleZoomOut]
   );
 
+  // Touch swipe for mobile navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now(),
+      };
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStartRef.current || zoom > 1) return;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      const dt = Date.now() - touchStartRef.current.time;
+
+      // Swipe threshold: min 50px horizontal, max 100px vertical, within 300ms
+      if (Math.abs(dx) > 50 && Math.abs(dy) < 100 && dt < 400) {
+        if (dx > 0) {
+          handlePrevious();
+        } else {
+          handleNext();
+        }
+      }
+      touchStartRef.current = null;
+    },
+    [zoom, handlePrevious, handleNext]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       switch (e.key) {
@@ -148,23 +192,26 @@ export function ImageViewer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 bg-background/95 backdrop-blur-sm"
+        className="max-w-full max-h-full w-full h-full md:max-w-[95vw] md:max-h-[95vh] p-0 bg-background/95 backdrop-blur-sm rounded-none md:rounded-lg border-0 md:border"
         onKeyDown={handleKeyDown}
       >
         <div className="relative w-full h-full flex flex-col">
           {/* Header with controls */}
-          <div className="flex items-center justify-between p-4 border-b bg-background/80 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">
+          <div className="flex items-center justify-between p-2 md:p-4 border-b bg-background/80 backdrop-blur-sm z-10">
+            <div className="flex items-center gap-1 md:gap-2">
+              <Badge variant="secondary" className="text-xs">
                 {currentIndex + 1} / {images.length}
               </Badge>
-              <Badge variant="outline">{Math.round(zoom * 100)}%</Badge>
+              <Badge variant="outline" className="text-xs hidden sm:inline-flex">
+                {Math.round(zoom * 100)}%
+              </Badge>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5 md:gap-2">
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 md:h-9 md:w-9"
                 onClick={handleZoomOut}
                 disabled={zoom <= 1}
               >
@@ -173,20 +220,32 @@ export function ImageViewer({
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 md:h-9 md:w-9"
                 onClick={handleZoomIn}
                 disabled={zoom >= 4}
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleRotate}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 md:h-9 md:w-9 hidden sm:inline-flex"
+                onClick={handleRotate}
+              >
                 <RotateCw className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleReset}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 md:h-9 md:w-9 hidden sm:inline-flex"
+                onClick={handleReset}
+              >
                 <Maximize2 className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-8 w-8 md:h-9 md:w-9"
                 onClick={() => onOpenChange(false)}
               >
                 <X className="h-4 w-4" />
@@ -197,17 +256,23 @@ export function ImageViewer({
           {/* Main image area */}
           <div
             ref={containerRef}
-            className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+            className={cn(
+              "flex-1 relative overflow-hidden select-none min-h-0",
+              zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+            )}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
             <div
-              className="absolute inset-0 flex items-center justify-center transition-transform duration-200"
+              className="w-full h-full flex items-center justify-center p-2 md:p-4"
               style={{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                transition: isDragging ? "none" : "transform 0.2s ease",
               }}
             >
               <img
@@ -254,24 +319,24 @@ export function ImageViewer({
               ))}
             </div>
 
-            {/* Navigation arrows */}
+            {/* Navigation arrows - hidden on mobile (use swipe) */}
             {images.length > 1 && (
               <>
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                  className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 h-8 w-8 md:h-10 md:w-10 hidden sm:flex"
                   onClick={handlePrevious}
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5 md:h-6 md:w-6" />
                 </Button>
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                  className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100 h-8 w-8 md:h-10 md:w-10 hidden sm:flex"
                   onClick={handleNext}
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5 md:h-6 md:w-6" />
                 </Button>
               </>
             )}
@@ -279,7 +344,7 @@ export function ImageViewer({
 
           {/* Thumbnail strip */}
           {images.length > 1 && (
-            <div className="flex gap-2 p-4 border-t bg-background/80 backdrop-blur-sm overflow-x-auto">
+            <div className="flex gap-1.5 md:gap-2 p-2 md:p-4 border-t bg-background/80 backdrop-blur-sm overflow-x-auto scrollbar-hide">
               {images.map((image, index) => (
                 <button
                   key={index}
@@ -288,7 +353,7 @@ export function ImageViewer({
                     handleReset();
                   }}
                   className={cn(
-                    "w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all",
+                    "w-12 h-12 md:w-16 md:h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all",
                     index === currentIndex
                       ? "border-primary ring-2 ring-primary/30"
                       : "border-transparent opacity-60 hover:opacity-100"
@@ -304,11 +369,17 @@ export function ImageViewer({
             </div>
           )}
 
-          {/* Zoom hint */}
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full">
-            Use a roda do mouse ou +/- para zoom • Arraste para mover • R para
-            rotacionar
+          {/* Zoom hint - desktop only */}
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full hidden md:block">
+            Use a roda do mouse ou +/- para zoom • Arraste para mover • R para rotacionar
           </div>
+
+          {/* Swipe hint - mobile only, shown briefly */}
+          {images.length > 1 && (
+            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-background/80 px-3 py-1 rounded-full md:hidden">
+              Deslize para navegar
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -351,7 +422,7 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
         {/* Single image layout */}
         {images.length === 1 && (
           <div
-            className="relative aspect-[16/9] md:aspect-[21/9] cursor-pointer group"
+            className="relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] cursor-pointer group"
             onClick={() => handleImageClick(0)}
           >
             <img
@@ -367,7 +438,7 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
 
         {/* Two images layout */}
         {images.length === 2 && (
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
             {images.slice(0, 2).map((image, index) => (
               <div
                 key={index}
@@ -387,10 +458,10 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
 
         {/* Three+ images: main + side grid */}
         {images.length >= 3 && (
-          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-1 max-h-[480px]">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-1">
             {/* Cover image */}
             <div
-              className="relative aspect-[4/3] md:aspect-auto cursor-pointer group"
+              className="relative aspect-[4/3] cursor-pointer group"
               onClick={() => handleImageClick(0)}
             >
               <img
@@ -403,7 +474,7 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
               </div>
             </div>
 
-            {/* Side thumbnails */}
+            {/* Side thumbnails - desktop */}
             <div className="hidden md:grid grid-rows-2 gap-1">
               {sideImages.slice(0, 2).map((image, index) => (
                 <div
@@ -417,7 +488,6 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/10 transition-colors" />
-                  {/* Show remaining count on last visible thumbnail */}
                   {index === 1 && remainingCount > 0 && (
                     <div className="absolute inset-0 bg-foreground/40 flex items-center justify-center">
                       <span className="text-2xl font-bold text-background drop-shadow-lg">
@@ -430,11 +500,11 @@ export function ImageGallery({ images, onViewDetails }: ImageGalleryProps) {
             </div>
 
             {/* Mobile: horizontal scroll thumbnails */}
-            <div className="flex md:hidden gap-1.5 overflow-x-auto pb-2 px-1 -mx-1">
+            <div className="flex md:hidden gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
               {images.slice(1, 6).map((image, index) => (
                 <div
                   key={index}
-                  className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 cursor-pointer group rounded-lg overflow-hidden"
+                  className="relative flex-shrink-0 w-24 h-24 cursor-pointer group rounded-lg overflow-hidden"
                   onClick={() => handleImageClick(index + 1)}
                 >
                   <img
