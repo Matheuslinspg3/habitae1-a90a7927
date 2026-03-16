@@ -19,8 +19,10 @@ import { CashFlowChart } from "@/components/financial/CashFlowChart";
 import { TransactionsTab } from "@/components/financial/TransactionsTab";
 import { InvoicesTab } from "@/components/financial/InvoicesTab";
 import { CommissionsTab } from "@/components/financial/CommissionsTab";
-import { ContractForm } from "@/components/contracts/ContractForm";
-import { ContractDetails } from "@/components/contracts/ContractDetails";
+// PERF: lazy load - ContractForm only needed when creating/editing contracts
+const ContractForm = lazy(() => import("@/components/contracts/ContractForm").then(m => ({ default: m.ContractForm })));
+// PERF: lazy load - ContractDetails only needed when viewing contract details
+const ContractDetails = lazy(() => import("@/components/contracts/ContractDetails").then(m => ({ default: m.ContractDetails })));
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
