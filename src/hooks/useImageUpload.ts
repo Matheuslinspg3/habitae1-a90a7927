@@ -299,7 +299,7 @@ export function useImageUpload() {
       if (phash && options?.organizationId && !options?.skipDuplicateCheck) {
         const duplicate = await findDuplicateByPhash(phash, options.organizationId, options.excludePropertyId);
         if (duplicate) {
-          console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
+          if (import.meta.env.DEV) console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
           setDuplicatesFound((prev) => prev + 1);
           toast({
             title: 'Imagem duplicada detectada',
