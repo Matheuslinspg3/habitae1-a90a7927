@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Inbox } from "lucide-react";
 import { AdLeadRow } from "@/components/ads/AdLeadRow";
 
@@ -61,7 +62,19 @@ export default function MetaLeadsInboxContent() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Carregando...</p>
+        // PERF: UX — skeleton list items
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="flex items-center gap-3 p-3 border rounded-lg">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-5 w-16" />
+            </div>
+          ))}
+        </div>
       ) : leads.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">

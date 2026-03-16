@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAdInsights } from "@/hooks/useAdInsights";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart3 } from "lucide-react";
 import { subDays } from "date-fns";
@@ -50,7 +51,12 @@ export function AdDetailStats({ externalAdId }: AdDetailStatsProps) {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Carregando...</p>
+        // PERF: UX — skeleton cards instead of plain text
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          {[1, 2, 3, 4, 5, 6, 7].map(i => (
+            <Card key={i}><CardContent className="p-3 space-y-2"><Skeleton className="h-3 w-16" /><Skeleton className="h-6 w-20" /></CardContent></Card>
+          ))}
+        </div>
       ) : insights.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">

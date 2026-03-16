@@ -86,8 +86,23 @@ export default function Marketplace() {
         )}
 
         {isLoading ? (
+          // PERF: UX — structured card skeletons instead of generic rectangles
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-[420px]" />)}
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-xl border overflow-hidden">
+                <Skeleton className="aspect-[16/10] w-full" />
+                <div className="p-4 space-y-3">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                  <div className="flex gap-3">
+                    <Skeleton className="h-4 w-14" />
+                    <Skeleton className="h-4 w-14" />
+                    <Skeleton className="h-4 w-14" />
+                  </div>
+                  <Skeleton className="h-6 w-28" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : properties.length === 0 ? (
           <Card>

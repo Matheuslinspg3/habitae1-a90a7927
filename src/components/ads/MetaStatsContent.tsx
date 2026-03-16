@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, Settings } from "lucide-react";
 import { subDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -74,7 +75,13 @@ export default function MetaStatsContent() {
       </div>
 
       {isLoading ? (
-        <p className="text-muted-foreground text-sm">Carregando...</p>
+        // PERF: UX — skeleton table rows
+        <Card>
+          <CardHeader><Skeleton className="h-5 w-48" /></CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+          </CardContent>
+        </Card>
       ) : insights.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">

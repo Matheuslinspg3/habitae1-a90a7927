@@ -175,7 +175,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       const originalSize = file.size;
       const compressed = await compressPdf(file);
       const compressionRatio = ((1 - compressed.length / originalSize) * 100).toFixed(0);
-      console.log(`PDF compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressed.length)} (${compressionRatio}% reduction)`);
+      if (import.meta.env.DEV) console.log(`PDF compressed: ${formatFileSize(originalSize)} → ${formatFileSize(compressed.length)} (${compressionRatio}% reduction)`);
 
       // Method 3: Split into chunks if still large
       const CHUNK_LIMIT = 8 * 1024 * 1024; // 8MB per chunk
@@ -187,7 +187,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
         const result = await splitPdfIntoChunks(file, 10);
         chunksToProcess = result.chunks;
         totalPages = result.totalPages;
-        console.log(`PDF split into ${chunksToProcess.length} chunks (${totalPages} pages total)`);
+        if (import.meta.env.DEV) console.log(`PDF split into ${chunksToProcess.length} chunks (${totalPages} pages total)`);
       } else {
         chunksToProcess = [compressed];
       }
@@ -427,14 +427,14 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
 
         // Store subfolders for per-property matching
         if (access === "public" && result.subfolders?.length > 0) {
-          console.log(`Folder has ${result.subfolders.length} subfolders:`, result.subfolders.map((s: any) => s.name));
+          if (import.meta.env.DEV) console.log(`Folder has ${result.subfolders.length} subfolders:`, result.subfolders.map((s: any) => s.name));
           setSubfoldersByUrl(prev => ({ ...prev, [photosUrl]: result.subfolders }));
           
           // Auto-match subfolders when URL is shared among multiple properties
           if (indices.length > 1) {
             indices.forEach(idx => {
               const matched = matchSubfolder(extractedList[idx], result.subfolders);
-              console.log(`Property ${idx} (${extractedList[idx].unit_identifier || 'no id'}): matched subfolder = ${matched || 'none'}`);
+              if (import.meta.env.DEV) console.log(`Property ${idx} (${extractedList[idx].unit_identifier || 'no id'}): matched subfolder = ${matched || 'none'}`);
               setSubfolderMatchMap(prev => ({ ...prev, [idx]: matched }));
             });
           }
@@ -464,7 +464,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
       if (isSharedUrl && matchedSubfolderId) {
         // Scrape the specific matched subfolder
         scrapeUrl = `https://drive.google.com/drive/folders/${matchedSubfolderId}`;
-        console.log(`Property ${idx}: scraping matched subfolder ${matchedSubfolderId}`);
+        if (import.meta.env.DEV) console.log(`Property ${idx}: scraping matched subfolder ${matchedSubfolderId}`);
       } else if (isSharedUrl && !matchedSubfolderId) {
         // Shared URL but no name match - try using subfolders by index order
         const subfolders = subfoldersByUrl[photosUrl];
@@ -475,7 +475,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
           const positionInGroup = propIndicesWithSameUrl.indexOf(idx);
           if (positionInGroup >= 0 && positionInGroup < subfolders.length) {
             scrapeUrl = `https://drive.google.com/drive/folders/${subfolders[positionInGroup].id}`;
-            console.log(`Property ${idx}: no name match, using subfolder by position: "${subfolders[positionInGroup].name}"`);
+            if (import.meta.env.DEV) console.log(`Property ${idx}: no name match, using subfolder by position: "${subfolders[positionInGroup].name}"`);
           }
         }
       }

@@ -115,7 +115,7 @@ async function uploadToR2Proxy(
 
     const fullKB = (variants.full.blob.size / 1024).toFixed(0);
     const thumbKB = (variants.thumb.blob.size / 1024).toFixed(0);
-    console.log(`[R2] Proxy upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${data.r2KeyFull}`);
+    if (import.meta.env.DEV) console.log(`[R2] Proxy upload OK: full=${fullKB}KB, thumb=${thumbKB}KB, key=${data.r2KeyFull}`);
 
     return {
       url: data.publicUrlFull,
@@ -200,7 +200,7 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
   }
 
   const result = await response.json();
-  console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored`);
+  if (import.meta.env.DEV) console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored`);
 
   return {
     url: result.secure_url,
@@ -299,7 +299,7 @@ export function useImageUpload() {
       if (phash && options?.organizationId && !options?.skipDuplicateCheck) {
         const duplicate = await findDuplicateByPhash(phash, options.organizationId, options.excludePropertyId);
         if (duplicate) {
-          console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
+          if (import.meta.env.DEV) console.log(`[DEDUPE] pHash match → reutilizando: ${duplicate.url}`);
           setDuplicatesFound((prev) => prev + 1);
           toast({
             title: 'Imagem duplicada detectada',
@@ -323,13 +323,13 @@ export function useImageUpload() {
 
       // Always try R2 first — use a temp UUID if propertyId is not yet available
       const effectivePropertyId = options?.propertyId || crypto.randomUUID();
-      console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
+      if (import.meta.env.DEV) console.log(`[UPLOAD] Tentando R2 proxy (property: ${effectivePropertyId}, temp=${!options?.propertyId})...`);
       setUploadProgress(30);
       result = await uploadToR2Proxy(file, effectivePropertyId);
       setUploadProgress(80);
 
       if (!result) {
-        console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
+        if (import.meta.env.DEV) console.log('[UPLOAD] R2 falhou. Tentando Cloudinary como fallback...');
         setUploadProgress(50);
         const orgFolder = options?.organizationId ? `${folder}/${options.organizationId}` : folder;
         result = await uploadToCloudinary(file, orgFolder);
@@ -343,7 +343,7 @@ export function useImageUpload() {
       }
 
       setUploadProgress(100);
-      console.log(`[UPLOAD] Concluído via ${result.storageProvider}: ${result.url}`);
+      if (import.meta.env.DEV) console.log(`[UPLOAD] Concluído via ${result.storageProvider}: ${result.url}`);
       return { ...result, phash };
     } catch (error: any) {
       console.error('Erro no upload:', error);
@@ -381,7 +381,7 @@ export function useImageUpload() {
   }, [uploadImage, duplicatesFound, toast]);
 
   const deleteImage = useCallback(async (publicId: string): Promise<boolean> => {
-    console.log('Imagem marcada para remoção:', publicId);
+    if (import.meta.env.DEV) console.log('Imagem marcada para remoção:', publicId);
     return true;
   }, []);
 

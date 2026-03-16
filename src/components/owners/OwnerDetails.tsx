@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,17 @@ export function OwnerDetails({ owner, open, onOpenChange, onEdit }: OwnerDetails
             </div>
 
             {loadingProperties ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
+              <div className="space-y-2">
+                {[1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                ))}
+              </div>
             ) : properties.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum imóvel vinculado.</p>
             ) : (
