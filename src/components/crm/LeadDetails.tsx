@@ -51,7 +51,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { LeadInteractionTimeline } from './LeadInteractionTimeline';
 import { LeadSuggestedProperties } from './LeadSuggestedProperties';
-import { LeadScoreSection } from './LeadScoreSection';
+// PERF: lazy load - LeadScoreSection imports recharts (~200KB), only needed when lead detail opens
+const LeadScoreSection = lazy(() => import('./LeadScoreSection').then(m => ({ default: m.LeadScoreSection })));
 import { LeadDocumentsTab } from './LeadDocumentsTab';
 import { useActivityLogger } from '@/hooks/useActivityLogger';
 import { ScheduleVisitDialog } from '@/components/visits/ScheduleVisitDialog';
