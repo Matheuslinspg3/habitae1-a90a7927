@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, FileText } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, FileText, LayoutTemplate } from "lucide-react";
 import { useTransactions, type Transaction } from "@/hooks/useTransactions";
 import { useInvoices, type Invoice } from "@/hooks/useInvoices";
 import { useCommissions } from "@/hooks/useCommissions";
@@ -24,6 +24,7 @@ import { ContractDetails } from "@/components/contracts/ContractDetails";
 import { ContractFilters } from "@/components/contracts/ContractFilters";
 import { MobileContractCard } from "@/components/contracts/MobileContractCard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ContractTemplatesTab } from "@/components/contracts/ContractTemplatesTab";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -217,6 +218,10 @@ export default function Financial() {
               <FileText className="h-4 w-4" />
               Contratos
             </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1 sm:flex-initial min-h-[44px] gap-2">
+              <LayoutTemplate className="h-4 w-4" />
+              Templates
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="mt-4">
@@ -346,6 +351,10 @@ export default function Financial() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="templates" className="mt-4">
+            <ContractTemplatesTab />
           </TabsContent>
         </Tabs>
       </div>
