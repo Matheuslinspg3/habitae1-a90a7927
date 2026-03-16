@@ -16,6 +16,7 @@ interface StatCardProps {
   onClick?: () => void;
   isLoading?: boolean;
   sparklineData?: number[];
+  colorIndex?: number; // PERF: replaces module-level cardIndex++ anti-pattern
 }
 
 const cardColors = [
@@ -25,10 +26,9 @@ const cardColors = [
   { dot: "color-dot", accent: "hsl(var(--info) / 0.06)", border: "hsl(var(--info) / 0.15)" },
 ];
 
-let cardIndex = 0;
-
-export function StatCard({ title, value, subtitle, icon: Icon, trend, onClick, isLoading, sparklineData }: StatCardProps) {
-  const colorSet = cardColors[(cardIndex++) % cardColors.length];
+// PERF: memo prevents re-render when sibling stat cards update
+export const StatCard = memo(function StatCard({ title, value, subtitle, icon: Icon, trend, onClick, isLoading, sparklineData, colorIndex = 0 }: StatCardProps) {
+  const colorSet = cardColors[colorIndex % cardColors.length];
 
   const renderSparkline = () => {
     if (!sparklineData || sparklineData.length < 2) return null;
