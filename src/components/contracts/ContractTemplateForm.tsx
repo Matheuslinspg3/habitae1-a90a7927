@@ -74,19 +74,27 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
   const [bodyHtml, setBodyHtml] = useState("");
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
   const isMobile = useIsMobile();
 
   const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error("Descreva o que deseja no template.");
+      return;
+    }
     setIsAiGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-contract-template", {
-        body: { contractType, templateName: name, description },
+        body: { contractType, templateName: name, description: aiPrompt },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.html) {
         setBodyHtml(data.html);
         toast.success("Template gerado com IA!");
+        setAiDialogOpen(false);
+        setAiPrompt("");
       }
     } catch (err: any) {
       console.error(err);
