@@ -752,21 +752,25 @@ export default function Properties() {
         )}
       </div>
 
-      <PropertyForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        property={editingProperty}
-        onSubmit={handleFormSubmit}
-        isSubmitting={isCreating || isUpdating}
-        prefillData={prefillData}
-      />
+      <Suspense fallback={null}>
+        <PropertyForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          property={editingProperty}
+          onSubmit={handleFormSubmit}
+          isSubmitting={isCreating || isUpdating}
+          prefillData={prefillData}
+        />
+      </Suspense>
 
-      <PdfImportDialog
-        open={pdfImportOpen}
-        onOpenChange={setPdfImportOpen}
-        onDataExtracted={handlePdfDataExtracted}
-        onBatchExtracted={handlePdfBatchExtracted}
-      />
+      <Suspense fallback={null}>
+        <PdfImportDialog
+          open={pdfImportOpen}
+          onOpenChange={setPdfImportOpen}
+          onDataExtracted={handlePdfDataExtracted}
+          onBatchExtracted={handlePdfBatchExtracted}
+        />
+      </Suspense>
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
