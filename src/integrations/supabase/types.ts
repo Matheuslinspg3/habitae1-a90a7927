@@ -1290,6 +1290,56 @@ export type Database = {
           },
         ]
       }
+      contract_templates: {
+        Row: {
+          body_html: string
+          contract_type: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+          variables: string[]
+        }
+        Insert: {
+          body_html?: string
+          contract_type?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+          variables?: string[]
+        }
+        Update: {
+          body_html?: string
+          contract_type?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+          variables?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracts: {
         Row: {
           broker_id: string | null
