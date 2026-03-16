@@ -187,7 +187,7 @@ export function PdfImportDialog({ open, onOpenChange, onDataExtracted, onBatchEx
         const result = await splitPdfIntoChunks(file, 10);
         chunksToProcess = result.chunks;
         totalPages = result.totalPages;
-        console.log(`PDF split into ${chunksToProcess.length} chunks (${totalPages} pages total)`);
+        if (import.meta.env.DEV) console.log(`PDF split into ${chunksToProcess.length} chunks (${totalPages} pages total)`);
       } else {
         chunksToProcess = [compressed];
       }
