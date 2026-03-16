@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   demoProperties,
@@ -97,12 +97,12 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [demoUser, setDemoUser] = useState<DemoUser | null>(null);
   const navigate = useNavigate();
 
-  // Calculate stats
-  const demoStats = calculateDemoStats();
+  // Calculate stats (memoized)
+  const demoStats = useMemo(() => calculateDemoStats(), []);
   
-  // Get today's items
-  const todayTasks = getTodayDemoTasks();
-  const todayAppointments = getTodayDemoAppointments();
+  // Get today's items (memoized)
+  const todayTasks = useMemo(() => getTodayDemoTasks(), []);
+  const todayAppointments = useMemo(() => getTodayDemoAppointments(), []);
 
   // Check for existing demo session on mount
   useEffect(() => {
@@ -120,7 +120,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const startDemo = () => {
+  const startDemo = useCallback(() => {
     const newDemoUser: DemoUser = {
       id: generateDemoId(),
       email: "demo@habitae.app",
@@ -133,30 +133,30 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setDemoUser(newDemoUser);
     sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(newDemoUser));
     navigate("/dashboard");
-  };
+  }, [navigate]);
 
-  const endDemo = () => {
+  const endDemo = useCallback(() => {
     setDemoUser(null);
     sessionStorage.removeItem(DEMO_SESSION_KEY);
     navigate("/demo");
-  };
+  }, [navigate]);
 
   const isDemoMode = demoUser !== null;
 
+  const contextValue = useMemo(() => ({
+    isDemoMode,
+    demoUser,
+    startDemo,
+    endDemo,
+    demoData: initialDemoData,
+    demoStats,
+    recentActivities: demoActivities,
+    todayTasks,
+    todayAppointments,
+  }), [isDemoMode, demoUser, startDemo, endDemo, demoStats, todayTasks, todayAppointments]);
+
   return (
-    <DemoContext.Provider
-      value={{
-        isDemoMode,
-        demoUser,
-        startDemo,
-        endDemo,
-        demoData: initialDemoData,
-        demoStats,
-        recentActivities: demoActivities,
-        todayTasks,
-        todayAppointments,
-      }}
-    >
+    <DemoContext.Provider value={contextValue}>
       {children}
     </DemoContext.Provider>
   );

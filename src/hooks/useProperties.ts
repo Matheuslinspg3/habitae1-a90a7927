@@ -86,7 +86,7 @@ export function useProperties() {
           .select(`
             *,
             property_type:property_types(*),
-            images:property_images(*)
+            images:property_images(id, url, is_cover, display_order, r2_key_full, r2_key_thumb, storage_provider, cached_thumbnail_url, image_type)
           `)
           .eq('organization_id', profile.organization_id)
           .order('created_at', { ascending: false })

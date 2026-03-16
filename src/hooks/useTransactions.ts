@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,9 +28,10 @@ export function useTransactions() {
   const queryClient = useQueryClient();
 
   const { data: transactions = [], isLoading, error } = useQuery({
-    queryKey: ['transactions'],
+    queryKey: ['transactions', profile?.organization_id],
     staleTime: 5 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -37,11 +39,13 @@ export function useTransactions() {
           category:transaction_categories(id, name),
           contract:contracts(id, code)
         `)
+        .eq('organization_id', profile.organization_id)
         .order('date', { ascending: false });
 
       if (error) throw error;
       return data as Transaction[];
     },
+    enabled: !!profile?.organization_id,
   });
 
   const createTransaction = useMutation({
@@ -154,8 +158,9 @@ export function useTransactions() {
       .reduce((acc, t) => acc + Number(t.amount), 0),
   };
 
-  // Get last N months data for chart (max 12)
-  const getChartData = (monthCount = 12) => {
+  // Get last N months data for chart (max 12) - memoized
+  const chartData = useMemo(() => {
+    const monthCount = 12;
     const months = [];
     for (let i = monthCount - 1; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -178,14 +183,14 @@ export function useTransactions() {
       });
     }
     return months;
-  };
+  }, [transactions]);
 
   return {
     transactions,
     isLoading,
     error,
     stats,
-    chartData: getChartData(12),
+    chartData,
     createTransaction: createTransaction.mutate,
     updateTransaction: updateTransaction.mutate,
     deleteTransaction: deleteTransaction.mutate,

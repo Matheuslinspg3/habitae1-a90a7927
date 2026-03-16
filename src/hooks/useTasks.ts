@@ -54,20 +54,29 @@ export function useTasks() {
   }
 
   const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['tasks', profile?.organization_id],
+    staleTime: 2 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      // Only fetch incomplete tasks + tasks completed in last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
       const { data, error } = await supabase
         .from('tasks')
         .select(`
           *,
           lead:leads(id, name)
         `)
+        .eq('organization_id', profile.organization_id)
+        .or(`completed.eq.false,completed_at.gte.${sevenDaysAgo.toISOString()}`)
         .order('due_date', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as Task[];
     },
+    enabled: !!profile?.organization_id,
   });
 
   const createTask = useMutation({

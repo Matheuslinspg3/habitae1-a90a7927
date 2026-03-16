@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { loginOneSignal, logoutOneSignal } from '@/lib/onesignal';
@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async ({ email, password, name, phone, accountType, companyName }: SignUpParams) => {
+  const signUp = useCallback(async ({ email, password, name, phone, accountType, companyName }: SignUpParams) => {
     const redirectUrl = `${window.location.origin}/`;
     
     // Trigger no banco de dados vai criar organização/perfil/role automaticamente
@@ -211,43 +211,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setProfile(null);
     setOrganizationType(null);
     logoutOneSignal();
     await supabase.auth.signOut();
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id);
     }
-  };
+  }, [user]);
+
+  const contextValue = useMemo(() => ({ 
+    user, 
+    session, 
+    profile, 
+    organizationType,
+    trialInfo,
+    loading, 
+    signUp, 
+    signIn, 
+    signOut, 
+    refreshProfile
+  }), [user, session, profile, organizationType, trialInfo, loading, signUp, signIn, signOut, refreshProfile]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      profile, 
-      organizationType,
-      trialInfo,
-      loading, 
-      signUp, 
-      signIn, 
-      signOut, 
-      refreshProfile
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

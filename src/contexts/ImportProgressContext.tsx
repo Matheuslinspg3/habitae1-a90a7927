@@ -303,9 +303,12 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Resume tracking on mount
+  // Resume tracking on mount - delayed to not block initial render
   useEffect(() => {
-    const checkRunningImports = async () => {
+    const timeoutId = setTimeout(() => checkRunningImports(), 3000);
+    return () => clearTimeout(timeoutId);
+
+    async function checkRunningImports() {
       try {
         const { data: runs } = await supabase
           .from('import_runs')
@@ -348,9 +351,7 @@ export function ImportProgressProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('[ImportProgress] Error checking running imports:', err);
       }
-    };
-
-    checkRunningImports();
+    }
   }, [startTracking]);
 
   return (

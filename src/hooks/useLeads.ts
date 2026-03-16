@@ -158,7 +158,8 @@ export function useLeads() {
   }
 
   const { data: leads = [], isLoading: isLoadingLeads, error, refetch } = useQuery({
-    queryKey: ['leads'],
+    queryKey: ['leads', profile?.organization_id],
+    staleTime: 2 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
@@ -172,33 +173,26 @@ export function useLeads() {
 
       if (error) throw error;
       
-      // Fetch properties and brokers separately to avoid FK issues
+      // Fetch properties and brokers IN PARALLEL
       const propertyIds = [...new Set(data.filter(l => l.property_id).map(l => l.property_id!))];
       const brokerIds = [...new Set(data.filter(l => l.broker_id).map(l => l.broker_id!))];
       
-      let propertiesMap: Record<string, { id: string; title: string }> = {};
-      let brokersMap: Record<string, { id: string; full_name: string }> = {};
-      
-      if (propertyIds.length > 0) {
-        const { data: properties } = await supabase
-          .from('properties')
-          .select('id, title')
-          .in('id', propertyIds);
-        if (properties) {
-          propertiesMap = Object.fromEntries(properties.map(p => [p.id, p]));
-        }
-      }
-      
-      if (brokerIds.length > 0) {
-        const { data: brokersRaw } = await supabase
-          .from('profiles_public' as any)
-          .select('id, user_id, full_name')
-          .in('user_id', brokerIds);
-        const brokers = (brokersRaw as unknown) as { id: string; user_id: string; full_name: string }[] | null;
-        if (brokers) {
-          brokersMap = Object.fromEntries(brokers.map(b => [b.user_id, { id: b.user_id, full_name: b.full_name }]));
-        }
-      }
+      const [propertiesResult, brokersResult] = await Promise.all([
+        propertyIds.length > 0
+          ? supabase.from('properties').select('id, title').in('id', propertyIds)
+          : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+        brokerIds.length > 0
+          ? supabase.from('profiles_public' as any).select('id, user_id, full_name').in('user_id', brokerIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const propertiesMap: Record<string, { id: string; title: string }> = Object.fromEntries(
+        (propertiesResult.data || []).map(p => [p.id, p])
+      );
+      const brokersMap: Record<string, { id: string; full_name: string }> = Object.fromEntries(
+        ((brokersResult.data as unknown) as { id: string; user_id: string; full_name: string }[] || [])
+          .map(b => [b.user_id, { id: b.user_id, full_name: b.full_name }])
+      );
       
       const mapped = data.map(lead => ({
         ...lead,

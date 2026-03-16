@@ -26,8 +26,14 @@ export function useAppointments() {
   const queryClient = useQueryClient();
 
   const { data: appointments = [], isLoading, error } = useQuery({
-    queryKey: ['appointments'],
+    queryKey: ['appointments', profile?.organization_id],
+    staleTime: 2 * 60_000,
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      // Only fetch appointments from last 30 days and future
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -35,11 +41,14 @@ export function useAppointments() {
           lead:leads(id, name),
           property:properties(id, title)
         `)
+        .eq('organization_id', profile.organization_id)
+        .gte('start_time', thirtyDaysAgo.toISOString())
         .order('start_time', { ascending: true });
 
       if (error) throw error;
       return data as Appointment[];
     },
+    enabled: !!profile?.organization_id,
   });
 
   const createAppointment = useMutation({
