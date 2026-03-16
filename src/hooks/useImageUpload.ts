@@ -200,7 +200,7 @@ async function uploadToCloudinary(file: File, folder: string, fileHash?: string)
   }
 
   const result = await response.json();
-  console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored`);
+  if (import.meta.env.DEV) console.log(`[UPLOAD] Cloudinary OK: ${(result.bytes / 1024).toFixed(0)}KB stored`);
 
   return {
     url: result.secure_url,
