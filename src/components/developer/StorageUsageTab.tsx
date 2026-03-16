@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Cloud, Database, Image, TrendingUp, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CloudinaryCleanupSection } from "./CloudinaryCleanupSection";
+import { CloudinaryMigrationCard } from "./CloudinaryMigrationCard";
 
 interface R2Data {
   configured: boolean;
