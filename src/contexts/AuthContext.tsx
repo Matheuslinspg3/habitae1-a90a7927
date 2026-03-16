@@ -220,9 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     return { error: error as Error | null };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     setProfile(null);
     setOrganizationType(null);
     logoutOneSignal();
