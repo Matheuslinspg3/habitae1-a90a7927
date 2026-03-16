@@ -139,32 +139,24 @@ export const PropertyCard = memo(function PropertyCard({ property, onEdit, onDel
 
   return (
     <Card className="overflow-hidden card-hover-lift group touch-manipulation border-border/60">
-      {/* Image Section */}
-      <div className="relative aspect-video bg-muted cursor-pointer overflow-hidden" onClick={handleViewDetails}>
+      {/* PERF: OptimizedImage eliminates CLS with aspect-ratio + skeleton placeholder */}
+      <div className="relative cursor-pointer overflow-hidden" onClick={handleViewDetails}>
         {coverImage ? (
-          <>
-            <img
-              src={coverImage}
-              srcSet={coverSrcSet}
-              sizes={coverSrcSet ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px" : undefined}
-              alt={property.title || "Imóvel"}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-              decoding="async"
-              onError={(e) => {
-                console.error('[PropertyCard] Image load error:', e.currentTarget.src);
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const fallback = target.nextElementSibling as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-            <div className="w-full h-full absolute inset-0 items-center justify-center bg-muted hidden">
-              <Building2 className="h-12 w-12 text-muted-foreground/40" />
-            </div>
-          </>
+          <OptimizedImage
+            src={coverImage}
+            srcSet={coverSrcSet}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
+            alt={property.title || "Imóvel"}
+            aspectRatio="video"
+            className="transition-transform duration-500 group-hover:scale-105"
+            fallback={
+              <div className="aspect-video bg-muted flex items-center justify-center">
+                <Building2 className="h-12 w-12 text-muted-foreground/40" />
+              </div>
+            }
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
+          <div className="aspect-video bg-muted flex items-center justify-center">
             <Building2 className="h-12 w-12 text-muted-foreground/40" />
           </div>
         )}
