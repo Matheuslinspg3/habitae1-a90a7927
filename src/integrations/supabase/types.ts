@@ -5183,6 +5183,7 @@ export type Database = {
         Args: { p_end: string; p_org_id: string; p_start: string }
         Returns: Json
       }
+      fn_pipeline_summary: { Args: { p_org_id: string }; Returns: Json }
       generate_property_code: {
         Args: {
           p_city?: string
