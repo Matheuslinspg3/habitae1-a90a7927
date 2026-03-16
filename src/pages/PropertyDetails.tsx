@@ -56,7 +56,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { LandingPageEditor } from "@/components/properties/LandingPageEditor";
+// PERF: lazy load - LandingPageEditor only needed when user opens editor
+const LandingPageEditor = lazy(() => import("@/components/properties/LandingPageEditor").then(m => ({ default: m.LandingPageEditor })));
 import { PropertyQRCode } from "@/components/properties/PropertyQRCode";
 import { PropertyHistory } from "@/components/properties/PropertyHistory";
 
