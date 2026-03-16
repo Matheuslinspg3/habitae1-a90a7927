@@ -6,7 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter,
-  AlignRight, List, ListOrdered, Undo, Redo, Type,
+  AlignRight, List, ListOrdered, Undo, Redo, Type, Sparkles, Loader2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -39,9 +39,11 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  onAiGenerate?: () => void;
+  isAiGenerating?: boolean;
 }
 
-export function RichTextEditor({ content, onChange, placeholder, className }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder, className, onAiGenerate, isAiGenerating }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -133,6 +135,27 @@ export function RichTextEditor({ content, onChange, placeholder, className }: Ri
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {onAiGenerate && (
+          <>
+            <div className="w-px h-5 bg-border mx-1" />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30 hover:border-primary/50 text-primary"
+              onClick={onAiGenerate}
+              disabled={isAiGenerating}
+            >
+              {isAiGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              {isAiGenerating ? "Gerando..." : "Gerar com IA"}
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Editor */}

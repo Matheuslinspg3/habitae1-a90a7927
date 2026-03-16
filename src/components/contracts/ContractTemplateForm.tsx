@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -12,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Eye, Pencil } from "lucide-react";
 import { RichTextEditor, AVAILABLE_VARIABLES } from "./RichTextEditor";
+import { supabase } from "@/integrations/supabase/client";
 import type { ContractTemplate, ContractTemplateFormData } from "@/hooks/useContractTemplates";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -71,7 +73,28 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
   const [contractType, setContractType] = useState("venda");
   const [bodyHtml, setBodyHtml] = useState("");
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const isMobile = useIsMobile();
+
+  const handleAiGenerate = async () => {
+    setIsAiGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-contract-template", {
+        body: { contractType, templateName: name, description },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.html) {
+        setBodyHtml(data.html);
+        toast.success("Template gerado com IA!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Erro ao gerar template com IA");
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
 
   useEffect(() => {
     if (template) {
@@ -169,6 +192,8 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           onChange={setBodyHtml}
           placeholder="Escreva o modelo do contrato aqui. Use o botão 'Inserir Variável' para adicionar campos dinâmicos..."
           className="h-full [&_.ProseMirror]:min-h-[400px]"
+          onAiGenerate={handleAiGenerate}
+          isAiGenerating={isAiGenerating}
         />
       </div>
     </div>
