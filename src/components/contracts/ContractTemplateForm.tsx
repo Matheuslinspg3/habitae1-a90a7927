@@ -185,11 +185,19 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           {typeLabels[contractType] || contractType}
         </Badge>
       </div>
-      <div className="flex-1 min-h-0 border rounded-md bg-card overflow-y-auto">
-        {/* Simulated paper */}
-        <div className="mx-auto max-w-[720px] bg-background shadow-sm border border-border/50 rounded my-4 mx-4">
+      <div className="flex-1 min-h-0 border rounded-md bg-muted/40 overflow-y-auto flex justify-center py-6 px-4">
+        {/* A4 paper simulation: 210mm × 297mm ratio ≈ 1:1.414 */}
+        <div
+          className="bg-white shadow-lg border border-border/60 shrink-0"
+          style={{
+            width: "210mm",
+            maxWidth: "100%",
+            minHeight: "297mm",
+            aspectRatio: "210 / 297",
+          }}
+        >
           {/* Header bar */}
-          <div className="border-b px-6 py-4 flex items-center justify-between">
+          <div className="border-b px-8 py-5 flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-base text-foreground">{name || "Título do Contrato"}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">{typeLabels[contractType] || contractType}</p>
@@ -200,18 +208,18 @@ export function ContractTemplateForm({ open, onOpenChange, template, onSubmit, i
           </div>
           {/* Body */}
           <div
-            className="prose prose-sm max-w-none p-6 text-foreground [&_p]:leading-relaxed"
+            className="prose prose-sm max-w-none px-8 py-6 text-foreground [&_p]:leading-relaxed"
             dangerouslySetInnerHTML={{ __html: renderPreviewHtml(bodyHtml) }}
           />
-          {/* Signature area */}
-          <div className="border-t px-6 py-6">
-            <div className="grid grid-cols-2 gap-8">
+          {/* Signature area pinned at bottom */}
+          <div className="border-t px-8 py-8 mt-auto">
+            <div className="grid grid-cols-2 gap-12">
               <div className="text-center">
-                <div className="border-b border-dashed border-muted-foreground/40 mb-1 h-12" />
+                <div className="border-b border-dashed border-muted-foreground/40 mb-1 h-14" />
                 <p className="text-xs text-muted-foreground">Contratante</p>
               </div>
               <div className="text-center">
-                <div className="border-b border-dashed border-muted-foreground/40 mb-1 h-12" />
+                <div className="border-b border-dashed border-muted-foreground/40 mb-1 h-14" />
                 <p className="text-xs text-muted-foreground">Contratado</p>
               </div>
             </div>
