@@ -39,6 +39,8 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  onAiGenerate?: () => void;
+  isAiGenerating?: boolean;
 }
 
 export function RichTextEditor({ content, onChange, placeholder, className }: RichTextEditorProps) {
