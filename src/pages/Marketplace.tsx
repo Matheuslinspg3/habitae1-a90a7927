@@ -104,7 +104,6 @@ export default function Marketplace() {
               </div>
             ))}
           </div>
-          </div>
         ) : properties.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
