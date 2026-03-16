@@ -31,7 +31,8 @@ interface PropertyListItemProps {
   isPublished?: boolean;
 }
 
-export function PropertyListItem({
+// PERF: memo prevents re-render when sibling list items change
+export const PropertyListItem = memo(function PropertyListItem({
   property,
   isSelected,
   isSelectionMode,
