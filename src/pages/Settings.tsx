@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { PillBadge } from "@/components/ui/pill-badge";
 import { TeamInviteSection } from "@/components/settings/TeamInviteSection";
 import { PlatformInviteSection } from "@/components/settings/PlatformInviteSection";
-import { UnifiedPlanSection } from "@/components/settings/UnifiedPlanSection";
+
 import { VerificationSection } from "@/components/settings/VerificationSection";
 import { ChangelogSection } from "@/components/settings/ChangelogSection";
 import { useImageUpload } from "@/hooks/useImageUpload";
