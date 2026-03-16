@@ -27,7 +27,8 @@ interface AdLeadRowProps {
   showAdName?: boolean;
 }
 
-export function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
+// PERF: memo prevents re-render of unaffected lead rows
+export const AdLeadRow = memo(function AdLeadRow({ lead, adName, showAdName }: AdLeadRowProps) {
   const { updateStatus, sendToCrm, isSending } = useAdLeads();
   const { leadStages } = useLeadStages();
   const { settings } = useAdSettings();
