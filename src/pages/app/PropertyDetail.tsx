@@ -104,11 +104,15 @@ export default function PropertyDetail() {
           <div className="flex">
             {images.length > 0 ? images.map((img, i) => (
               <div key={i} className="flex-[0_0_100%] min-w-0">
-                <img
+                {/* PERF: OptimizedImage with eager for first slide, lazy for rest */}
+                <OptimizedImage
                   src={img}
-                  alt=""
-                  className="w-full aspect-video object-cover image-reveal"
-                  style={{ animationDelay: `${i * 100}ms` }}
+                  alt={property.title || "Imóvel"}
+                  aspectRatio="video"
+                  loading={i === 0 ? "eager" : "lazy"}
+                  fetchPriority={i === 0 ? "high" : undefined}
+                  className="image-reveal"
+                  wrapperClassName="image-reveal"
                 />
               </div>
             )) : (
