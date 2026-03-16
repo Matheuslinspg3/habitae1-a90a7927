@@ -43,7 +43,7 @@ interface RichTextEditorProps {
   isAiGenerating?: boolean;
 }
 
-export function RichTextEditor({ content, onChange, placeholder, className }: RichTextEditorProps) {
+export function RichTextEditor({ content, onChange, placeholder, className, onAiGenerate, isAiGenerating }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
