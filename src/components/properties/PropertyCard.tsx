@@ -36,13 +36,9 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
   const getCoverImage = () => {
     if (!isAvailable || !coverImageData) return null;
     const imageRecord = coverImageData as unknown as ImageRecord;
-    // R2 images: use getImageUrl directly
+    // Use unified getImageUrl for all providers (R2, Cloudinary proxy, etc.)
     if (imageRecord.storage_provider === 'r2' || imageRecord.r2_key_thumb) {
       return getImageUrl(imageRecord, 'thumb');
-    }
-    // Use cached_thumbnail_url if available (Cloudinary cached thumbs)
-    if (imageRecord.cached_thumbnail_url) {
-      return imageRecord.cached_thumbnail_url;
     }
     // Drive file ID proxy
     const driveFileId = (coverImageData as any).drive_file_id;
@@ -50,7 +46,8 @@ export function PropertyCard({ property, onEdit, onDelete, isPublished }: Proper
       const baseUrl = import.meta.env.VITE_SUPABASE_URL;
       return `${baseUrl}/functions/v1/drive-image-proxy?id=${driveFileId}&sz=w800`;
     }
-    return coverImageData.url ? proxyDriveImageUrl(coverImageData.url) : null;
+    // For Cloudinary/legacy: use getImageUrl which applies proxy
+    return getImageUrl(imageRecord, 'thumb');
   };
   const coverImage = getCoverImage();
   const coverSrcSet = coverImageData ? getImageSrcSet(coverImageData as unknown as ImageRecord) : undefined;
