@@ -6,7 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter,
-  AlignRight, List, ListOrdered, Undo, Redo, Type,
+  AlignRight, List, ListOrdered, Undo, Redo, Type, Sparkles, Loader2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
