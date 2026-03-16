@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async ({ email, password, name, phone, accountType, companyName }: SignUpParams) => {
+  const signUp = useCallback(async ({ email, password, name, phone, accountType, companyName }: SignUpParams) => {
     const redirectUrl = `${window.location.origin}/`;
     
     // Trigger no banco de dados vai criar organização/perfil/role automaticamente
