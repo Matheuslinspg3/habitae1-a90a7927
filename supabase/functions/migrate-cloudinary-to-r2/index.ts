@@ -130,10 +130,14 @@ Deno.serve(async (req) => {
     // ── Parse params ──
     let batchSize = 10;
     let dryRun = false;
+    let propertyIds: string[] | null = null;
     try {
       const body = await req.json();
       batchSize = Math.min(Math.max(body.batchSize || 10, 1), 50);
       dryRun = body.dryRun === true;
+      if (Array.isArray(body.propertyIds) && body.propertyIds.length > 0) {
+        propertyIds = body.propertyIds;
+      }
     } catch { /* defaults */ }
 
     // ── R2 config ──
@@ -152,7 +156,7 @@ Deno.serve(async (req) => {
     const aws = new AwsClient({ accessKeyId: accessKey, secretAccessKey: secretKey, region: "auto", service: "s3" });
 
     // ── Get images needing migration ──
-    const { data: images, error: fetchErr } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("property_images")
       .select("id, url, property_id, cached_thumbnail_url, storage_provider")
       .or("storage_provider.eq.cloudinary,storage_provider.is.null")
@@ -161,6 +165,12 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: true })
       .limit(batchSize);
 
+    if (propertyIds) {
+      query = query.in("property_id", propertyIds);
+    }
+
+    const { data: images, error: fetchErr } = await query;
+
     if (fetchErr) {
       return new Response(JSON.stringify({ error: fetchErr.message }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -168,12 +178,18 @@ Deno.serve(async (req) => {
     }
 
     // ── Count total remaining ──
-    const { count: totalRemaining } = await supabaseAdmin
+    let countQuery = supabaseAdmin
       .from("property_images")
       .select("id", { count: "exact", head: true })
       .or("storage_provider.eq.cloudinary,storage_provider.is.null")
       .like("url", "%res.cloudinary.com%")
       .is("r2_key_full", null);
+
+    if (propertyIds) {
+      countQuery = countQuery.in("property_id", propertyIds);
+    }
+
+    const { count: totalRemaining } = await countQuery;
 
     if (!images?.length) {
       return new Response(JSON.stringify({
