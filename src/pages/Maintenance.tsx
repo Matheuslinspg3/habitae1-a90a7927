@@ -444,22 +444,41 @@ export default function Maintenance() {
           <p className="text-muted-foreground text-base leading-relaxed">{maintenanceMessage}</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
-            {checking ? "Verificando..." : "Tentar novamente"}
-          </Button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <Button onClick={handleRetry} variant="outline" size="lg" disabled={checking} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+              {checking ? "Verificando..." : "Tentar novamente"}
+            </Button>
 
-          <Button
-            onClick={handleDisableMaintenance}
-            variant="destructive"
-            size="lg"
-            disabled={disabling}
-            className="gap-2"
-          >
-            {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-            {disabling ? "Desativando..." : "Remover Manutenção"}
-          </Button>
+            <Button
+              onClick={handleDisableMaintenance}
+              variant="destructive"
+              size="lg"
+              disabled={disabling}
+              className="gap-2"
+            >
+              {disabling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+              {disabling ? "Desativando..." : "Remover Manutenção"}
+            </Button>
+          </div>
+
+          {showPasswordPrompt && (
+            <div className="flex items-center gap-2 w-full max-w-xs">
+              <input
+                type="password"
+                placeholder="Senha de manutenção"
+                value={maintenancePassword}
+                onChange={(e) => setMaintenancePassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleDisableMaintenance()}
+                className="flex-1 h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                autoFocus
+              />
+              <Button variant="ghost" size="sm" onClick={() => { setShowPasswordPrompt(false); setMaintenancePassword(""); }}>
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* SQL Preview Card */}
