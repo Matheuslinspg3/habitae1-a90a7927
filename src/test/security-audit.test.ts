@@ -37,7 +37,7 @@ function isAllowedUrl(urlStr: string): boolean {
 
 describe("SSRF Protection — URL allowlist", () => {
   it("allows Supabase storage URLs", () => {
-    expect(isAllowedUrl("https://hlasxwslrkbtryurcaqa.supabase.co/storage/v1/object/public/test.pdf")).toBe(true);
+    expect(isAllowedUrl(`https://${TEST_SUPABASE_HOST}/storage/v1/object/public/test.pdf`)).toBe(true);
   });
 
   it("allows Cloudinary URLs", () => {
@@ -45,7 +45,7 @@ describe("SSRF Protection — URL allowlist", () => {
   });
 
   it("blocks HTTP (non-HTTPS)", () => {
-    expect(isAllowedUrl("http://hlasxwslrkbtryurcaqa.supabase.co/storage/v1/test.pdf")).toBe(false);
+    expect(isAllowedUrl(`http://${TEST_SUPABASE_HOST}/storage/v1/test.pdf`)).toBe(false);
   });
 
   it("blocks localhost", () => {
