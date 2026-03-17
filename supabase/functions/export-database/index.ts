@@ -350,7 +350,23 @@ Deno.serve(async (req) => {
       schema.tables_ddl = `-- Erro ao exportar schema: ${e instanceof Error ? e.message : String(e)}`;
     }
 
-    // 2. Export all public tables data
+    // 2. Get column types for proper INSERT generation (array vs jsonb)
+    const columnTypes: Record<string, Record<string, string>> = {};
+    try {
+      const { data: ctData } = await adminClient.rpc('get_schema_column_types') as {
+        data: { table_name: string; column_name: string; udt_name: string }[] | null
+      };
+      if (ctData) {
+        for (const row of ctData) {
+          if (!columnTypes[row.table_name]) columnTypes[row.table_name] = {};
+          columnTypes[row.table_name][row.column_name] = row.udt_name;
+        }
+      }
+    } catch (e) {
+      errors.push(`column_types: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    // 3. Export all public tables data
     const result: Record<string, { count: number; csv: string }> = {};
     const errors: string[] = [];
 
@@ -379,7 +395,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Export auth.users
+    // 4. Export auth.users
     try {
       const allAuthUsers: Record<string, unknown>[] = [];
       let page = 1;
@@ -422,6 +438,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         schema,
         tables: result,
+        column_types: columnTypes,
         errors,
         exported_at: new Date().toISOString(),
       }),

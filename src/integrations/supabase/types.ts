@@ -5347,6 +5347,14 @@ export type Database = {
           stored_url: string
         }[]
       }
+      get_schema_column_types: {
+        Args: never
+        Returns: {
+          column_name: string
+          table_name: string
+          udt_name: string
+        }[]
+      }
       get_schema_enums: {
         Args: never
         Returns: {

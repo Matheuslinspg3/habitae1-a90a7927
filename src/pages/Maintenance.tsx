@@ -84,13 +84,30 @@ const TABLE_ORDER = [
   "verification_codes",
 ];
 
-function escapeSQL(value: unknown): string {
+function escapeSQL(value: unknown, udtName?: string): string {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") return String(value);
   if (Array.isArray(value)) {
-    const items = value.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",");
-    return `'{${items}}'`;
+    // PostgreSQL array types have udt_name starting with _ (e.g., _text, _int4, _varchar)
+    if (udtName && udtName.startsWith('_')) {
+      if (value.length === 0) return "'{}'";
+      const elemType = udtName.substring(1);
+      const items = value.map((v) => {
+        if (v === null || v === undefined) return "NULL";
+        const s = String(v).replace(/'/g, "''");
+        return `'${s}'`;
+      }).join(",");
+      return `ARRAY[${items}]::${elemType}[]`;
+    }
+    // jsonb or json column, or unknown — use ::jsonb
+    if (!udtName || udtName === 'jsonb' || udtName === 'json') {
+      const json = JSON.stringify(value).replace(/'/g, "''");
+      return `'${json}'::jsonb`;
+    }
+    // text column that happens to contain array-like string — serialize as string
+    const str = JSON.stringify(value).replace(/'/g, "''");
+    return `'${str}'`;
   }
   if (typeof value === "object") {
     const json = JSON.stringify(value).replace(/'/g, "''");
@@ -100,7 +117,7 @@ function escapeSQL(value: unknown): string {
   return `'${str}'`;
 }
 
-function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
+function rowsToSQL(tableName: string, rows: Record<string, unknown>[], colTypes: Record<string, string> = {}): string {
   if (!rows || rows.length === 0) return `-- ${tableName}: 0 registros\n`;
   const columns = Object.keys(rows[0]);
   const colList = columns.map((c) => `"${c}"`).join(", ");
@@ -113,7 +130,7 @@ function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     const values = batch.map((row) => {
-      const vals = columns.map((col) => escapeSQL(row[col]));
+      const vals = columns.map((col) => escapeSQL(row[col], colTypes[col]));
       return `  (${vals.join(", ")})`;
     });
     lines.push(`INSERT INTO public."${tableName}" (${colList})`);
@@ -299,13 +316,14 @@ export default function Maintenance() {
   const buildSQL = (
     schema: SchemaResult,
     tables: Record<string, { count: number; csv: string }>,
+    columnTypes: Record<string, Record<string, string>> = {},
   ): { sql: string; tablesExported: number; totalRecords: number; authUsersCount: number } => {
     const parts: string[] = [];
 
     parts.push(`-- ============================================================`);
     parts.push(`-- EXPORTAÇÃO COMPLETA: Porta do Corretor`);
     parts.push(`-- Gerado em: ${new Date().toISOString()}`);
-    parts.push(`-- Estrutura: Enums > Tabelas > FKs > RLS > Funções > Triggers > Policies > Indexes > Dados > Auth`);
+    parts.push(`-- Ordem: Extensões > Enums > Tabelas > Auth > Dados > FKs > RLS > Funções > Triggers > Policies > Indexes`);
     parts.push(`-- Destino: Supabase novo (executar no SQL Editor com service_role)`);
     parts.push(`-- ============================================================`);
     parts.push(``);
@@ -317,89 +335,51 @@ export default function Maintenance() {
     parts.push(`-- 5. Senha temporária padrão: PortaMigra2026!`);
     parts.push(``);
 
-    // PART 1: Enums
+    // PART 1: Extensions
+    parts.push(`-- ============================================================`);
+    parts.push(`-- PARTE 1: EXTENSÕES`);
+    parts.push(`-- ============================================================`);
+    parts.push(``);
+    parts.push(`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA extensions;`);
+    parts.push(`CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;`);
+    parts.push(`CREATE EXTENSION IF NOT EXISTS pg_net SCHEMA extensions;`);
+    parts.push(``);
+
+    // PART 2: Enums
     if (schema.enums_ddl) {
       parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 1: ENUMS`);
+      parts.push(`-- PARTE 2: ENUMS`);
       parts.push(`-- ============================================================`);
       parts.push(``);
       parts.push(schema.enums_ddl);
       parts.push(``);
     }
 
-    // PART 2: Tables (CREATE TABLE without FKs, in dependency order)
+    // PART 3: Tables (CREATE TABLE without FKs, in dependency order)
     if (schema.tables_ddl) {
       parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 2: TABELAS (sem Foreign Keys, ordem de dependência)`);
+      parts.push(`-- PARTE 3: TABELAS (sem Foreign Keys, ordem de dependência)`);
       parts.push(`-- ============================================================`);
       parts.push(``);
       parts.push(schema.tables_ddl);
       parts.push(``);
     }
 
-    // PART 3: Foreign Keys (ALTER TABLE ADD CONSTRAINT)
-    if (schema.fk_ddl) {
+    // PART 4: Auth users (BEFORE public data — organizations.created_by references auth.users)
+    let authUsersCount = 0;
+    if (tables["_auth_users"] && tables["_auth_users"].count > 0) {
       parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 3: FOREIGN KEYS (ALTER TABLE ADD CONSTRAINT)`);
+      parts.push(`-- PARTE 4: AUTH.USERS (antes dos dados públicos)`);
       parts.push(`-- ============================================================`);
       parts.push(``);
-      parts.push(schema.fk_ddl);
-      parts.push(``);
+      const authRows = csvToRows(tables["_auth_users"].csv);
+      authUsersCount = authRows.length;
+      parts.push(authUsersToSQL(authRows));
     }
 
-    // PART 4: RLS Enable
-    if (schema.rls_ddl) {
-      parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 4: ENABLE ROW LEVEL SECURITY`);
-      parts.push(`-- ============================================================`);
-      parts.push(``);
-      parts.push(schema.rls_ddl);
-      parts.push(``);
-    }
-
-    // PART 5: Functions
-    if (schema.functions_ddl) {
-      parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 5: FUNÇÕES`);
-      parts.push(`-- ============================================================`);
-      parts.push(``);
-      parts.push(schema.functions_ddl);
-      parts.push(``);
-    }
-
-    // PART 6: Triggers
-    if (schema.triggers_ddl) {
-      parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 6: TRIGGERS`);
-      parts.push(`-- ============================================================`);
-      parts.push(``);
-      parts.push(schema.triggers_ddl);
-      parts.push(``);
-    }
-
-    // PART 7: Policies
-    if (schema.policies_ddl) {
-      parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 7: RLS POLICIES`);
-      parts.push(`-- ============================================================`);
-      parts.push(``);
-      parts.push(schema.policies_ddl);
-      parts.push(``);
-    }
-
-    // PART 8: Indexes
-    if (schema.indexes_ddl) {
-      parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 8: INDEXES`);
-      parts.push(`-- ============================================================`);
-      parts.push(``);
-      parts.push(schema.indexes_ddl);
-      parts.push(``);
-    }
-
-    // PART 9: Data
+    // PART 5: Data (INSERTs in dependency order)
     parts.push(`-- ============================================================`);
-    parts.push(`-- PARTE 9: DADOS (INSERTs)`);
+    parts.push(`-- PARTE 5: DADOS (INSERTs)`);
     parts.push(`-- ============================================================`);
     parts.push(``);
     parts.push(`BEGIN;`);
@@ -410,11 +390,10 @@ export default function Maintenance() {
     let totalRecords = 0;
     let tablesExported = 0;
 
-    // Insert data in dependency order
     for (const tableName of TABLE_ORDER) {
       if (tables[tableName] && tables[tableName].count > 0) {
         const rows = csvToRows(tables[tableName].csv);
-        parts.push(rowsToSQL(tableName, rows));
+        parts.push(rowsToSQL(tableName, rows, columnTypes[tableName] || {}));
         totalRecords += rows.length;
         tablesExported++;
       }
@@ -426,7 +405,7 @@ export default function Maintenance() {
       if (TABLE_ORDER.includes(tableName)) continue;
       if (tables[tableName].count > 0) {
         const rows = csvToRows(tables[tableName].csv);
-        parts.push(rowsToSQL(tableName, rows));
+        parts.push(rowsToSQL(tableName, rows, columnTypes[tableName] || {}));
         totalRecords += rows.length;
         tablesExported++;
       }
@@ -437,16 +416,64 @@ export default function Maintenance() {
     parts.push(`COMMIT;`);
     parts.push(``);
 
-    // PART 10: Auth users (last)
-    let authUsersCount = 0;
-    if (tables["_auth_users"] && tables["_auth_users"].count > 0) {
+    // PART 6: Foreign Keys (AFTER data to avoid constraint violations during insert)
+    if (schema.fk_ddl) {
       parts.push(`-- ============================================================`);
-      parts.push(`-- PARTE 10: AUTH.USERS`);
+      parts.push(`-- PARTE 6: FOREIGN KEYS (ALTER TABLE ADD CONSTRAINT)`);
       parts.push(`-- ============================================================`);
       parts.push(``);
-      const authRows = csvToRows(tables["_auth_users"].csv);
-      authUsersCount = authRows.length;
-      parts.push(authUsersToSQL(authRows));
+      parts.push(schema.fk_ddl);
+      parts.push(``);
+    }
+
+    // PART 7: RLS Enable
+    if (schema.rls_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 7: ENABLE ROW LEVEL SECURITY`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.rls_ddl);
+      parts.push(``);
+    }
+
+    // PART 8: Functions
+    if (schema.functions_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 8: FUNÇÕES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.functions_ddl);
+      parts.push(``);
+    }
+
+    // PART 9: Triggers
+    if (schema.triggers_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 9: TRIGGERS`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.triggers_ddl);
+      parts.push(``);
+    }
+
+    // PART 10: Policies
+    if (schema.policies_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 10: RLS POLICIES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.policies_ddl);
+      parts.push(``);
+    }
+
+    // PART 11: Indexes
+    if (schema.indexes_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 11: INDEXES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.indexes_ddl);
+      parts.push(``);
     }
 
     parts.push(`-- ============================================================`);
@@ -495,10 +522,11 @@ export default function Maintenance() {
 
       const tables = result.tables as Record<string, { count: number; csv: string }>;
       const schema = result.schema as SchemaResult;
+      const columnTypes = (result.column_types || {}) as Record<string, Record<string, string>>;
 
       setExportProgress("Gerando SQL de importação...");
 
-      const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables);
+      const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables, columnTypes);
 
       setGeneratedSQL(sql);
       setExportStats({
