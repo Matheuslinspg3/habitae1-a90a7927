@@ -84,13 +84,30 @@ const TABLE_ORDER = [
   "verification_codes",
 ];
 
-function escapeSQL(value: unknown): string {
+function escapeSQL(value: unknown, udtName?: string): string {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (typeof value === "number") return String(value);
   if (Array.isArray(value)) {
-    const items = value.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",");
-    return `'{${items}}'`;
+    // PostgreSQL array types have udt_name starting with _ (e.g., _text, _int4, _varchar)
+    if (udtName && udtName.startsWith('_')) {
+      if (value.length === 0) return "'{}'";
+      const elemType = udtName.substring(1);
+      const items = value.map((v) => {
+        if (v === null || v === undefined) return "NULL";
+        const s = String(v).replace(/'/g, "''");
+        return `'${s}'`;
+      }).join(",");
+      return `ARRAY[${items}]::${elemType}[]`;
+    }
+    // jsonb or json column, or unknown — use ::jsonb
+    if (!udtName || udtName === 'jsonb' || udtName === 'json') {
+      const json = JSON.stringify(value).replace(/'/g, "''");
+      return `'${json}'::jsonb`;
+    }
+    // text column that happens to contain array-like string — serialize as string
+    const str = JSON.stringify(value).replace(/'/g, "''");
+    return `'${str}'`;
   }
   if (typeof value === "object") {
     const json = JSON.stringify(value).replace(/'/g, "''");
@@ -100,7 +117,7 @@ function escapeSQL(value: unknown): string {
   return `'${str}'`;
 }
 
-function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
+function rowsToSQL(tableName: string, rows: Record<string, unknown>[], colTypes: Record<string, string> = {}): string {
   if (!rows || rows.length === 0) return `-- ${tableName}: 0 registros\n`;
   const columns = Object.keys(rows[0]);
   const colList = columns.map((c) => `"${c}"`).join(", ");
@@ -113,7 +130,7 @@ function rowsToSQL(tableName: string, rows: Record<string, unknown>[]): string {
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     const values = batch.map((row) => {
-      const vals = columns.map((col) => escapeSQL(row[col]));
+      const vals = columns.map((col) => escapeSQL(row[col], colTypes[col]));
       return `  (${vals.join(", ")})`;
     });
     lines.push(`INSERT INTO public."${tableName}" (${colList})`);
