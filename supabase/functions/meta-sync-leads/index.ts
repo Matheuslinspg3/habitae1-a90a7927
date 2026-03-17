@@ -141,6 +141,7 @@ Deno.serve(async (req) => {
 
       for (const form of forms) {
         // Step 3: Fetch leads for each form
+        console.log(`[meta-sync-leads] Fetching leads for form ${form.id} (${form.name})`);
         let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
 
         while (leadsUrl) {
@@ -148,11 +149,12 @@ Deno.serve(async (req) => {
           const leadsData = await leadsRes.json();
 
           if (leadsData.error) {
-            console.error(`Meta API error (leads for form ${form.id}):`, leadsData.error);
+            console.error(`[meta-sync-leads] Meta API error (leads for form ${form.id}):`, JSON.stringify(leadsData.error));
             break;
           }
 
           const leads = leadsData.data || [];
+          console.log(`[meta-sync-leads] Form ${form.name}: fetched ${leads.length} leads in this page`);
 
           for (const lead of leads) {
             // Check date filter
