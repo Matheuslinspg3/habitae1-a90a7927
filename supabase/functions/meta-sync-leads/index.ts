@@ -6,6 +6,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log("[meta-sync-leads] Request received:", req.method);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -14,6 +16,7 @@ Deno.serve(async (req) => {
     // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("[meta-sync-leads] No auth header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
@@ -25,14 +28,17 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const payloadB64 = token.split(".")[1];
     if (!payloadB64) {
+      console.error("[meta-sync-leads] Invalid token format");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
     const payload = JSON.parse(atob(payloadB64));
     const userId = payload.sub;
     const exp = payload.exp;
     if (!userId || (exp && exp < Math.floor(Date.now() / 1000))) {
+      console.error("[meta-sync-leads] Token expired or invalid, userId:", userId);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+    console.log("[meta-sync-leads] Auth OK, user:", userId);
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -91,16 +97,18 @@ Deno.serve(async (req) => {
     } catch {}
 
     // Step 1: Get Pages the user manages (leadgen_forms belong to Pages, not Ad Accounts)
+    console.log("[meta-sync-leads] Fetching pages, daysBack:", daysBack);
     const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${accessToken}`;
     const pagesRes = await fetch(pagesUrl);
     const pagesData = await pagesRes.json();
 
     if (pagesData.error) {
-      console.error("Meta API error (pages):", pagesData.error);
+      console.error("[meta-sync-leads] Meta API error (pages):", JSON.stringify(pagesData.error));
       return new Response(JSON.stringify({ error: "Meta API error", details: pagesData.error.message }), { status: 502, headers: corsHeaders });
     }
 
     const pages = pagesData.data || [];
+    console.log("[meta-sync-leads] Found", pages.length, "pages:", pages.map((p: any) => ({ id: p.id, name: p.name })));
     if (pages.length === 0) {
       return new Response(
         JSON.stringify({ synced: 0, skipped: 0, auto_sent: 0, forms: 0, message: "Nenhuma página encontrada. Verifique se o token possui permissão pages_read_engagement." }),
@@ -117,20 +125,23 @@ Deno.serve(async (req) => {
       const pageToken = page.access_token || accessToken;
 
       // Step 2: Get leadgen forms for each page
+      console.log(`[meta-sync-leads] Fetching forms for page ${page.id} (${page.name})`);
       const formsUrl = `https://graph.facebook.com/v21.0/${page.id}/leadgen_forms?fields=id,name&access_token=${pageToken}`;
       const formsRes = await fetch(formsUrl);
       const formsData = await formsRes.json();
 
       if (formsData.error) {
-        console.error(`Meta API error (forms for page ${page.id}):`, formsData.error);
+        console.error(`[meta-sync-leads] Meta API error (forms for page ${page.id}):`, JSON.stringify(formsData.error));
         continue; // Skip this page, try next
       }
 
       const forms = formsData.data || [];
+      console.log(`[meta-sync-leads] Page ${page.name}: ${forms.length} forms found:`, forms.map((f: any) => ({ id: f.id, name: f.name })));
       totalForms += forms.length;
 
       for (const form of forms) {
         // Step 3: Fetch leads for each form
+        console.log(`[meta-sync-leads] Fetching leads for form ${form.id} (${form.name})`);
         let leadsUrl: string | null = `https://graph.facebook.com/v21.0/${form.id}/leads?fields=id,created_time,field_data,ad_id&limit=100&access_token=${pageToken}`;
 
         while (leadsUrl) {
@@ -138,11 +149,12 @@ Deno.serve(async (req) => {
           const leadsData = await leadsRes.json();
 
           if (leadsData.error) {
-            console.error(`Meta API error (leads for form ${form.id}):`, leadsData.error);
+            console.error(`[meta-sync-leads] Meta API error (leads for form ${form.id}):`, JSON.stringify(leadsData.error));
             break;
           }
 
           const leads = leadsData.data || [];
+          console.log(`[meta-sync-leads] Form ${form.name}: fetched ${leads.length} leads in this page`);
 
           for (const lead of leads) {
             // Check date filter
