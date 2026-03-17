@@ -289,3 +289,60 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Internal error" }), { status: 500, headers: corsHeaders });
   }
 });
+
+function normalizeName(value?: string | null) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function selectBestAdAccount(
+  adAccounts: Array<{ id: string; name?: string | null; status?: number; account_status?: number }>,
+  organizationName?: string | null,
+) {
+  if (!adAccounts.length) return null;
+
+  const activeAccounts = adAccounts.filter((account) => (account.account_status ?? account.status) === 1);
+  const candidates = activeAccounts.length ? activeAccounts : adAccounts;
+  const normalizedOrgName = normalizeName(organizationName);
+
+  if (normalizedOrgName) {
+    const directMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return normalizedAccountName.includes(normalizedOrgName) || normalizedOrgName.includes(normalizedAccountName);
+    });
+
+    if (directMatch) return directMatch;
+
+    const orgTokens = normalizedOrgName.match(/[a-z0-9]+/g) || [];
+    const tokenMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return orgTokens.filter((token) => token.length >= 4).some((token) => normalizedAccountName.includes(token));
+    });
+
+    if (tokenMatch) return tokenMatch;
+  }
+
+  return candidates[0];
+}
+
+function resolveMetaAccount(account: any, organizationName?: string | null) {
+  const availableAccounts = Array.isArray(account?.auth_payload?.ad_accounts)
+    ? account.auth_payload.ad_accounts
+    : [];
+
+  const matchedAccount = selectBestAdAccount(availableAccounts, organizationName);
+  if (matchedAccount?.id) {
+    return {
+      id: matchedAccount.id,
+      name: matchedAccount.name || account.name,
+    };
+  }
+
+  return {
+    id: account.external_account_id,
+    name: account.name,
+  };
+}

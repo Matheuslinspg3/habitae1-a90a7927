@@ -146,6 +146,44 @@ Deno.serve(async (req) => {
   }
 });
 
+function normalizeName(value?: string | null) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function selectBestAdAccount(
+  adAccounts: Array<{ id: string; name?: string | null; account_status?: number }>,
+  organizationName?: string | null,
+) {
+  if (!adAccounts.length) return null;
+
+  const activeAccounts = adAccounts.filter((account) => account.account_status === 1);
+  const candidates = activeAccounts.length ? activeAccounts : adAccounts;
+  const normalizedOrgName = normalizeName(organizationName);
+
+  if (normalizedOrgName) {
+    const directMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return normalizedAccountName.includes(normalizedOrgName) || normalizedOrgName.includes(normalizedAccountName);
+    });
+
+    if (directMatch) return directMatch;
+
+    const orgTokens = normalizedOrgName.match(/[a-z0-9]+/g) || [];
+    const tokenMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return orgTokens.filter((token) => token.length >= 4).some((token) => normalizedAccountName.includes(token));
+    });
+
+    if (tokenMatch) return tokenMatch;
+  }
+
+  return candidates[0];
+}
+
 function redirectToApp(params: string, origin?: string) {
   const appUrl = origin || Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
   const target = `${appUrl}/anuncios?tab=configuracoes${params}`;
