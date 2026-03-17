@@ -522,10 +522,11 @@ export default function Maintenance() {
 
       const tables = result.tables as Record<string, { count: number; csv: string }>;
       const schema = result.schema as SchemaResult;
+      const columnTypes = (result.column_types || {}) as Record<string, Record<string, string>>;
 
       setExportProgress("Gerando SQL de importação...");
 
-      const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables);
+      const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables, columnTypes);
 
       setGeneratedSQL(sql);
       setExportStats({
