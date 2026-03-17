@@ -34,7 +34,6 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    // Get user's org
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")
@@ -46,8 +45,6 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-
-    // Get ad account with service role for auth_payload access
     const supa = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -65,7 +62,26 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Meta account not connected" }), { status: 400, headers: corsHeaders });
     }
 
+    const { data: organization } = await supa
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    const resolvedAccount = resolveMetaAccount(account, organization?.name);
     const accessToken = account.auth_payload.access_token;
+
+    if (resolvedAccount.id !== account.external_account_id) {
+      await supa
+        .from("ad_accounts")
+        .update({
+          external_account_id: resolvedAccount.id,
+          name: resolvedAccount.name || account.name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", account.id);
+      console.log("[meta-sync-leads] Updated selected ad account:", resolvedAccount.id, resolvedAccount.name);
+    }
 
     // Parse request body for options
     let daysBack = 7;

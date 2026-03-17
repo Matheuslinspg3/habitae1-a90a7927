@@ -23,7 +23,6 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    // Decode JWT payload without session dependency
     const payloadB64 = token.split(".")[1];
     if (!payloadB64) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
@@ -37,8 +36,6 @@ Deno.serve(async (req) => {
     }
     console.log("[meta-sync-entities] Auth OK, user:", userId);
 
-    
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("organization_id")
@@ -50,7 +47,6 @@ Deno.serve(async (req) => {
     }
 
     const orgId = profile.organization_id;
-
     const supa = supabase;
 
     const { data: account } = await supa
@@ -65,8 +61,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Meta account not connected" }), { status: 400, headers: corsHeaders });
     }
 
+    const { data: organization } = await supa
+      .from("organizations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+
+    const resolvedAccount = resolveMetaAccount(account, organization?.name);
     const accessToken = account.auth_payload.access_token;
-    const adAccountId = account.external_account_id;
+    const adAccountId = resolvedAccount.id;
+
+    if (resolvedAccount.id !== account.external_account_id) {
+      await supa
+        .from("ad_accounts")
+        .update({
+          external_account_id: resolvedAccount.id,
+          name: resolvedAccount.name || account.name,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", account.id);
+      console.log("[meta-sync-entities] Updated selected ad account:", resolvedAccount.id, resolvedAccount.name);
+    }
 
     let daysBack = 30;
     try {
