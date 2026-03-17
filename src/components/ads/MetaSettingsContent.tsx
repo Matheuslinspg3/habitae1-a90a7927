@@ -42,6 +42,7 @@ export default function MetaSettingsContent() {
         invalid_state: "Estado inválido. Tente novamente.",
         server_config: "Configuração do servidor incompleta.",
         token_exchange: "Erro ao trocar código por token. O app Meta pode não estar em modo Live ou as permissões não foram aprovadas.",
+        missing_permissions: "O Meta retornou o token sem todas as permissões necessárias. Aprove business_management no app e conecte novamente.",
         no_ad_account: "Nenhuma conta de anúncios encontrada. Verifique se o usuário tem acesso a uma conta de anúncios no Meta Business Suite.",
         db_save: "Erro ao salvar dados. Tente novamente.",
         unexpected: "Erro inesperado. Tente novamente.",
@@ -96,7 +97,8 @@ export default function MetaSettingsContent() {
       oauthUrl.searchParams.set("client_id", data.app_id);
       oauthUrl.searchParams.set("redirect_uri", redirectUri);
       oauthUrl.searchParams.set("state", state);
-      oauthUrl.searchParams.set("scope", "ads_read,ads_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval");
+      oauthUrl.searchParams.set("scope", "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,pages_manage_ads,leads_retrieval");
+      oauthUrl.searchParams.set("auth_type", "rerequest");
       oauthUrl.searchParams.set("response_type", "code");
 
       window.location.href = oauthUrl.toString();

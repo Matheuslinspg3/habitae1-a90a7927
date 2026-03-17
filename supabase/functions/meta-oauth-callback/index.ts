@@ -87,7 +87,12 @@ Deno.serve(async (req) => {
 
     if (adAccountsData.error) {
       console.error("Ad accounts fetch error:", JSON.stringify(adAccountsData.error));
-      return redirectToApp("?meta_error=no_ad_account", stateData.origin);
+      const isMissingPermissions = adAccountsData.error?.code === 200 &&
+        String(adAccountsData.error?.message || "").toLowerCase().includes("missing permissions");
+      return redirectToApp(
+        `?meta_error=${isMissingPermissions ? "missing_permissions" : "no_ad_account"}`,
+        stateData.origin,
+      );
     }
 
     const adAccounts = adAccountsData.data || [];
