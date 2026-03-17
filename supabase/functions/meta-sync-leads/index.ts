@@ -6,6 +6,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log("[meta-sync-leads] Request received:", req.method);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -14,6 +16,7 @@ Deno.serve(async (req) => {
     // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("[meta-sync-leads] No auth header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
@@ -25,14 +28,17 @@ Deno.serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const payloadB64 = token.split(".")[1];
     if (!payloadB64) {
+      console.error("[meta-sync-leads] Invalid token format");
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
     const payload = JSON.parse(atob(payloadB64));
     const userId = payload.sub;
     const exp = payload.exp;
     if (!userId || (exp && exp < Math.floor(Date.now() / 1000))) {
+      console.error("[meta-sync-leads] Token expired or invalid, userId:", userId);
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
+    console.log("[meta-sync-leads] Auth OK, user:", userId);
 
     const { data: profile } = await supabase
       .from("profiles")
