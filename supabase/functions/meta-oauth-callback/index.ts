@@ -30,7 +30,6 @@ Deno.serve(async (req) => {
       return redirectToApp("?meta_error=missing_params");
     }
 
-    // Decode state
     let stateData: { user_id: string; org_id: string; redirect: string; origin?: string };
     try {
       stateData = JSON.parse(atob(state));
@@ -47,7 +46,6 @@ Deno.serve(async (req) => {
       return redirectToApp("?meta_error=server_config", stateData.origin);
     }
 
-    // Exchange code for access token
     const tokenUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
     tokenUrl.searchParams.set("client_id", appId);
     tokenUrl.searchParams.set("client_secret", appSecret);
@@ -70,7 +68,6 @@ Deno.serve(async (req) => {
     const accessToken = tokenData.access_token;
     console.log("Token exchange OK, exchanging for long-lived token...");
 
-    // Exchange for long-lived token
     const longLivedUrl = new URL("https://graph.facebook.com/v21.0/oauth/access_token");
     longLivedUrl.searchParams.set("grant_type", "fb_exchange_token");
     longLivedUrl.searchParams.set("client_id", appId);
@@ -82,7 +79,6 @@ Deno.serve(async (req) => {
 
     const finalToken = longLivedData.access_token || accessToken;
 
-    // Fetch ad accounts
     console.log("Fetching ad accounts...");
     const adAccountsRes = await fetch(
       `https://graph.facebook.com/v21.0/me/adaccounts?fields=id,name,account_status&access_token=${finalToken}`
@@ -96,20 +92,25 @@ Deno.serve(async (req) => {
 
     const adAccounts = adAccountsData.data || [];
     console.log(`Found ${adAccounts.length} ad accounts:`, adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })));
-    
-    const firstAccount = adAccounts.find((a: any) => a.account_status === 1) || adAccounts[0];
 
-    if (!firstAccount) {
-      console.error("No ad account found for user. Total accounts:", adAccounts.length);
-      return redirectToApp("?meta_error=no_ad_account", stateData.origin);
-    }
-    console.log("Selected ad account:", firstAccount.id, firstAccount.name);
-
-    // Save to database using service role
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    const { data: organization } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", stateData.org_id)
+      .maybeSingle();
+
+    const selectedAccount = selectBestAdAccount(adAccounts, organization?.name);
+
+    if (!selectedAccount) {
+      console.error("No ad account found for user. Total accounts:", adAccounts.length);
+      return redirectToApp("?meta_error=no_ad_account", stateData.origin);
+    }
+    console.log("Selected ad account:", selectedAccount.id, selectedAccount.name);
 
     const { error: dbError } = await supabase
       .from("ad_accounts")
@@ -117,15 +118,15 @@ Deno.serve(async (req) => {
         {
           organization_id: stateData.org_id,
           provider: "meta",
-          external_account_id: firstAccount.id,
-          name: firstAccount.name || `Meta Ads - ${firstAccount.id}`,
+          external_account_id: selectedAccount.id,
+          name: selectedAccount.name || `Meta Ads - ${selectedAccount.id}`,
           is_active: true,
           auth_payload: {
             access_token: finalToken,
             token_type: longLivedData.token_type || "bearer",
             expires_in: longLivedData.expires_in,
             obtained_at: new Date().toISOString(),
-            ad_accounts: adAccounts.map((a: any) => ({ id: a.id, name: a.name })),
+            ad_accounts: adAccounts.map((a: any) => ({ id: a.id, name: a.name, status: a.account_status })),
           },
           status: "connected",
           updated_at: new Date().toISOString(),
@@ -144,6 +145,44 @@ Deno.serve(async (req) => {
     return redirectToApp("?meta_error=unexpected");
   }
 });
+
+function normalizeName(value?: string | null) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function selectBestAdAccount(
+  adAccounts: Array<{ id: string; name?: string | null; account_status?: number }>,
+  organizationName?: string | null,
+) {
+  if (!adAccounts.length) return null;
+
+  const activeAccounts = adAccounts.filter((account) => account.account_status === 1);
+  const candidates = activeAccounts.length ? activeAccounts : adAccounts;
+  const normalizedOrgName = normalizeName(organizationName);
+
+  if (normalizedOrgName) {
+    const directMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return normalizedAccountName.includes(normalizedOrgName) || normalizedOrgName.includes(normalizedAccountName);
+    });
+
+    if (directMatch) return directMatch;
+
+    const orgTokens = normalizedOrgName.match(/[a-z0-9]+/g) || [];
+    const tokenMatch = candidates.find((account) => {
+      const normalizedAccountName = normalizeName(account.name);
+      return orgTokens.filter((token) => token.length >= 4).some((token) => normalizedAccountName.includes(token));
+    });
+
+    if (tokenMatch) return tokenMatch;
+  }
+
+  return candidates[0];
+}
 
 function redirectToApp(params: string, origin?: string) {
   const appUrl = origin || Deno.env.get("APP_URL") || "https://habitae1.lovable.app";
