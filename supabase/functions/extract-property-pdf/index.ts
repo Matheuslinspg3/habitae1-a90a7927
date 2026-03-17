@@ -8,10 +8,18 @@ const corsHeaders = {
 };
 
 // A07: SSRF protection — allowlist of permitted hosts
+// Dynamically derive the Supabase Storage hostname from SUPABASE_URL
+const supabaseHost = (() => {
+  try {
+    return new URL(Deno.env.get("SUPABASE_URL") ?? "").hostname;
+  } catch {
+    return "";
+  }
+})();
 const ALLOWED_HOSTS = [
-  "hlasxwslrkbtryurcaqa.supabase.co",
+  supabaseHost,
   "res.cloudinary.com",
-];
+].filter(Boolean);
 
 function isAllowedUrl(urlStr: string): boolean {
   try {
