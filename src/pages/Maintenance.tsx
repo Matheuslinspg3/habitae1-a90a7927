@@ -202,8 +202,20 @@ export default function Maintenance() {
   const [copied, setCopied] = useState(false);
   const [showFullSQL, setShowFullSQL] = useState(false);
   const [disabling, setDisabling] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [maintenancePassword, setMaintenancePassword] = useState("");
 
   const handleDisableMaintenance = async () => {
+    if (!showPasswordPrompt) {
+      setShowPasswordPrompt(true);
+      return;
+    }
+
+    if (maintenancePassword !== "12362131") {
+      toast({ title: "Senha incorreta", description: "A senha informada está incorreta.", variant: "destructive" });
+      return;
+    }
+
     setDisabling(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -239,6 +251,8 @@ export default function Maintenance() {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setDisabling(false);
+      setShowPasswordPrompt(false);
+      setMaintenancePassword("");
     }
   };
 
