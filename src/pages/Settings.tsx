@@ -16,7 +16,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare } from "lucide-react";
+import { Building2, User, Bell, Users, Upload, Palette, Sun, Moon, Monitor, Loader2, Megaphone, Camera, CreditCard, History, ShieldCheck, Mail, Crown, Shield, Bug, MessageSquare, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { SupportTicketDialog } from "@/components/settings/SupportTicketDialog";
 import { UserTicketsSection } from "@/components/settings/UserTicketsSection";
 import { cn } from "@/lib/utils";
@@ -494,7 +495,28 @@ export default function Settings() {
 
               <VerificationSection />
 
-              
+              <Separator />
+
+              <Card className="border-destructive/30">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Sair da conta</CardTitle>
+                  <CardDescription>Encerre sua sessão neste dispositivo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      window.location.href = "/login";
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair da conta
+                  </Button>
+                </CardContent>
+              </Card>
+
             </div>
           </TabsContent>
 
