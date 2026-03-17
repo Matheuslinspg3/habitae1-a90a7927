@@ -6,8 +6,10 @@ import { describe, it, expect } from "vitest";
  */
 
 // Replicate the allowlist logic from the edge function
+// In production this is derived from SUPABASE_URL env var; for tests we use a placeholder
+const TEST_SUPABASE_HOST = "test-project.supabase.co";
 const ALLOWED_HOSTS = [
-  "hlasxwslrkbtryurcaqa.supabase.co",
+  TEST_SUPABASE_HOST,
   "res.cloudinary.com",
 ];
 

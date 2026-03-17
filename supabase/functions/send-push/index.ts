@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "").trim();
-      if (token === serviceRoleKey || token === anonKey || token === legacyAnonKey) {
+      if (token === serviceRoleKey || token === anonKey) {
         // Called with service-role key or internal API keys used by DB trigger/gateway.
         isAuthorized = true;
       } else {
