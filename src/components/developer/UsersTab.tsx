@@ -13,6 +13,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Trash2, AlertTriangle, Users, Search, KeyRound } from "lucide-react";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 const roleBadgeVariant = (role: string) => {
   switch (role) {
