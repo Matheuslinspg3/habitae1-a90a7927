@@ -156,7 +156,7 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
                   ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300'
                   : 'text-muted-foreground bg-muted/60'
           }`}>
-            via {lead.source}
+            via {lead.source === 'anuncio' ? 'Meta Ads' : lead.source}
           </span>
         )}
 
