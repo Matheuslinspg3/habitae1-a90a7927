@@ -97,16 +97,18 @@ Deno.serve(async (req) => {
     } catch {}
 
     // Step 1: Get Pages the user manages (leadgen_forms belong to Pages, not Ad Accounts)
+    console.log("[meta-sync-leads] Fetching pages, daysBack:", daysBack);
     const pagesUrl = `https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token&limit=100&access_token=${accessToken}`;
     const pagesRes = await fetch(pagesUrl);
     const pagesData = await pagesRes.json();
 
     if (pagesData.error) {
-      console.error("Meta API error (pages):", pagesData.error);
+      console.error("[meta-sync-leads] Meta API error (pages):", JSON.stringify(pagesData.error));
       return new Response(JSON.stringify({ error: "Meta API error", details: pagesData.error.message }), { status: 502, headers: corsHeaders });
     }
 
     const pages = pagesData.data || [];
+    console.log("[meta-sync-leads] Found", pages.length, "pages:", pages.map((p: any) => ({ id: p.id, name: p.name })));
     if (pages.length === 0) {
       return new Response(
         JSON.stringify({ synced: 0, skipped: 0, auto_sent: 0, forms: 0, message: "Nenhuma página encontrada. Verifique se o token possui permissão pages_read_engagement." }),
