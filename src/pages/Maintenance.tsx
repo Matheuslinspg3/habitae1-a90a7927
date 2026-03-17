@@ -12,7 +12,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 // NOTE: Migrations are applied separately via CLI (supabase db push)
 // This page only handles DATA export (INSERTs + auth.users)
 
-
 // Order respects foreign key dependencies
 const TABLE_ORDER = [
   "subscription_plans",
@@ -191,6 +190,17 @@ interface ExportStats {
   errors: string[];
 }
 
+interface SchemaResult {
+  tables_ddl: string;
+  fk_ddl: string;
+  functions_ddl: string;
+  triggers_ddl: string;
+  policies_ddl: string;
+  indexes_ddl: string;
+  enums_ddl: string;
+  rls_ddl: string;
+}
+
 export default function Maintenance() {
   const { isMaintenanceMode, maintenanceMessage, refetch, isLoading } = useMaintenanceMode();
   const navigate = useNavigate();
@@ -286,6 +296,166 @@ export default function Maintenance() {
     downloadFile(generatedSQL, `porta-migration-${new Date().toISOString().slice(0, 10)}.sql`);
   };
 
+  const buildSQL = (
+    schema: SchemaResult,
+    tables: Record<string, { count: number; csv: string }>,
+  ): { sql: string; tablesExported: number; totalRecords: number; authUsersCount: number } => {
+    const parts: string[] = [];
+
+    parts.push(`-- ============================================================`);
+    parts.push(`-- EXPORTAÇÃO COMPLETA: Porta do Corretor`);
+    parts.push(`-- Gerado em: ${new Date().toISOString()}`);
+    parts.push(`-- Estrutura: Enums > Tabelas > FKs > RLS > Funções > Triggers > Policies > Indexes > Dados > Auth`);
+    parts.push(`-- Destino: Supabase novo (executar no SQL Editor com service_role)`);
+    parts.push(`-- ============================================================`);
+    parts.push(``);
+    parts.push(`-- INSTRUÇÕES:`);
+    parts.push(`-- 1. Crie um projeto Supabase novo`);
+    parts.push(`-- 2. Abra o SQL Editor com role 'service_role'`);
+    parts.push(`-- 3. Cole/carregue este arquivo e execute`);
+    parts.push(`-- 4. Após importar, envie redefinição de senha aos usuários`);
+    parts.push(`-- 5. Senha temporária padrão: PortaMigra2026!`);
+    parts.push(``);
+
+    // PART 1: Enums
+    if (schema.enums_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 1: ENUMS`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.enums_ddl);
+      parts.push(``);
+    }
+
+    // PART 2: Tables (CREATE TABLE without FKs, in dependency order)
+    if (schema.tables_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 2: TABELAS (sem Foreign Keys, ordem de dependência)`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.tables_ddl);
+      parts.push(``);
+    }
+
+    // PART 3: Foreign Keys (ALTER TABLE ADD CONSTRAINT)
+    if (schema.fk_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 3: FOREIGN KEYS (ALTER TABLE ADD CONSTRAINT)`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.fk_ddl);
+      parts.push(``);
+    }
+
+    // PART 4: RLS Enable
+    if (schema.rls_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 4: ENABLE ROW LEVEL SECURITY`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.rls_ddl);
+      parts.push(``);
+    }
+
+    // PART 5: Functions
+    if (schema.functions_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 5: FUNÇÕES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.functions_ddl);
+      parts.push(``);
+    }
+
+    // PART 6: Triggers
+    if (schema.triggers_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 6: TRIGGERS`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.triggers_ddl);
+      parts.push(``);
+    }
+
+    // PART 7: Policies
+    if (schema.policies_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 7: RLS POLICIES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.policies_ddl);
+      parts.push(``);
+    }
+
+    // PART 8: Indexes
+    if (schema.indexes_ddl) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 8: INDEXES`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      parts.push(schema.indexes_ddl);
+      parts.push(``);
+    }
+
+    // PART 9: Data
+    parts.push(`-- ============================================================`);
+    parts.push(`-- PARTE 9: DADOS (INSERTs)`);
+    parts.push(`-- ============================================================`);
+    parts.push(``);
+    parts.push(`BEGIN;`);
+    parts.push(``);
+    parts.push(`SET session_replication_role = 'replica';`);
+    parts.push(``);
+
+    let totalRecords = 0;
+    let tablesExported = 0;
+
+    // Insert data in dependency order
+    for (const tableName of TABLE_ORDER) {
+      if (tables[tableName] && tables[tableName].count > 0) {
+        const rows = csvToRows(tables[tableName].csv);
+        parts.push(rowsToSQL(tableName, rows));
+        totalRecords += rows.length;
+        tablesExported++;
+      }
+    }
+
+    // Any remaining tables not in TABLE_ORDER
+    for (const tableName of Object.keys(tables)) {
+      if (tableName === "_auth_users") continue;
+      if (TABLE_ORDER.includes(tableName)) continue;
+      if (tables[tableName].count > 0) {
+        const rows = csvToRows(tables[tableName].csv);
+        parts.push(rowsToSQL(tableName, rows));
+        totalRecords += rows.length;
+        tablesExported++;
+      }
+    }
+
+    parts.push(`SET session_replication_role = 'origin';`);
+    parts.push(``);
+    parts.push(`COMMIT;`);
+    parts.push(``);
+
+    // PART 10: Auth users (last)
+    let authUsersCount = 0;
+    if (tables["_auth_users"] && tables["_auth_users"].count > 0) {
+      parts.push(`-- ============================================================`);
+      parts.push(`-- PARTE 10: AUTH.USERS`);
+      parts.push(`-- ============================================================`);
+      parts.push(``);
+      const authRows = csvToRows(tables["_auth_users"].csv);
+      authUsersCount = authRows.length;
+      parts.push(authUsersToSQL(authRows));
+    }
+
+    parts.push(`-- ============================================================`);
+    parts.push(`-- FIM: ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros`);
+    parts.push(`-- ============================================================`);
+
+    return { sql: parts.join("\n"), tablesExported, totalRecords, authUsersCount };
+  };
+
   const handleExportDatabase = async () => {
     setExporting(true);
     setGeneratedSQL(null);
@@ -296,7 +466,6 @@ export default function Maintenance() {
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
 
-      // Try to get session token, fall back to anon key
       let authToken = anonKey;
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
@@ -325,80 +494,18 @@ export default function Maintenance() {
       if (result.error) throw new Error(result.error);
 
       const tables = result.tables as Record<string, { count: number; csv: string }>;
-      const schemaDDL = result.schema_ddl as string || "";
+      const schema = result.schema as SchemaResult;
 
       setExportProgress("Gerando SQL de importação...");
 
-      let sql = `-- ============================================================\n`;
-      sql += `-- EXPORTAÇÃO COMPLETA: Porta do Corretor\n`;
-      sql += `-- Gerado em: ${new Date().toISOString()}\n`;
-      sql += `-- Inclui: Schema (DDL) + Dados (INSERTs) + Auth Users\n`;
-      sql += `-- Destino: Supabase novo (executar no SQL Editor com service_role)\n`;
-      sql += `-- ============================================================\n\n`;
-      sql += `-- INSTRUÇÕES:\n`;
-      sql += `-- 1. Crie um projeto Supabase novo\n`;
-      sql += `-- 2. Abra o SQL Editor com role 'service_role'\n`;
-      sql += `-- 3. Cole/carregue este arquivo e execute\n`;
-      sql += `-- 4. Após importar, envie redefinição de senha aos usuários\n`;
-      sql += `-- 5. Senha temporária padrão: PortaMigra2026!\n\n`;
-
-      // ---- PART 1: Schema DDL ----
-      if (schemaDDL) {
-        sql += `-- ============================================================\n`;
-        sql += `-- PARTE 1: SCHEMA (Enums, Tabelas, Funções, Triggers, RLS)\n`;
-        sql += `-- ============================================================\n\n`;
-        sql += schemaDDL;
-        sql += `\n`;
-      }
-
-      // ---- PART 2: Data ----
-      sql += `\n-- ============================================================\n`;
-      sql += `-- PARTE 2: DADOS (INSERTs)\n`;
-      sql += `-- ============================================================\n\n`;
-      sql += `BEGIN;\n\n`;
-      sql += `SET session_replication_role = 'replica';\n\n`;
-
-      let authUsersCount = 0;
-      if (tables["_auth_users"] && tables["_auth_users"].count > 0) {
-        const authRows = csvToRows(tables["_auth_users"].csv);
-        authUsersCount = authRows.length;
-        sql += authUsersToSQL(authRows);
-      }
-
-      let totalRecords = 0;
-      let tablesExported = 0;
-      for (const tableName of TABLE_ORDER) {
-        if (tables[tableName] && tables[tableName].count > 0) {
-          const rows = csvToRows(tables[tableName].csv);
-          sql += rowsToSQL(tableName, rows);
-          totalRecords += rows.length;
-          tablesExported++;
-        }
-      }
-
-      for (const tableName of Object.keys(tables)) {
-        if (tableName === "_auth_users") continue;
-        if (TABLE_ORDER.includes(tableName)) continue;
-        if (tables[tableName].count > 0) {
-          const rows = csvToRows(tables[tableName].csv);
-          sql += rowsToSQL(tableName, rows);
-          totalRecords += rows.length;
-          tablesExported++;
-        }
-      }
-
-      sql += `\nSET session_replication_role = 'origin';\n\n`;
-      sql += `COMMIT;\n\n`;
-      sql += `-- ============================================================\n`;
-      sql += `-- FIM: ${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros\n`;
-      sql += `-- ============================================================\n`;
+      const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables);
 
       setGeneratedSQL(sql);
       setExportStats({
         tablesExported,
         totalRecords,
         authUsers: authUsersCount,
-        hasSchema: !!schemaDDL,
+        hasSchema: !!(schema.tables_ddl),
         errors: result.errors || [],
       });
 

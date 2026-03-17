@@ -5354,6 +5354,14 @@ export type Database = {
           enum_values: string[]
         }[]
       }
+      get_schema_fk_constraints: {
+        Args: never
+        Returns: {
+          constraint_sql: string
+          source_table: string
+          target_table: string
+        }[]
+      }
       get_schema_functions: {
         Args: never
         Returns: {

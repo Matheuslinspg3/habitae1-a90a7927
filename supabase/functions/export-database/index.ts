@@ -96,113 +96,187 @@ function toCSV(rows: Record<string, unknown>[]): string {
   return lines.join("\n");
 }
 
-// ---- Schema export via raw SQL using Supabase Management API ----
-async function exportSchemaDDL(supabaseUrl: string, serviceKey: string): Promise<string> {
-  const lines: string[] = [];
+// Topological sort of tables based on FK dependencies
+function topoSortTables(
+  tables: { table_name: string; ddl: string }[],
+  fks: { source_table: string; target_table: string; constraint_sql: string }[]
+): { table_name: string; ddl: string }[] {
+  const tableMap = new Map(tables.map(t => [t.table_name, t]));
+  const deps = new Map<string, Set<string>>();
   
-  // Use the PostgREST RPC endpoint to run SQL via a database function
-  // We'll use the admin client to query information_schema
-  const adminClient = createClient(supabaseUrl, serviceKey);
+  for (const t of tables) {
+    deps.set(t.table_name, new Set());
+  }
+  
+  for (const fk of fks) {
+    if (fk.source_table !== fk.target_table && deps.has(fk.source_table) && deps.has(fk.target_table)) {
+      deps.get(fk.source_table)!.add(fk.target_table);
+    }
+  }
+  
+  const sorted: string[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  
+  function visit(name: string) {
+    if (visited.has(name)) return;
+    if (visiting.has(name)) return; // break cycle
+    visiting.add(name);
+    for (const dep of deps.get(name) || []) {
+      visit(dep);
+    }
+    visiting.delete(name);
+    visited.add(name);
+    sorted.push(name);
+  }
+  
+  for (const t of tables) {
+    visit(t.table_name);
+  }
+  
+  return sorted.map(name => tableMap.get(name)!).filter(Boolean);
+}
 
-  // 1. Get all enums
+async function exportSchemaDDL(supabaseUrl: string, serviceKey: string): Promise<{
+  tables_ddl: string;
+  fk_ddl: string;
+  functions_ddl: string;
+  triggers_ddl: string;
+  policies_ddl: string;
+  indexes_ddl: string;
+  enums_ddl: string;
+  rls_ddl: string;
+}> {
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const result = {
+    tables_ddl: "",
+    fk_ddl: "",
+    functions_ddl: "",
+    triggers_ddl: "",
+    policies_ddl: "",
+    indexes_ddl: "",
+    enums_ddl: "",
+    rls_ddl: "",
+  };
+
+  // 1. Enums
   try {
     const { data: enums } = await adminClient.rpc('get_schema_enums').throwOnError() as { data: { enum_name: string; enum_values: string[] }[] | null };
     if (enums && enums.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- ENUMS");
-      lines.push("-- ============================================================\n");
+      const lines: string[] = [];
       for (const e of enums) {
         const vals = e.enum_values.map((v: string) => `'${v}'`).join(", ");
-        lines.push(`DO $$ BEGIN CREATE TYPE public.${e.enum_name} AS ENUM (${vals}); EXCEPTION WHEN duplicate_object THEN NULL; END $$;\n`);
-      }
-    }
-  } catch (e) {
-    lines.push(`-- ERRO ao exportar enums: ${e instanceof Error ? e.message : String(e)}\n`);
-  }
-
-  // 2. Get all table DDLs
-  try {
-    const { data: ddls } = await adminClient.rpc('get_schema_tables_ddl').throwOnError() as { data: { table_name: string; ddl: string }[] | null };
-    if (ddls && ddls.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- TABLES");
-      lines.push("-- ============================================================\n");
-      for (const d of ddls) {
-        lines.push(`-- Table: ${d.table_name}`);
-        lines.push(d.ddl);
+        lines.push(`DO $$ BEGIN CREATE TYPE public.${e.enum_name} AS ENUM (${vals}); EXCEPTION WHEN duplicate_object THEN NULL; END $$;`);
         lines.push("");
       }
+      result.enums_ddl = lines.join("\n");
     }
   } catch (e) {
-    lines.push(`-- ERRO ao exportar tabelas: ${e instanceof Error ? e.message : String(e)}\n`);
+    result.enums_ddl = `-- ERRO ao exportar enums: ${e instanceof Error ? e.message : String(e)}`;
   }
 
-  // 3. Get all functions
+  // 2. Tables (without FKs) + FK constraints separately
+  try {
+    const { data: ddls } = await adminClient.rpc('get_schema_tables_ddl').throwOnError() as { data: { table_name: string; ddl: string }[] | null };
+    const { data: fks } = await adminClient.rpc('get_schema_fk_constraints').throwOnError() as { data: { source_table: string; target_table: string; constraint_sql: string }[] | null };
+    
+    if (ddls && ddls.length > 0) {
+      const sorted = topoSortTables(ddls, fks || []);
+      const tableLines: string[] = [];
+      for (const d of sorted) {
+        tableLines.push(`-- Table: ${d.table_name}`);
+        tableLines.push(d.ddl);
+        tableLines.push("");
+      }
+      result.tables_ddl = tableLines.join("\n");
+    }
+    
+    if (fks && fks.length > 0) {
+      const fkLines: string[] = [];
+      for (const fk of fks) {
+        fkLines.push(`-- FK: ${fk.source_table} -> ${fk.target_table}`);
+        fkLines.push(fk.constraint_sql);
+        fkLines.push("");
+      }
+      result.fk_ddl = fkLines.join("\n");
+    }
+  } catch (e) {
+    result.tables_ddl = `-- ERRO ao exportar tabelas: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 3. RLS enable statements
+  try {
+    const { data: rlsTables } = await adminClient.rpc('get_schema_rls_tables').throwOnError() as { data: { table_name: string; rls_enabled: boolean }[] | null };
+    if (rlsTables && rlsTables.length > 0) {
+      const lines = rlsTables.map(t => `ALTER TABLE public.${t.table_name} ENABLE ROW LEVEL SECURITY;`);
+      result.rls_ddl = lines.join("\n");
+    }
+  } catch (e) {
+    result.rls_ddl = `-- ERRO ao exportar RLS: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  // 4. Functions
   try {
     const { data: funcs } = await adminClient.rpc('get_schema_functions').throwOnError() as { data: { func_name: string; func_def: string }[] | null };
     if (funcs && funcs.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- FUNCTIONS");
-      lines.push("-- ============================================================\n");
+      const lines: string[] = [];
       for (const f of funcs) {
         lines.push(`-- Function: ${f.func_name}`);
         lines.push(f.func_def + ";");
         lines.push("");
       }
+      result.functions_ddl = lines.join("\n");
     }
   } catch (e) {
-    lines.push(`-- ERRO ao exportar funções: ${e instanceof Error ? e.message : String(e)}\n`);
+    result.functions_ddl = `-- ERRO ao exportar funções: ${e instanceof Error ? e.message : String(e)}`;
   }
 
-  // 4. Get all triggers
+  // 5. Triggers
   try {
     const { data: triggers } = await adminClient.rpc('get_schema_triggers').throwOnError() as { data: { trigger_def: string }[] | null };
     if (triggers && triggers.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- TRIGGERS");
-      lines.push("-- ============================================================\n");
+      const lines: string[] = [];
       for (const t of triggers) {
         lines.push(t.trigger_def + ";");
         lines.push("");
       }
+      result.triggers_ddl = lines.join("\n");
     }
   } catch (e) {
-    lines.push(`-- ERRO ao exportar triggers: ${e instanceof Error ? e.message : String(e)}\n`);
+    result.triggers_ddl = `-- ERRO ao exportar triggers: ${e instanceof Error ? e.message : String(e)}`;
   }
 
-  // 5. Get all RLS policies
+  // 6. Policies
   try {
     const { data: policies } = await adminClient.rpc('get_schema_policies').throwOnError() as { data: { policy_def: string }[] | null };
     if (policies && policies.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- RLS POLICIES");
-      lines.push("-- ============================================================\n");
+      const lines: string[] = [];
       for (const p of policies) {
         lines.push(p.policy_def + ";");
         lines.push("");
       }
+      result.policies_ddl = lines.join("\n");
     }
   } catch (e) {
-    lines.push(`-- ERRO ao exportar policies: ${e instanceof Error ? e.message : String(e)}\n`);
+    result.policies_ddl = `-- ERRO ao exportar policies: ${e instanceof Error ? e.message : String(e)}`;
   }
 
-  // 6. Get all indexes
+  // 7. Indexes
   try {
     const { data: indexes } = await adminClient.rpc('get_schema_indexes').throwOnError() as { data: { index_def: string }[] | null };
     if (indexes && indexes.length > 0) {
-      lines.push("-- ============================================================");
-      lines.push("-- INDEXES");
-      lines.push("-- ============================================================\n");
+      const lines: string[] = [];
       for (const idx of indexes) {
         lines.push(idx.index_def + ";");
         lines.push("");
       }
+      result.indexes_ddl = lines.join("\n");
     }
   } catch (e) {
-    lines.push(`-- ERRO ao exportar indexes: ${e instanceof Error ? e.message : String(e)}\n`);
+    result.indexes_ddl = `-- ERRO ao exportar indexes: ${e instanceof Error ? e.message : String(e)}`;
   }
 
-  return lines.join("\n");
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -257,14 +331,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ---- FULL EXPORT: Schema + Data + Auth ----
+    // ---- FULL EXPORT: Schema (structured) + Data + Auth ----
 
-    // 1. Export schema DDL
-    let schemaDDL = "";
+    // 1. Export schema DDL (now structured)
+    let schema = {
+      tables_ddl: "",
+      fk_ddl: "",
+      functions_ddl: "",
+      triggers_ddl: "",
+      policies_ddl: "",
+      indexes_ddl: "",
+      enums_ddl: "",
+      rls_ddl: "",
+    };
     try {
-      schemaDDL = await exportSchemaDDL(supabaseUrl, serviceKey);
+      schema = await exportSchemaDDL(supabaseUrl, serviceKey);
     } catch (e) {
-      schemaDDL = `-- Erro ao exportar schema: ${e instanceof Error ? e.message : String(e)}\n`;
+      schema.tables_ddl = `-- Erro ao exportar schema: ${e instanceof Error ? e.message : String(e)}`;
     }
 
     // 2. Export all public tables data
@@ -337,7 +420,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        schema_ddl: schemaDDL,
+        schema,
         tables: result,
         errors,
         exported_at: new Date().toISOString(),
