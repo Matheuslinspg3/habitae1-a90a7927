@@ -11,7 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Trash2, AlertTriangle, Users, Search, KeyRound } from "lucide-react";
+import { Trash2, AlertTriangle, Users, Search, KeyRound, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 const roleBadgeVariant = (role: string) => {
