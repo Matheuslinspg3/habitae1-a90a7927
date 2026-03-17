@@ -125,16 +125,18 @@ Deno.serve(async (req) => {
       const pageToken = page.access_token || accessToken;
 
       // Step 2: Get leadgen forms for each page
+      console.log(`[meta-sync-leads] Fetching forms for page ${page.id} (${page.name})`);
       const formsUrl = `https://graph.facebook.com/v21.0/${page.id}/leadgen_forms?fields=id,name&access_token=${pageToken}`;
       const formsRes = await fetch(formsUrl);
       const formsData = await formsRes.json();
 
       if (formsData.error) {
-        console.error(`Meta API error (forms for page ${page.id}):`, formsData.error);
+        console.error(`[meta-sync-leads] Meta API error (forms for page ${page.id}):`, JSON.stringify(formsData.error));
         continue; // Skip this page, try next
       }
 
       const forms = formsData.data || [];
+      console.log(`[meta-sync-leads] Page ${page.name}: ${forms.length} forms found:`, forms.map((f: any) => ({ id: f.id, name: f.name })));
       totalForms += forms.length;
 
       for (const form of forms) {
