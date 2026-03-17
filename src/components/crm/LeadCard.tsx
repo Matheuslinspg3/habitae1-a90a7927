@@ -148,11 +148,13 @@ function LeadCardComponent({ lead, onClick, onChangeTemperature }: LeadCardProps
         {/* Source indicator */}
         {lead.source && (
           <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
-            lead.source === 'RD Station' 
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' 
-              : lead.source === 'RD Station (Webhook)' 
-                ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300'
-                : 'text-muted-foreground bg-muted/60'
+            lead.source === 'anuncio'
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+              : lead.source === 'RD Station' 
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' 
+                : lead.source === 'RD Station (Webhook)' 
+                  ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300'
+                  : 'text-muted-foreground bg-muted/60'
           }`}>
             via {lead.source}
           </span>
