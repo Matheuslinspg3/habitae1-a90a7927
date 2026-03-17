@@ -44,8 +44,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     let isAuthorized = false;
-    const legacyAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpZmxma2tqaXR2c3lzendkZmdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNDEzNzksImV4cCI6MjA4NjkxNzM3OX0._GxDwg_psa_ReqNFPFT7S5mKbTz1ZKWS6xEIsbuP6LA";
-    const isInternalApiKey = !!apiKeyHeader && (apiKeyHeader === anonKey || apiKeyHeader === legacyAnonKey);
+    const isInternalApiKey = !!apiKeyHeader && apiKeyHeader === anonKey;
 
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "").trim();
