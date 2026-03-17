@@ -1,62 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAdAccount, useAdSettings } from "@/hooks/useAdSettings";
 import { useLeadStages } from "@/hooks/useLeadStages";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Zap, LogIn, WifiOff } from "lucide-react";
+import { CheckCircle2, Loader2, LogIn, RefreshCw, WifiOff, XCircle, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function MetaSettingsContent() {
-  const { account, isConnected, disconnectAccount, isSaving } = useAdAccount();
+  const { account, isConnected, disconnectAccount } = useAdAccount();
   const { settings, updateSettings, isSaving: isSavingSettings } = useAdSettings();
   const { leadStages } = useLeadStages();
   const { profile } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [autoSend, setAutoSend] = useState(settings?.auto_send_to_crm ?? false);
   const [stageId, setStageId] = useState(settings?.crm_stage_id ?? "");
-
-  // Handle OAuth callback results
-  useEffect(() => {
-    const metaSuccess = searchParams.get("meta_success");
-    const metaError = searchParams.get("meta_error");
-
-    if (metaSuccess) {
-      toast({ title: "Conectado!", description: "Sua conta Meta Ads foi conectada com sucesso." });
-      // Clean URL params
-      searchParams.delete("meta_success");
-      setSearchParams(searchParams, { replace: true });
-    }
-
-    if (metaError) {
-      const errorMessages: Record<string, string> = {
-        missing_params: "Parâmetros ausentes no callback.",
-        invalid_state: "Estado inválido. Tente novamente.",
-        server_config: "Configuração do servidor incompleta.",
-        token_exchange: "Erro ao trocar código por token. O app Meta pode não estar em modo Live ou as permissões não foram aprovadas.",
-        missing_permissions: "O Meta retornou o token sem todas as permissões necessárias. Aprove business_management no app e conecte novamente.",
-        no_ad_account: "Nenhuma conta de anúncios encontrada. Verifique se o usuário tem acesso a uma conta de anúncios no Meta Business Suite.",
-        db_save: "Erro ao salvar dados. Tente novamente.",
-        unexpected: "Erro inesperado. Tente novamente.",
-        access_denied: "O usuário negou as permissões solicitadas. Tente novamente e aceite todas as permissões.",
-      };
-      toast({
-        title: "Erro na conexão",
-        description: errorMessages[metaError] || metaError,
-        variant: "destructive",
-      });
-      searchParams.delete("meta_error");
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams]);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isInitialSyncing, setIsInitialSyncing] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -65,7 +35,93 @@ export default function MetaSettingsContent() {
     }
   }, [settings]);
 
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  useEffect(() => {
+    const metaSuccess = searchParams.get("meta_success");
+    const metaError = searchParams.get("meta_error");
+
+    if (!metaSuccess && !metaError) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+
+    const invalidateMetaQueries = async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ad-account"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-entities"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-insights"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-insights-aggregated"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-leads-count"] }),
+      ]);
+    };
+
+    const handleOAuthResult = async () => {
+      if (metaSuccess) {
+        nextParams.delete("meta_success");
+        setSearchParams(nextParams, { replace: true });
+        setIsInitialSyncing(true);
+
+        try {
+          const [entitiesResult, leadsResult] = await Promise.all([
+            supabase.functions.invoke("meta-sync-entities", {
+              body: { days_back: 30 },
+            }),
+            supabase.functions.invoke("meta-sync-leads", {
+              body: { days_back: 30 },
+            }),
+          ]);
+
+          if (entitiesResult.error) throw entitiesResult.error;
+
+          await invalidateMetaQueries();
+
+          const ads = entitiesResult.data?.ads ?? 0;
+          const insights = entitiesResult.data?.insights ?? 0;
+          const leads = leadsResult.error ? 0 : (leadsResult.data?.synced ?? 0);
+
+          toast({
+            title: "Conectado!",
+            description: `Conta conectada e sincronizada: ${ads} anúncios, ${insights} métricas e ${leads} leads.`,
+          });
+        } catch {
+          await invalidateMetaQueries();
+          toast({
+            title: "Conta conectada",
+            description: "A conexão foi concluída, mas a sincronização inicial não terminou. Use os botões abaixo para sincronizar.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsInitialSyncing(false);
+        }
+      }
+
+      if (metaError) {
+        const errorMessages: Record<string, string> = {
+          missing_params: "Parâmetros ausentes no callback.",
+          invalid_state: "Estado inválido. Tente novamente.",
+          server_config: "Configuração do servidor incompleta.",
+          token_exchange: "Erro ao trocar código por token. O app Meta pode não estar em modo Live ou as permissões não foram aprovadas.",
+          missing_permissions: "O Meta retornou o token sem todas as permissões necessárias. Aprove business_management no app e conecte novamente.",
+          no_ad_account: "Nenhuma conta de anúncios encontrada. Verifique se o usuário tem acesso a uma conta de anúncios no Meta Business Suite.",
+          db_save: "Erro ao salvar dados. Tente novamente.",
+          unexpected: "Erro inesperado. Tente novamente.",
+          access_denied: "O usuário negou as permissões solicitadas. Tente novamente e aceite todas as permissões.",
+        };
+
+        toast({
+          title: "Erro na conexão",
+          description: errorMessages[metaError] || metaError,
+          variant: "destructive",
+        });
+
+        nextParams.delete("meta_error");
+        setSearchParams(nextParams, { replace: true });
+      }
+    };
+
+    void handleOAuthResult();
+  }, [queryClient, searchParams, setSearchParams, toast]);
 
   const handleConnectMeta = async () => {
     if (!profile?.organization_id || !profile?.user_id) return;
@@ -114,7 +170,6 @@ export default function MetaSettingsContent() {
 
   return (
     <div className="space-y-6">
-      {/* Connection */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Conectar Meta Ads</CardTitle>
@@ -140,6 +195,12 @@ export default function MetaSettingsContent() {
                   Nome: <strong>{account.name}</strong>
                 </p>
               )}
+              {isInitialSyncing && (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sincronizando anúncios, métricas e leads iniciais...
+                </p>
+              )}
               <Button variant="destructive" size="sm" onClick={() => disconnectAccount()}>
                 Desconectar
               </Button>
@@ -147,7 +208,7 @@ export default function MetaSettingsContent() {
           ) : (
             <div className="space-y-4 max-w-md">
               <p className="text-sm text-muted-foreground">
-                Clique no botão abaixo para conectar sua conta do Meta Ads. 
+                Clique no botão abaixo para conectar sua conta do Meta Ads.
                 Você será redirecionado para o Facebook para autorizar o acesso.
               </p>
               <Button
@@ -160,7 +221,7 @@ export default function MetaSettingsContent() {
                 {isRedirecting ? "Redirecionando..." : "Conectar com Meta"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Permissões solicitadas: leitura de anúncios, gerenciamento de anúncios, 
+                Permissões solicitadas: leitura de anúncios, gerenciamento de anúncios,
                 acesso a leads e páginas.
               </p>
             </div>
@@ -168,7 +229,6 @@ export default function MetaSettingsContent() {
         </CardContent>
       </Card>
 
-      {/* Automation */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2"><Zap className="h-4 w-4" /> Automação CRM</CardTitle>
@@ -185,10 +245,10 @@ export default function MetaSettingsContent() {
               <Select value={stageId} onValueChange={setStageId}>
                 <SelectTrigger><SelectValue placeholder="Selecione um estágio..." /></SelectTrigger>
                 <SelectContent>
-                  {leadStages.map(s => (
+                  {leadStages.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
                         {s.name}
                       </span>
                     </SelectItem>
@@ -198,13 +258,12 @@ export default function MetaSettingsContent() {
             </div>
           )}
           <Button onClick={handleSaveAutomation} disabled={isSavingSettings}>
-            {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isSavingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar Automação
           </Button>
         </CardContent>
       </Card>
 
-      {/* Sync buttons */}
       {isConnected && <SyncSection />}
     </div>
   );
@@ -212,6 +271,7 @@ export default function MetaSettingsContent() {
 
 function SyncSection() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [syncingEntities, setSyncingEntities] = useState(false);
   const [syncingLeads, setSyncingLeads] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -239,6 +299,13 @@ function SyncSection() {
         body: { days_back: 30 },
       });
       if (error) throw error;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ad-entities"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-insights"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-insights-aggregated"] }),
+      ]);
+
       setLastSyncResult(data);
       toast({ title: "Sincronização concluída", description: `${data.entities} entidades e ${data.insights} métricas sincronizadas.` });
     } catch (err: any) {
@@ -255,6 +322,12 @@ function SyncSection() {
         body: { days_back: daysBack },
       });
       if (error) throw error;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ad-leads"] }),
+        queryClient.invalidateQueries({ queryKey: ["ad-leads-count"] }),
+      ]);
+
       setLastSyncResult(data);
       toast({ title: "Leads sincronizados", description: `${data.synced} leads sincronizados. ${data.auto_sent > 0 ? `${data.auto_sent} enviados ao CRM automaticamente.` : ""}` });
     } catch (err: any) {
@@ -273,26 +346,26 @@ function SyncSection() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" size="sm" onClick={handleTestConnection} disabled={testingConnection}>
-            {testingConnection ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <WifiOff className="h-4 w-4 mr-2" />}
+            {testingConnection ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WifiOff className="mr-2 h-4 w-4" />}
             Testar Conexão
           </Button>
           <Button variant="outline" size="sm" onClick={handleSyncEntities} disabled={syncingEntities}>
-            {syncingEntities ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {syncingEntities ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Sincronizar Ads + Métricas (30d)
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(7)} disabled={syncingLeads}>
-            {syncingLeads ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Backfill Leads (7d)
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleSyncLeads(30)} disabled={syncingLeads}>
-            {syncingLeads ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {syncingLeads ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Backfill Leads (30d)
           </Button>
         </div>
 
         {lastSyncResult && (
-          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-            <p className="font-medium mb-1">Último resultado:</p>
+          <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+            <p className="mb-1 font-medium">Último resultado:</p>
             <pre className="whitespace-pre-wrap">{JSON.stringify(lastSyncResult, null, 2)}</pre>
           </div>
         )}
