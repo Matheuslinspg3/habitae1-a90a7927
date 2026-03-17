@@ -495,7 +495,28 @@ export default function Settings() {
 
               <VerificationSection />
 
-              
+              <Separator />
+
+              <Card className="border-destructive/30">
+                <CardHeader>
+                  <CardTitle className="text-destructive">Sair da conta</CardTitle>
+                  <CardDescription>Encerre sua sessão neste dispositivo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      window.location.href = "/login";
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair da conta
+                  </Button>
+                </CardContent>
+              </Card>
+
             </div>
           </TabsContent>
 
