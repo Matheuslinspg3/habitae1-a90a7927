@@ -1,10 +1,12 @@
 # Plano de Deploy de Edge Functions — Habitae
 ## Lovable Cloud → Supabase Próprio
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
 **Total de funções**: 68
 **Funções com verify_jwt = false**: 35 (explícito em config.toml)
+**Stack confirmada**: Edge Functions Deno padrão Supabase — 100% compatível. Sem middleware oculto.
 
 ---
 
@@ -103,14 +105,14 @@
 | `generate-ad-image` | ❌ false | ✅ | ❌ | Gerar imagem de anúncio (Stability) |
 | `generate-property-art` | ❌ false | ✅ | ❌ | Arte de imóvel via webhook externo |
 | `generate-property-video` | ❌ false | ✅ | ❌ | Vídeo de imóvel via webhook externo |
-| `generate-contract-template` | ❌ false | ✅ | ⚠️ | Gerar modelo de contrato (usa LOVABLE ou AI_GATEWAY) |
-| `generate-landing-content` | ✅ true | ✅ | ❌ | Gerar conteúdo de landing page |
-| `summarize-lead` | ❌ false | ✅ | ⚠️ | Resumir lead (usa LOVABLE ou AI_GATEWAY) |
-| `validate-document` | ❌ false | ✅ | ⚠️ | Validar documento (usa LOVABLE, com fallback) |
-| `analyze-photo-quality` | ❌ false | ✅ | ⚠️ | Analisar qualidade de foto (usa LOVABLE ou AI_GATEWAY) |
-| `contract-ai-fill` | ✅ true | ✅ | ⚠️ | Preencher contrato com IA |
-| `extract-property-pdf` | ✅ true | ✅ | ⚠️ | Extrair dados de PDF de imóvel |
-| `test-ai-connection` | ❌ false | ✅ | ⚠️ | Testar conexão AI (diagnóstico) |
+| `generate-contract-template` | ❌ false | ✅ | ❌ NÃO PORTÁVEL | Gerar modelo de contrato — usa `ai.gateway.lovable.dev`. **Audit obrigatório**: verificar se tem fallback. |
+| `generate-landing-content` | ✅ true | ✅ | ❌ | Gerar conteúdo de landing page (usa Groq/Google direto) |
+| `summarize-lead` | ❌ false | ✅ | ❌ NÃO PORTÁVEL | Resumir lead — usa `ai.gateway.lovable.dev`. **Audit obrigatório**. |
+| `validate-document` | ❌ false | ✅ | ❌ NÃO PORTÁVEL (fallback ✅) | Validar documento — usa Lovable gateway, **fallback confirmado**: retorna `{skipped:true}` se sem key. |
+| `analyze-photo-quality` | ❌ false | ✅ | ❌ NÃO PORTÁVEL | Analisar qualidade de foto — usa `ai.gateway.lovable.dev`. **Audit obrigatório**. |
+| `contract-ai-fill` | ✅ true | ✅ | ❌ NÃO PORTÁVEL | Preencher contrato com IA — usa Lovable gateway. **Audit obrigatório**. |
+| `extract-property-pdf` | ✅ true | ✅ | ❌ NÃO PORTÁVEL | Extrair dados PDF — usa Lovable gateway. **Audit obrigatório**. |
+| `test-ai-connection` | ❌ false | ✅ | ❌ NÃO PORTÁVEL (não crítico) | Diagnóstico — provider "lovable" aparecerá como falho sem crash. Sem impacto operacional. |
 | `ticket-chat` | ❌ false | ✅ | ❌ | Chat de suporte (Groq/Google) |
 | `video-job-status` | ❌ false | ✅ | ❌ | Status de job de vídeo |
 | `cancel-video-job` | ❌ false | ✅ | ❌ | Cancelar job de vídeo |
@@ -249,56 +251,69 @@ Todas as funções que chamam `ai-billing.ts` do `_shared/`:
 
 ---
 
-## 4. Estratégia LOVABLE_API_KEY
+## 4. LOVABLE_API_KEY — Dependência Não Portável
 
-### Funções que usam LOVABLE_API_KEY
+> ⛔ **CONFIRMADO PELO LOVABLE**: `LOVABLE_API_KEY` **não é portável**.
+> O endpoint `https://ai.gateway.lovable.dev/v1/chat/completions` é infraestrutura
+> proprietária do Lovable Cloud. Ele **não existirá** no ambiente Supabase próprio.
+> Provider `"lovable"` nunca deve ser usado em código de produção fora do Lovable Cloud.
 
-| Função | Como usa | Fallback existente |
-|--------|---------|-------------------|
-| `validate-document` | `ai.gateway.lovable.dev` → Gemini Vision | ✅ `{skipped: true}` se key ausente |
-| `generate-contract-template` | `ai.gateway.lovable.dev` → modelo de texto | ⚠️ Verificar fallback |
-| `summarize-lead` | `ai.gateway.lovable.dev` → resumo de lead | ⚠️ Verificar fallback |
-| `analyze-photo-quality` | `ai.gateway.lovable.dev` → análise de qualidade | ⚠️ Verificar fallback |
-| `contract-ai-fill` | `ai.gateway.lovable.dev` → preenchimento | ⚠️ Verificar fallback |
-| `extract-property-pdf` | `ai.gateway.lovable.dev` → extração | ⚠️ Verificar fallback |
-| `test-ai-connection` | `ai.gateway.lovable.dev` → diagnóstico | ✅ Retorna status de cada provider |
+### Status por função
 
-### Opções de substituição
+| Função | Endpoint usado | Fallback em código | Ação obrigatória |
+|--------|---------------|-------------------|-----------------|
+| `validate-document` | `ai.gateway.lovable.dev` | ✅ **Confirmado** — retorna `{skipped: true}` | Aceitar degradação OU substituir por Gemini direto |
+| `generate-contract-template` | `ai.gateway.lovable.dev` | ❓ **Não auditado** | **Auditar código antes do cutover** |
+| `summarize-lead` | `ai.gateway.lovable.dev` | ❓ **Não auditado** | **Auditar código antes do cutover** |
+| `analyze-photo-quality` | `ai.gateway.lovable.dev` | ❓ **Não auditado** | **Auditar código antes do cutover** |
+| `contract-ai-fill` | `ai.gateway.lovable.dev` | ❓ **Não auditado** | **Auditar código antes do cutover** |
+| `extract-property-pdf` | `ai.gateway.lovable.dev` | ❓ **Não auditado** | **Auditar código antes do cutover** |
+| `test-ai-connection` | `ai.gateway.lovable.dev` | ✅ Retorna status — sem crash | Sem ação crítica; provider "lovable" aparecerá como falho |
 
-**Opção 1 — OpenRouter (recomendada)**
-```
-AI_GATEWAY_URL = https://openrouter.ai/api/v1
-AI_GATEWAY_API_KEY = sk-or-v1-...
+### O que auditar em cada função
 
-Suporta: google/gemini-2.5-flash-lite (mesmo modelo usado pelo Lovable)
-Custo: similar ao Lovable Gateway
-Compatibilidade: API 100% compatível com OpenAI format
-```
+Para cada função com status ❓, verificar no código:
+```typescript
+// Padrão perigoso: sem fallback
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+await fetch("https://ai.gateway.lovable.dev/...", { headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` } });
+// Se LOVABLE_API_KEY for undefined → fetch com "Bearer undefined" → 401 do gateway → erro sem tratamento
 
-**Opção 2 — Google AI Direto**
-```
-GOOGLE_AI_KEY_1 = AIza...
-
-As funções que usam modelos Gemini podem usar GOOGLE_AI_KEY_1 diretamente
-via https://generativelanguage.googleapis.com/v1beta/
-Requer modificação de código para trocar a URL base
-```
-
-**Opção 3 — Aceitar degradação temporária**
-```
-validate-document → retorna {skipped: true} (sem impacto crítico)
-generate-contract-template → verificar fallback
-summarize-lead → verificar fallback
-
-Ação: Aceitar degradação por 1-2 semanas enquanto configura substituto
+// Padrão seguro (como em validate-document):
+if (!LOVABLE_API_KEY) {
+  return new Response(JSON.stringify({ skipped: true }), { ... });
+}
 ```
 
-### Configuração dos secrets de substituição
+### Providers diretos válidos para substituição
 
-```bash
-supabase secrets set --project-ref NOVO_PROJECT_ID \
-  AI_GATEWAY_URL=https://openrouter.ai/api/v1 \
-  AI_GATEWAY_API_KEY=sk-or-v1-...
+```typescript
+// GROQ (modelos LLM rápidos — já configurado como GROQ_API_KEY_1)
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_KEY = Deno.env.get("GROQ_API_KEY_1");
+
+// GOOGLE GEMINI DIRETO (mesmo modelo que o Lovable gateway usa por baixo)
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const GEMINI_KEY = Deno.env.get("GOOGLE_AI_KEY_1");
+
+// OPENROUTER (proxy compatível com API OpenAI — suporta google/gemini-2.5-flash-lite)
+const OR_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OR_KEY = Deno.env.get("AI_GATEWAY_API_KEY"); // configurar como secret
+```
+
+### Decisão binária — documentar antes de prosseguir
+
+```
+[ ] DECISÃO A — Code fix antes do cutover:
+    Auditar as 6 funções sem fallback confirmado.
+    Substituir `ai.gateway.lovable.dev` por provider direto (Groq ou Gemini).
+    Nunca usar provider = "lovable" em produção fora do Lovable Cloud.
+
+[ ] DECISÃO B — Aceitar degradação temporária:
+    Condição prévia: auditar e confirmar que cada função falha graciosamente (não 500).
+    Se alguma retornar 500 sem handler: a degradação não é segura → vai para Decisão A.
+    Prazo de resolução: 7 dias pós-go-live.
+    Comunicar usuários sobre temporária indisponibilidade das features de IA afetadas.
 ```
 
 ---
@@ -534,7 +549,24 @@ Estas funções sem JWT podem ser chamadas externamente e disparar operações d
 
 **Mitigação**: Após completar a migração de storage, desabilitar estas funções ou adicionar autenticação.
 
-### Risco 4 — generate-* sem JWT consomem créditos de IA
+### Risco 5 — pg_net trigger com hardcoded fallback
+
+O migration `20260317204734_fca31fcd.sql` (último cronologicamente) define
+`trigger_push_on_notification` com fallback hardcoded para `aiflfkkjitvsyszwdfga.supabase.co`
+e anon key do projeto antigo embutida em plaintext no código SQL.
+
+**Comportamento**: o trigger verifica GUC `app.settings.supabase_url` primeiro.
+Se configurado corretamente, funciona. Se não configurado, envia push para o projeto ANTIGO.
+
+**Mitigação obrigatória** (executar após `supabase db push`):
+```sql
+ALTER DATABASE postgres SET app.settings.supabase_url = 'https://NOVO_PROJECT_ID.supabase.co';
+ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'NOVO_ANON_KEY';
+```
+
+**Evidência**: este passo está comentado no migration `20260317204656_0a31e564.sql` linhas 47-50.
+
+### Risco 6 — generate-* sem JWT consomem créditos de IA (renumerado)
 
 Um atacante pode chamar `generate-ad-content`, `generate-ad-image`, `summarize-lead` repetidamente e consumir créditos de API (Groq, Google AI, Stability AI).
 
@@ -607,6 +639,6 @@ curl "https://NOVO_PROJECT_ID.supabase.co/functions/v1/test-ai-connection" \
 
 ---
 
-*Documento gerado em: 2026-03-18*
+*Documento versão 1.1 — Revisado em: 2026-03-18*
 *Anterior: [ROLLBACK_PLAN.md](./ROLLBACK_PLAN.md)*
 *Próximo: [INTEGRATIONS_MIGRATION_PLAN.md](./INTEGRATIONS_MIGRATION_PLAN.md)*

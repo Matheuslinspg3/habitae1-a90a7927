@@ -1,9 +1,11 @@
 # Estratégia de Cutover — Habitae
 ## Lovable Cloud → Supabase Próprio
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
 **Duração estimada do cutover**: 60-90 min dentro da janela de 4-6h
+**Domínio de produção confirmado**: `portadocorretor.com.br`
 
 ---
 
@@ -38,6 +40,8 @@ Cutover é o momento exato em que o sistema deixa de ser servido pelo Lovable Cl
 |----------|---------------|--------|
 | Migrations aplicadas sem erro | `supabase db push` retornou 0 erros | `[ ]` |
 | Schema idêntico ao origem | Comparação de tabelas e columns | `[ ]` |
+| **GUC pg_net configurado** | `SELECT current_setting('app.settings.supabase_url')` = URL novo | `[ ]` |
+| **pg_cron habilitado no Dashboard** | Settings → Extensions → pg_cron = Enabled | `[ ]` |
 | Dados importados (contagens batem) | Query de contagem por tabela | `[ ]` |
 | Usuários criados e FKs atualizadas | 0 FK violations no novo DB | `[ ]` |
 | Todos os 30+ secrets configurados | Checklist da Fase 7 completo | `[ ]` |
@@ -46,6 +50,7 @@ Cutover é o momento exato em que o sistema deixa de ser servido pelo Lovable Cl
 | Meta redirect_uri atualizado | Testado em staging | `[ ]` |
 | RD Station redirect_uri atualizado | Testado em staging | `[ ]` |
 | Build do frontend compila sem erro | `bun run build` = exit 0 | `[ ]` |
+| **Decisão LOVABLE_API_KEY documentada** | Code fix feito OU degradação aceita e auditada | `[ ]` |
 
 ### Critérios No-Go (qualquer um impede o cutover)
 
@@ -206,6 +211,25 @@ done
 > ⚠️ Divergências pequenas (<1%) em tabelas de logs são aceitáveis.
 > Divergências em tabelas críticas (organizations, properties, leads, contracts) = **NO-GO**.
 
+### STEP 5.5 — ⚠️ OBRIGATÓRIO: Validar GUC para pg_net
+
+**Hora**: 03:00
+**Duração**: 3 min
+**Criticidade**: BLOCKER — sem isso, push notifications vão para o projeto ANTIGO
+
+```bash
+# Confirmar que GUC foi configurado (Fase 2.4 do plano de execução)
+psql "$NEW_DB_URL" -c "SELECT current_setting('app.settings.supabase_url');"
+# DEVE retornar: https://NOVO_PROJECT_ID.supabase.co
+
+psql "$NEW_DB_URL" -c "SELECT left(current_setting('app.settings.supabase_anon_key'), 20);"
+# DEVE retornar: eyJhbGciOiJIUzI1NiIsInR5... (início do novo anon key)
+
+# Se não configurado, executar agora:
+psql "$NEW_DB_URL" -c "ALTER DATABASE postgres SET app.settings.supabase_url = 'https://NOVO_PROJECT_ID.supabase.co';"
+psql "$NEW_DB_URL" -c "ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'NOVO_ANON_KEY';"
+```
+
 ### STEP 6 — Atualizar variáveis de ambiente do frontend
 
 **Hora**: 03:05
@@ -247,7 +271,7 @@ git push origin main
 **Verificação imediata**:
 ```bash
 # Após deploy, verificar que a URL da API no bundle aponta ao novo projeto
-curl https://SEU_DOMINIO.com.br/assets/index-*.js | grep -o "NOVO_PROJECT_ID"
+curl https://portadocorretor.com.br/assets/index-*.js | grep -o "NOVO_PROJECT_ID"
 # Deve retornar o novo project ID
 ```
 
@@ -306,7 +330,7 @@ Porém, novos fluxos de OAuth (reautorização) precisam do novo redirect_uri.
 Ação pós-cutover:
 1. Verificar que meta-sync-leads e meta-sync-entities funcionam com tokens migrados
 2. Se tokens expiraram: usuários precisarão fazer novo OAuth flow
-   URL nova: https://SEU_DOMINIO.com.br/ads?oauth=meta
+   URL nova: https://portadocorretor.com.br/ads?oauth=meta
 ```
 
 ### 4.4 RD Station — Verificação de OAuth
@@ -318,7 +342,7 @@ Verificar se os tokens ainda são válidos (têm prazo de expiração).
 Ação pós-cutover:
 1. Chamar rd-station-stats no novo projeto para testar token
 2. Se retornar 401: usuários precisarão refazer OAuth
-   URL nova: https://SEU_DOMINIO.com.br/crm/rd-station?reauth=true
+   URL nova: https://portadocorretor.com.br/crm/rd-station?reauth=true
 ```
 
 ---
@@ -403,7 +427,28 @@ curl -X POST \
 # Deletar o lead de teste após validação
 ```
 
-### 5.5 Critérios de Go-Live (todos devem passar)
+### 5.5 Teste de pg_net (trigger de push notifications)
+
+```bash
+# Criar notificação de teste diretamente no DB para disparar o trigger
+psql "$NEW_DB_URL" -c "
+  INSERT INTO notifications (user_id, title, message, type, entity_type)
+  VALUES (
+    (SELECT id FROM auth.users LIMIT 1),
+    'Teste Migração', 'Push via trigger pg_net', 'info', 'system'
+  );
+"
+# Aguardar 3-5 segundos para pg_net processar
+sleep 5
+
+# Verificar nos logs da função send-push que a chamada chegou ao novo projeto
+supabase functions logs send-push --project-ref $NEW_PROJECT_ID | tail -10
+# Esperado: log de recebimento da notificação
+
+# Se aparecer "aiflfkkjitvsyszwdfga" nos logs = GUC não configurado → PARAR E CORRIGIR
+```
+
+### 5.6 Critérios de Go-Live (todos devem passar)
 
 - [ ] Login retorna access_token válido
 - [ ] Dados de propriedades carregam com RLS correto
@@ -412,6 +457,7 @@ curl -X POST \
 - [ ] INSERT de lead de teste funciona
 - [ ] Webhook Asaas recebido nos logs
 - [ ] Frontend carrega sem erros no console (F12)
+- [ ] **Trigger pg_net disparou para o novo projeto** (não para `aiflfkkjitvsyszwdfga`)
 
 ---
 
@@ -507,6 +553,6 @@ Após 2h: delta de dados é grande demais para reverter sem perda.
 
 ---
 
-*Documento gerado em: 2026-03-18*
+*Documento versão 1.1 — Revisado em: 2026-03-18*
 *Anterior: [MIGRATION_EXECUTION_PLAN.md](./MIGRATION_EXECUTION_PLAN.md)*
 *Próximo: [ROLLBACK_PLAN.md](./ROLLBACK_PLAN.md)*

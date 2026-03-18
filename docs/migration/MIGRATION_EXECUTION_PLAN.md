@@ -1,10 +1,11 @@
 # Plano de Execução de Migração — Habitae
 ## Lovable Cloud → Supabase Próprio
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
 **Responsável**: Engenharia Backend
-**Status**: APROVADO PARA EXECUÇÃO
+**Status**: ⚠️ PENDENTE — verificar PRE_EXECUTION_BLOCKERS.md antes de executar
 
 ---
 
@@ -37,8 +38,11 @@
 | Edge Functions | 68 |
 | Funções com `verify_jwt = false` | 35 (explícito no config.toml) |
 | Funções usando SERVICE_ROLE_KEY | ~46 |
-| Funções dependentes de LOVABLE_API_KEY | 7 |
+| Funções dependentes de LOVABLE_API_KEY | 7 — **NÃO portável** (ver Seção 3 + PRE_EXECUTION_BLOCKERS.md) |
 | Tabelas no schema public | ~47 |
+| Jobs pg_cron | 0 (extensão instalada, nenhum job definido — habilitar no Dashboard) |
+| Triggers com pg_net | 1 (`trigger_push_on_notification`) — requer `ALTER DATABASE SET` pós-migration |
+| Domínio de produção | `portadocorretor.com.br` (confirmado via `src/main.tsx:74`) |
 | Integrações externas críticas | 8 (Asaas, Meta, RD Station, OneSignal, R2, Cloudinary, WhatsApp, Imobzi) |
 
 ### 1.2 Estratégia Escolhida: Big Bang com Janela de Manutenção
@@ -94,10 +98,12 @@ Anon Key   : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (ver .env)
 | ID | Risco | Impacto | Mitigação |
 |----|-------|---------|-----------|
 | B1 | User UUIDs mudam entre projetos Supabase | Quebra total do RLS e relacionamentos FK | Script de mapeamento old_id→new_id + UPDATE em 15+ colunas |
-| B2 | LOVABLE_API_KEY não transferível | 7 funções sem fallback externo | Código já tem graceful fallback (`{skipped: true}`). Provisionar AI_GATEWAY ou aceitar degradação temporária |
+| B2 | **LOVABLE_API_KEY definitivamente não portável** — `ai.gateway.lovable.dev` é endpoint proprietário do Lovable Cloud, inacessível em Supabase próprio. Apenas `validate-document` tem fallback confirmado em código. 6 funções sem fallback auditado. | Features de IA degradadas; possível crash em funções sem fallback | Decisão obrigatória: (a) auditar e substituir por providers diretos (Groq, Gemini, OpenAI) **antes do cutover**, ou (b) aceitar degradação documentada. Provider `"lovable"` nunca usar fora do Lovable Cloud. |
 | B3 | Meta OAuth redirect_uri deve ser atualizado ANTES do cutover | OAuth Meta quebra | Atualizar no Facebook App Developers com antecedência de 24h |
 | B4 | RD Station OAuth redirect_uri deve ser atualizado ANTES do cutover | OAuth RD Station quebra | Atualizar no painel RD Station com antecedência de 24h |
 | B5 | Asaas webhook URL deve ser atualizado no painel Asaas | Cobranças sem processamento | Atualizar no painel Asaas durante a janela de cutover |
+| B6 | **pg_net hardcoded fallback** — `20260317204734_fca31fcd.sql` (último migration) define `trigger_push_on_notification` com fallback hardcoded para `aiflfkkjitvsyszwdfga.supabase.co` e anon key antiga embutida. Sem GUC configurado, push vai para projeto ANTIGO. | Push notifications enviadas ao projeto errado silenciosamente | Após aplicar migrations: `ALTER DATABASE postgres SET app.settings.supabase_url = 'https://NOVO_ID.supabase.co'; ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'NOVO_ANON_KEY';` — o trigger checa GUC primeiro, fallback só ativa se GUC não for configurado. |
+| B7 | pg_cron extension instalada mas não habilitada via Dashboard | Jobs SQL agendados falham silenciosamente (não há jobs definidos atualmente, mas extensão precisa estar ativa) | Habilitar pg_cron no Dashboard do novo projeto: Settings → Extensions → pg_cron → Enable |
 
 ### 🟠 ALTO RISCO
 
@@ -117,6 +123,7 @@ Anon Key   : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... (ver .env)
 | M2 | OneSignal push_subscriptions migradas mas device tokens podem ter expirado | Push falha silenciosamente | Aceitar; tokens se renovam na próxima sessão do usuário |
 | M3 | Migrations com dependências circulares | Erro na execução | Testar em staging ANTES da janela de produção |
 | M4 | `supabase/config.toml` com project_id antigo | Deploy de functions falha | Atualizar project_id antes do deploy |
+| M5 | `src/main.tsx:72-83` redireciona `habitae1.lovable.app` → `portadocorretor.com.br` | Este redirect é BENÉFICO e deve ser mantido — protege usuários que acessem URL antiga após migração. Verificar que `portadocorretor.com.br` é o domínio de produção correto. | Confirmar domínio antes do go-live. Não remover o redirect. |
 
 ### 🟢 BAIXO RISCO
 
@@ -166,26 +173,56 @@ supabase link --project-ref NOVO_PROJECT_ID
 # Informar DB password quando solicitado
 ```
 
-### 0.4 Provisionar AI Gateway (substituto do LOVABLE_API_KEY)
+### 0.4 Decisão obrigatória: substituição do LOVABLE_API_KEY
 
-Opção A — usar OpenRouter como gateway compatível:
+> ⛔ LOVABLE_API_KEY **não é portável**. O endpoint `ai.gateway.lovable.dev` é
+> propriedade do Lovable Cloud e não estará acessível no novo ambiente Supabase.
+> Esta é uma dependência técnica com impacto direto em 7 edge functions de IA.
+
+**Auditoria prévia obrigatória**: verificar cada uma das 7 funções afetadas:
+- `validate-document` — fallback confirmado: retorna `{skipped: true}` se sem key
+- `generate-contract-template` — **pendente audit**
+- `summarize-lead` — **pendente audit**
+- `analyze-photo-quality` — **pendente audit**
+- `contract-ai-fill` — **pendente audit**
+- `extract-property-pdf` — **pendente audit**
+- `test-ai-connection` — retorna status de providers; sem LOVABLE_API_KEY o provider "lovable" aparece como falho, sem crash
+
+**Decisão A — Substituir por providers diretos (recomendado)**:
 ```bash
-# Criar conta em openrouter.ai
-# Gerar API key
-# Salvar como: AI_GATEWAY_URL=https://openrouter.ai/api/v1
-#              AI_GATEWAY_API_KEY=sk-or-...
+# Usar GROQ_API_KEY_1/2 (Groq) e GOOGLE_AI_KEY_1/2 (Gemini) já configurados.
+# O código de cada função precisa ser auditado para remover referências a
+# ai.gateway.lovable.dev e substituir pela lógica de provider direto.
+# Nunca usar provider = "lovable" em produção fora do Lovable Cloud.
 ```
 
-Opção B — aceitar degradação temporária:
+**Decisão B — Aceitar degradação temporária**:
 ```
-Funções afetadas retornarão {skipped: true}
-Sem perda de funcionalidade crítica (document validation é opcional)
+Condição: confirmar via auditoria que cada função falha graciosamente (não 500).
+validate-document → {skipped: true} ✅ confirmado
+demais → verificar antes de aceitar degradação
+Prazo de resolução definitiva: até 7 dias pós-go-live.
 ```
 
-> As 7 funções com LOVABLE_API_KEY já têm graceful fallback implementado.
-> Decisão de negócio: aceitar degradação ou provisionar substituto.
+**AÇÃO MANUAL**: marcar a decisão tomada aqui antes de prosseguir:
+`[ ] Decisão A — code fix planejado  [ ] Decisão B — degradação aceita e auditada`
 
-### 0.5 Atualizar redirect_uris nos serviços externos
+### 0.5 Habilitar extensões no novo projeto (Dashboard)
+
+> As extensões `pg_cron` e `pg_net` são instaladas via migrations, mas em projetos
+> Supabase gerenciados precisam ser habilitadas também via Dashboard.
+
+```
+Supabase Dashboard → Database → Extensions:
+  ✅ pg_cron  → Enable
+  ✅ pg_net   → Enable (normalmente já ativo em Supabase cloud)
+  ✅ uuid-ossp → Verificar se ativo (necessário para gen_random_uuid())
+  ✅ pgcrypto → Verificar se ativo
+```
+
+> pg_cron: nenhum job agendado existe atualmente. Extensão apenas precisa estar ativa.
+
+### 0.6 Atualizar redirect_uris nos serviços externos
 
 **Meta (Facebook App Developers)** — FAZER COM 24H DE ANTECEDÊNCIA:
 ```
@@ -207,10 +244,53 @@ Sem perda de funcionalidade crítica (document validation é opcional)
 
 ## Fase 1 — Exportação do Banco de Dados
 
-**Duração estimada**: 30 min
+**Duração estimada**: 30-60 min
 **Quando**: 1-2 dias antes da janela de manutenção (para validação) + repetir no início da janela
 
-### 1.1 Exportar schema completo via CLI
+> **Método primário recomendado pelo Lovable**: usar o endpoint `/manutencao` do app.
+> pg_dump é o método alternativo caso a exportação via app falhe.
+
+### 1.0 Exportar via /manutencao (método PRIMÁRIO)
+
+```bash
+# Acessar o app como usuário com role "developer" ou "admin"
+# URL: https://portadocorretor.com.br/manutencao
+
+# Modo 1 — Exportar schema (DDL: enums, tabelas, funções, triggers, policies, indexes)
+curl -X POST \
+  "https://aiflfkkjitvsyszwdfga.supabase.co/functions/v1/export-database" \
+  -H "Authorization: Bearer $OLD_SERVICE_ROLE_KEY" \
+  -d '{"mode": "schema"}' \
+  -o export_schema.json
+
+# Modo 2 — Exportar usuários auth
+curl -X POST \
+  "https://aiflfkkjitvsyszwdfga.supabase.co/functions/v1/export-database" \
+  -H "Authorization: Bearer $OLD_SERVICE_ROLE_KEY" \
+  -d '{"mode": "auth"}' \
+  -o export_auth.json
+
+# Modo 3 — Exportar tabela por tabela (repetir para cada tabela necessária)
+for TABLE in organizations subscription_plans profiles user_roles properties leads contracts commissions invoices transactions; do
+  curl -X POST \
+    "https://aiflfkkjitvsyszwdfga.supabase.co/functions/v1/export-database" \
+    -H "Authorization: Bearer $OLD_SERVICE_ROLE_KEY" \
+    -d "{\"mode\": \"table\", \"table\": \"$TABLE\"}" \
+    -o "export_table_${TABLE}.json"
+  echo "Exportado: $TABLE"
+done
+```
+
+**Ordem de export recomendada pelo Lovable**:
+1. Extensions (via migration — automático)
+2. Enums
+3. Tabelas sem FKs
+4. Auth users
+5. Dados (tabela por tabela)
+6. Foreign Keys
+7. RLS + Functions + Triggers
+
+### 1.1 Exportar schema completo via pg_dump (método ALTERNATIVO)
 
 ```bash
 # Conectar ao DB do projeto Lovable (obter connection string do dashboard)
@@ -319,24 +399,49 @@ done
 
 ### 2.3 Grupos lógicos das migrations (em caso de erro parcial)
 
-Se houver necessidade de aplicar em partes, a ordem é:
+Se houver necessidade de aplicar em partes, a ordem confirmada pelo Lovable é:
 
 ```
+WAVE 0 — Extensions (pg_cron, pg_net, uuid-ossp, pgcrypto) — habilitar no Dashboard também
 WAVE 1 — Enums e tipos base (migrations 2026-01-28)
-WAVE 2 — Tabelas base sem FK (organizations, subscription_plans, property_types)
-WAVE 3 — Tabelas de usuários (profiles, user_roles)
-WAVE 4 — Entidades principais (properties, leads, contracts)
-WAVE 5 — Tabelas de relacionamento e métricas
-WAVE 6 — Functions, Triggers e Policies (RLS)
+WAVE 2 — Tabelas sem FKs (organizations, subscription_plans, property_types, lead_stages)
+WAVE 3 — Auth users (importar via Fase 4 ANTES dos dados que referenciam user_id)
+WAVE 4 — Dados das tabelas principais (profiles, user_roles, properties, leads...)
+WAVE 5 — Foreign Keys e constraints relacionais
+WAVE 6 — RLS + Functions + Triggers (incluindo trigger_push_on_notification com pg_net)
 WAVE 7 — Indexes
 ```
 
 > As migrations do Lovable são nomeadas com timestamp UUID — elas já estão na ordem correta de aplicação.
+> O CLI `supabase db push` aplica na ordem cronológica correta automaticamente.
 
-### 2.4 Validar schema após aplicação
+### 2.4 ⚠️ OBRIGATÓRIO pós-migrations: configurar GUC para pg_net
+
+O trigger `trigger_push_on_notification` (migration `20260317204734_fca31fcd.sql`)
+usa `app.settings.supabase_url` e `app.settings.supabase_anon_key` como GUC.
+**Se não configurados, o trigger usa o fallback hardcoded do projeto ANTIGO.**
 
 ```sql
--- No novo projeto — verificar tabelas criadas
+-- Executar NO NOVO PROJETO imediatamente após todas as migrations
+-- Substitua pelos valores reais do novo projeto
+ALTER DATABASE postgres
+  SET app.settings.supabase_url = 'https://NOVO_PROJECT_ID.supabase.co';
+
+ALTER DATABASE postgres
+  SET app.settings.supabase_anon_key = 'NOVO_ANON_KEY_eyJ...';
+
+-- Verificar que ficou correto
+SELECT current_setting('app.settings.supabase_url');
+SELECT current_setting('app.settings.supabase_anon_key') IS NOT NULL AS key_set;
+-- Esperado: URL do novo projeto, true
+```
+
+> Este passo está documentado no próprio migration `20260317204656_0a31e564.sql` (comentário linha 47-50).
+
+### 2.5 Validar schema após aplicação
+
+```sql
+-- No novo projeto — verificar tabelas criadas (seção renumerada para 2.5)
 SELECT tablename
 FROM pg_tables
 WHERE schemaname = 'public'
@@ -857,38 +962,51 @@ supabase secrets set --project-ref NOVO_PROJECT_ID \
 ## 14. Ordem Sequencial de Execução
 
 ```
+PRÉ-REQUISITOS (resolver ANTES de agendar janela):
+  []   → Decisão sobre LOVABLE_API_KEY: code fix ou degradação aceita (B2)
+  []   → Auditar 6 funções AI sem fallback confirmado (B7)
+  []   → Confirmar domínio portadocorretor.com.br e configurações DNS
+
 DIAS ANTES DA JANELA:
-  D-7  → Fase 0.1: Criar novo projeto Supabase
-  D-7  → Fase 0.2: Atualizar config.toml
-  D-7  → Fase 0.3: Supabase CLI link
-  D-7  → Fase 0.4: Provisionar AI Gateway (decisão de negócio)
-  D-2  → Fase 0.5: Atualizar redirect_uris (Meta + RD Station) ← 24h antes
-  D-1  → Fase 1: Exportar DB (para validação)
-  D-1  → Fase 2: Aplicar migrations em staging/ambiente teste
-  D-1  → Fase 3: Importar dados em staging (smoke test)
-  D-1  → Fase 7: Configurar todos os secrets
-  D-1  → Fase 6: Deploy de edge functions
+  D-7  → Fase 0.1: Criar novo projeto Supabase (região sa-east-1)
+  D-7  → Fase 0.2: Atualizar config.toml (project_id linha 1)
+  D-7  → Fase 0.3: Supabase CLI link ao novo projeto
+  D-7  → Fase 0.4: Decisão LOVABLE_API_KEY documentada
+  D-7  → Fase 0.5: Habilitar pg_cron e pg_net no Dashboard do novo projeto
+  D-2  → Fase 0.6: Atualizar redirect_uris (Meta + RD Station) ← obrigatório 24h antes
+  D-1  → Fase 1.0: Exportar DB via /manutencao (schema + auth + tabelas)
+  D-1  → Fase 2: Aplicar migrations em staging — verificar sem erros
+  D-1  → Fase 2.4: ALTER DATABASE SET app.settings.supabase_url (staging)
+  D-1  → Verificar trigger push aponta para URL correta no staging
+  D-1  → Fase 3: Importar dados em staging — smoke test de contagens
+  D-1  → Fase 7: Configurar todos os 30+ secrets
+  D-1  → Fase 6: Deploy de edge functions no novo projeto
 
 JANELA DE MANUTENÇÃO (D-0, ex: Dom 02:00):
   02:00 → Comunicar início da manutenção aos usuários
   02:05 → Ativar toggle-maintenance-mode no projeto antigo
-  02:10 → Exportar delta de dados (Fase 1, segunda execução)
+  02:10 → Exportar delta de dados (Fase 1, segunda execução via /manutencao)
   02:30 → Importar delta no novo projeto
   03:00 → Fase 4: Criar usuários e mapear UUIDs
-  04:00 → Fase 4.2: Atualizar FKs de user_id
+  04:00 → Fase 4.2: Atualizar FKs de user_id (15+ colunas)
+  04:20 → Fase 2.4: ALTER DATABASE SET GUC para pg_net ← crítico
+  04:25 → Verificar: SELECT current_setting('app.settings.supabase_url')
   04:30 → Fase 5: Validar auth + RLS
   05:00 → Fase 8: Cutover (atualizar env vars + rebuild)
-  05:30 → Fase 9: Validação final
+  05:30 → Fase 9: Validação final (FINAL_VALIDATION_CHECKLIST.md)
   06:00 → Desativar modo manutenção ← go-live
   06:00-08:00 → Monitoramento intensivo
 
 PÓS GO-LIVE:
+  H+1  → Verificar trigger push disparou para novo projeto (criar notificação de teste)
   H+2  → Decisão de rollback (se necessário)
   H+24 → Confirmar que métricas estão normais
   H+72 → Desativar projeto Lovable antigo (após confirmar estabilidade)
+  D+7  → Remover URIs antigas do Meta e RD Station (se rollback descartado)
 ```
 
 ---
 
-*Documento gerado em: 2026-03-18*
+*Documento versão 1.1 — Revisado em: 2026-03-18*
+*Incorpora: confirmações técnicas do Lovable (pg_net, pg_cron, LOVABLE_API_KEY, ordem de import, /manutencao)*
 *Próximo: [CUTOVER_STRATEGY.md](./CUTOVER_STRATEGY.md)*

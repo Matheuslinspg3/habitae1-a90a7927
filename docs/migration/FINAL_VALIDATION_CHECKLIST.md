@@ -1,8 +1,9 @@
 # Checklist de Validação Final — Habitae
 ## Migração Lovable Cloud → Supabase Próprio
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
 **Usar em**: Pós-deploy, pré-go-live e imediatamente após go-live
 
 ---
@@ -396,6 +397,19 @@ curl "https://$NEW_PROJECT_ID.supabase.co/functions/v1/test-ai-connection" \
 - [ ] Pelo menos 1 provider de AI respondendo (groq OU google)
 - [ ] Nenhum provider retornando erro 500
 
+### 4.8 Verificar ausência de chamadas ao gateway Lovable 🔴
+
+```bash
+# Verificar logs de funções AI — NÃO deve haver tentativas de acesso a ai.gateway.lovable.dev
+supabase functions logs validate-document --project-ref $NEW_PROJECT_ID | grep "lovable.dev"
+supabase functions logs generate-contract-template --project-ref $NEW_PROJECT_ID | grep "lovable.dev"
+supabase functions logs summarize-lead --project-ref $NEW_PROJECT_ID | grep "lovable.dev"
+# Esperado: ZERO ocorrências — se aparecer, indica que o código não foi migrado (Opção A)
+# e as funções estão falhando silenciosamente ou com erro 401
+```
+- [ ] Nenhum log menciona `ai.gateway.lovable.dev` com falha de autenticação
+- [ ] Se Opção B (degradação aceita): confirmar que decision está documentada e aprovada
+
 ### 4.7 Verificar que funções com verify_jwt=true rejeitam requisição sem token 🔴
 
 ```bash
@@ -451,7 +465,7 @@ grep -r "$NEW_PROJECT_ID" dist/ | head -3
 ### 5.3 App carrega no browser 🔴
 
 ```
-Ação manual: Abrir https://SEU_DOMINIO.com.br no browser (modo incógnito)
+Ação manual: Abrir https://portadocorretor.com.br no browser (modo incógnito)
 ```
 - [ ] Página de login carrega sem erro (não tela branca)
 - [ ] Console do browser (F12) sem erros JavaScript críticos
@@ -473,6 +487,17 @@ Ação manual: DevTools → Application → Service Workers
 ```
 - [ ] Service worker está registrado e ativo
 - [ ] Status: "activated and is running"
+
+### 5.6 Redirect de URL antiga funciona (manter — NÃO remover) 🟡
+
+```
+Ação manual: Abrir https://habitae1.lovable.app no browser (modo incógnito)
+```
+- [ ] Redireciona automaticamente para `https://portadocorretor.com.br`
+- [ ] Redirect não causa loop (verifica pathname, search e hash)
+
+> ℹ️ Este redirect (`src/main.tsx` linhas 72-83) é INTENCIONAL e BENÉFICO — protege usuários que
+> acessem o URL antigo. NÃO remover em nenhuma circunstância.
 
 ---
 
@@ -692,6 +717,75 @@ pg_dump "$NEW_DB_URL" \
 
 ---
 
+## BLOCO 10 — pg_net e Triggers (Crítico — Confirmação Técnica Lovable)
+
+> Este bloco verifica o problema identificado no migration `20260317204734_fca31fcd.sql`:
+> o trigger `trigger_push_on_notification` possui fallback hardcoded para `aiflfkkjitvsyszwdfga.supabase.co`.
+> Se os GUC settings não forem configurados, o trigger tentará enviar push ao projeto ANTIGO.
+
+### 10.1 GUC settings configurados no novo projeto 🔴
+
+```sql
+-- Verificar que os GUC settings foram configurados
+SELECT
+  current_setting('app.settings.supabase_url') AS supabase_url,
+  left(current_setting('app.settings.supabase_anon_key'), 30) || '...' AS anon_key_preview;
+-- Esperado:
+--   supabase_url = https://NOVO_PROJECT_ID.supabase.co (NÃO aiflfkkjitvsyszwdfga)
+--   anon_key_preview = eyJ... (chave do NOVO projeto)
+```
+- [ ] `app.settings.supabase_url` aponta para o NOVO projeto (não para `aiflfkkjitvsyszwdfga`)
+- [ ] `app.settings.supabase_anon_key` é a chave do NOVO projeto
+
+### 10.2 Trigger push aponta para novo projeto 🔴
+
+```bash
+# Testar o trigger inserindo uma notificação de teste
+psql "$NEW_DB_URL" -c "
+  INSERT INTO notifications (user_id, title, body, organization_id, type)
+  SELECT id, 'Teste Migração', 'Trigger pg_net OK', '$ORG_ID', 'info'
+  FROM auth.users LIMIT 1
+  RETURNING id;
+"
+# Aguardar 5 segundos e verificar nos logs da função push-notification
+sleep 5
+supabase functions logs push-notification --project-ref $NEW_PROJECT_ID | tail -20
+# Esperado: log mostrando que a requisição chegou ao NOVO projeto (não erro de URL antiga)
+```
+- [ ] Notificação de teste inserida com sucesso
+- [ ] Log da função `push-notification` registrado no NOVO projeto (confirma que pg_net apontou corretamente)
+- [ ] Nenhum erro de "connection refused" ou "unauthorized" nos logs (indicaria URL antiga)
+
+### 10.3 pg_cron extension habilitada 🟡
+
+```sql
+-- Verificar que pg_cron está instalada e ativa
+SELECT extname, extversion
+FROM pg_extension
+WHERE extname IN ('pg_cron', 'pg_net');
+-- Esperado: 2 linhas (ambas instaladas)
+```
+- [ ] `pg_cron` extension presente
+- [ ] `pg_net` extension presente
+
+```sql
+-- Verificar que não há jobs cron pendentes de configuração
+SELECT count(*) FROM cron.job;
+-- Esperado: 0 (nenhum cron job foi definido no projeto — confirmado por análise do código)
+```
+- [ ] 0 cron jobs (confirmado que não havia jobs no projeto original)
+
+### 10.4 Push notification chegou no device 🟡
+
+```
+Ação manual: Verificar no device de teste (smartphone) se a push notification
+de teste (inserida no 10.2) chegou.
+```
+- [ ] Push notification recebida no device de teste
+- [ ] Conteúdo correto (título e body como inserido)
+
+---
+
 ## RESUMO EXECUTIVO
 
 ### Antes do Go-Live (todos os 🔴 devem estar marcados)
@@ -720,12 +814,17 @@ pg_dump "$NEW_DB_URL" \
 - [ ] 4.2 Billing saudável
 - [ ] 4.3 Storage saudável
 - [ ] 4.7 Funções com JWT rejeitam sem token
+- [ ] 4.8 Nenhum log menciona `ai.gateway.lovable.dev` com falha
 
 **Frontend:**
 - [ ] 5.1 Build compila
 - [ ] 5.2 Bundle usa novo projeto
-- [ ] 5.3 App carrega no browser
+- [ ] 5.3 App carrega em `portadocorretor.com.br`
 - [ ] 5.4 Login no frontend funciona
+
+**pg_net e Triggers:**
+- [ ] 10.1 GUC `app.settings.supabase_url` aponta para NOVO projeto
+- [ ] 10.2 Trigger push disparou para NOVO projeto (log confirmado)
 
 **Integrações:**
 - [ ] 6.1 Asaas webhook configurado e testado

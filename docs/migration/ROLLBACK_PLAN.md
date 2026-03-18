@@ -1,8 +1,9 @@
 # Plano de Rollback — Habitae
 ## Reversão: Novo Supabase → Lovable Cloud (Projeto Antigo)
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
 **Janela de rollback válida**: até 2h após go-live
 
 ---
@@ -94,7 +95,8 @@ Após 2h, focar em corrigir o problema no novo ambiente.
 | Banco de dados completo (snapshot) | ✅ Intacto — nenhum dado foi deletado do antigo |
 | Usuários e senhas (bcrypt) | ✅ Intactos |
 | Edge Functions deployadas | ✅ Continuam deployadas |
-| Secrets configurados | ✅ Continuam configurados |
+| Secrets configurados (incluindo LOVABLE_API_KEY) | ✅ Continuam configurados |
+| GUC app.settings.supabase_url (projeto antigo) | ✅ Aponta para o projeto antigo — trigger push funciona |
 | Storage buckets | ✅ Se havia arquivos em Supabase storage |
 
 ### Não preservado automaticamente (ação manual necessária)
@@ -102,8 +104,10 @@ Após 2h, focar em corrigir o problema no novo ambiente.
 | Item | O que fazer |
 |------|------------|
 | Dados criados no novo projeto durante janela | Exportar e importar no antigo (ver Seção 7) |
-| Redirect_uris atualizados (Meta, RD Station) | Manter ambas as URIs ativas |
+| Redirect_uris atualizados (Meta, RD Station) | Manter ambas as URIs ativas durante período de rollback |
 | ASAAS webhook apontando para novo projeto | Reverter URL no painel Asaas |
+| GUC app.settings.supabase_url no novo projeto | Reverter para URL antiga — ou ignorar (novo projeto entrará em manutenção) |
+| `src/main.tsx` redirect | **NÃO reverter** — o redirect `habitae1.lovable.app → portadocorretor.com.br` é benéfico e continua funcionando mesmo no projeto antigo |
 
 ---
 
@@ -171,6 +175,19 @@ curl -X POST \
 ```
 
 **Duração**: 2 min
+
+### ROLLBACK STEP 4.5 — Reverter GUC de pg_net no novo projeto (opcional mas recomendado)
+
+```bash
+# No NOVO projeto (que vai entrar em manutenção): reverter GUC para evitar
+# que o trigger continue tentando chamar funcões do novo projeto se ele for
+# desligado no futuro. Apenas boa prática.
+psql "$NEW_DB_URL" -c "ALTER DATABASE postgres RESET app.settings.supabase_url;"
+psql "$NEW_DB_URL" -c "ALTER DATABASE postgres RESET app.settings.supabase_anon_key;"
+```
+
+> O projeto antigo não precisa de alteração de GUC — ele nunca foi modificado.
+> O trigger do projeto antigo continua apontando para `aiflfkkjitvsyszwdfga.supabase.co` (correto).
 
 ### ROLLBACK STEP 5 — Reverter webhook do Asaas
 
@@ -336,6 +353,6 @@ EDGE_BASE_URL antigo : https://aiflfkkjitvsyszwdfga.supabase.co/functions/v1
 
 ---
 
-*Documento gerado em: 2026-03-18*
+*Documento versão 1.1 — Revisado em: 2026-03-18*
 *Anterior: [CUTOVER_STRATEGY.md](./CUTOVER_STRATEGY.md)*
 *Próximo: [EDGE_FUNCTIONS_DEPLOYMENT_PLAN.md](./EDGE_FUNCTIONS_DEPLOYMENT_PLAN.md)*

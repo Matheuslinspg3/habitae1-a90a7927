@@ -1,8 +1,10 @@
 # Plano de Migração de Integrações Externas — Habitae
 ## Lovable Cloud → Supabase Próprio
 
-**Versão**: 1.0
+**Versão**: 1.1
 **Data de elaboração**: 2026-03-18
+**Última revisão**: 2026-03-18 (incorporação de confirmações técnicas do Lovable)
+**Domínio de produção confirmado**: `portadocorretor.com.br`
 
 ---
 
@@ -553,90 +555,89 @@ curl "https://NOVO_PROJECT_ID.supabase.co/functions/v1/test-ai-connection" \
 
 ## 11. LOVABLE_API_KEY — AI Gateway Lovable
 
-### O que é
+> ⛔ **NÃO TRANSFERÍVEL. PONTO FINAL.**
+>
+> `LOVABLE_API_KEY` é auto-provisionada pelo Lovable Cloud e dá acesso a `ai.gateway.lovable.dev`.
+> Esse endpoint **não existe fora do Lovable Cloud**. Não há plano enterprise, portabilidade ou exceção.
+> Toda função que chama `https://ai.gateway.lovable.dev` **falhará silenciosamente ou com erro 401/404**
+> no novo projeto Supabase, pois o endpoint é inacessível.
 
-O `LOVABLE_API_KEY` é uma chave auto-provisionada pelo Lovable Cloud que dá acesso ao `ai.gateway.lovable.dev`, um proxy da Lovable para o Google Gemini e outros modelos.
+### Funções afetadas — Status de fallback confirmado
 
-### Funções afetadas
+| Função | Uso | Fallback confirmado? | Risco |
+|--------|-----|---------------------|-------|
+| `validate-document` | Gemini Vision — validação de docs | ✅ Retorna `{skipped: true}` | Baixo — degradação silenciosa |
+| `generate-contract-template` | Gemini — geração de contratos | ❌ Auditoria obrigatória | Alto — pode retornar erro 500 |
+| `summarize-lead` | Gemini — resumo de lead | ❌ Auditoria obrigatória | Médio |
+| `analyze-photo-quality` | Gemini Vision — qualidade foto | ❌ Auditoria obrigatória | Médio |
+| `contract-ai-fill` | Gemini — preenchimento de contratos | ❌ Auditoria obrigatória | Alto |
+| `extract-property-pdf` | Gemini — extração de dados PDF | ❌ Auditoria obrigatória | Alto |
+| `test-ai-connection` | Diagnóstico — verifica LOVABLE_API_KEY | ❌ Auditoria obrigatória | Baixo (diagnóstico apenas) |
 
-```
-validate-document        → Gemini Vision para validação de documentos
-generate-contract-template → Gemini para geração de contratos
-summarize-lead           → Gemini para resumo de lead
-analyze-photo-quality    → Gemini Vision para qualidade de foto
-contract-ai-fill         → Gemini para preenchimento de contratos
-extract-property-pdf     → Gemini para extração de dados PDF
-test-ai-connection       → Diagnóstico (verifica LOVABLE_API_KEY)
-```
-
-### Status atual do fallback
-
-Analisando `validate-document/index.ts`:
+**`validate-document` confirmado** (`validate-document/index.ts`):
 ```typescript
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 if (!LOVABLE_API_KEY) {
-  return new Response(JSON.stringify({ skipped: true }), { ... });
+  return new Response(JSON.stringify({ skipped: true }), { status: 200 });
 }
+// Continua apenas se LOVABLE_API_KEY estiver definida
 ```
 
-✅ **`validate-document`**: fallback confirmado — retorna `{skipped: true}` silenciosamente.
+As demais **6 funções precisam de auditoria de código** antes do go-live.
 
-> Verificar os demais arquivos para confirmar comportamento de fallback.
+### Decisão binária — obrigatória antes do cutover
 
-### Estratégia de substituição
+**Opção A — Code fix (recomendado)**: Substituir `ai.gateway.lovable.dev` por provider direto em cada função.
 
-**Opção A (recomendada) — OpenRouter como substituto**
-
-```bash
-# Configurar no novo projeto:
-AI_GATEWAY_URL=https://openrouter.ai/api/v1
-AI_GATEWAY_API_KEY=sk-or-v1-...
-
-# O modelo usado é "google/gemini-2.5-flash-lite"
-# OpenRouter suporta este modelo com a mesma interface OpenAI-compatible
+Providers disponíveis no projeto (secrets já existentes):
+```
+GROQ_API_KEY_1 / GROQ_API_KEY_2         → Groq (llama3, mixtral)
+GOOGLE_AI_KEY_1 / GOOGLE_AI_KEY_2       → Gemini via generativelanguage.googleapis.com
+OPENAI_IMAGE_API_KEY                     → OpenAI
+AI_GATEWAY_URL + AI_GATEWAY_API_KEY     → OpenRouter (proxy OpenAI-compatible — suporta Gemini)
 ```
 
-A URL de chamada nas funções:
+Exemplo de substituição por função (requer code change):
 ```typescript
-// ANTES (Lovable):
+// ANTES (não portável):
 await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
-  ...
+  headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` }, ...
 })
 
-// DEPOIS (OpenRouter via AI_GATEWAY_URL):
+// DEPOIS (provider direto via Google AI):
+const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY_1");
+await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_KEY}`, {
+  // Nota: API Google AI tem formato diferente da OpenAI — ajuste necessário
+})
+
+// OU via OpenRouter (mesmo formato OpenAI):
 const gatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://openrouter.ai/api/v1";
-const gatewayKey = Deno.env.get("AI_GATEWAY_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+const gatewayKey = Deno.env.get("AI_GATEWAY_API_KEY");
 await fetch(`${gatewayUrl}/chat/completions`, {
-  headers: { Authorization: `Bearer ${gatewayKey}` },
-  ...
+  headers: { Authorization: `Bearer ${gatewayKey}` }, ...
 })
 ```
 
-> ⚠️ Esta substituição **requer modificação de código** nas 7 funções afetadas.
-> **Alternativa sem código**: provisionar `LOVABLE_API_KEY` diretamente se a Lovable oferecer portabilidade da key.
-
-**Opção B (zero código) — Aceitar degradação temporária**
+**Opção B — Aceitar degradação documentada**: Não migrar o código. Features de IA ficam desativadas.
 
 ```
-Configurar sem LOVABLE_API_KEY.
-validate-document → retorna {skipped: true} — sem impacto crítico
-As demais funções: verificar fallback individualmente.
+validate-document     → {skipped: true} — OK (fallback confirmado)
+generate-contract-template, contract-ai-fill, extract-property-pdf → FALHA (alto risco de 500)
+summarize-lead, analyze-photo-quality → FALHA (risco médio)
+
+Impacto de negócio: usuários não conseguem validar documentos via IA, gerar contratos automáticos,
+ou preencher contratos com IA. Funcionalidades manuais continuam disponíveis.
 ```
 
-### Plano de contingência
+> ⚠️ **Se Opção B for escolhida**: documentar explicitamente quais features estão degradadas,
+> comunicar usuários afetados, e estabelecer prazo para code fix pós-migração.
+
+### Impacto no cutover
 
 ```
-Semana da migração:
-  - Provisionar conta OpenRouter (ou similar)
-  - Configurar AI_GATEWAY_URL + AI_GATEWAY_API_KEY
-  - Testar em staging antes do cutover
-
-Se OpenRouter não disponível no cutover:
-  - Aceitar degradação das 7 funções
-  - Funcionalidades afetadas: validação de documentos (IA), geração de contratos (IA)
-  - Sistema continua funcional — essas são features complementares, não críticas de negócio
-  - Resolver em até 1 semana pós-migração
+LOVABLE_API_KEY não deve ser configurada no novo projeto (seria inútil — endpoint inacessível).
+Se code fix (Opção A) não estiver pronto: aceitar degradação explicitamente antes do go-live.
+Não tentar "configurar LOVABLE_API_KEY e ver o que acontece" — a key é inválida no novo ambiente.
 ```
 
 ---
@@ -721,7 +722,8 @@ curl -X POST "https://NOVO_PROJECT_ID.supabase.co/functions/v1/send-reset-email"
 
 | Ação | Integração | Responsável |
 |------|-----------|------------|
-| Criar conta OpenRouter e obter API key | LOVABLE_API_KEY | Engenharia |
+| Decidir: code fix (Opção A) ou degradação aceita (Opção B) para 6 funções AI sem fallback | LOVABLE_API_KEY | Engenharia/Product |
+| Se Opção A: auditar e corrigir código das 6 funções AI — substituir `ai.gateway.lovable.dev` por provider direto | LOVABLE_API_KEY | Engenharia |
 | Adicionar novo redirect_uri no Facebook App | Meta Ads | Engenharia/Marketing |
 | Adicionar novo redirect_uri no RD Station | RD Station | Engenharia/Marketing |
 | Adicionar novo domínio no Google Maps (se mudar) | Google Maps | Engenharia |
@@ -733,6 +735,7 @@ curl -X POST "https://NOVO_PROJECT_ID.supabase.co/functions/v1/send-reset-email"
 | Atualizar webhook URL no painel Asaas | Asaas | Pós-deploy functions |
 | Atualizar webhook URL no painel RD Station | RD Station | Pós-deploy functions |
 | Atualizar EDGE_BASE_URL no Easypanel | WhatsApp (UAZAPI) | Pós-deploy functions |
+| `ALTER DATABASE SET app.settings.supabase_url` e `app.settings.supabase_anon_key` | pg_net (trigger push) | Imediatamente após `supabase db push` |
 
 ### Pós-cutover (D+0 a D+7)
 
