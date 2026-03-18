@@ -483,49 +483,74 @@ export default function Maintenance() {
     return { sql: parts.join("\n"), tablesExported, totalRecords, authUsersCount };
   };
 
+  const callExport = async (body: Record<string, string>) => {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    let authToken = anonKey;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) authToken = session.access_token;
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/export-database`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+          apikey: anonKey,
+        },
+        body: JSON.stringify(body),
+      }
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: "Erro desconhecido" }));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  };
+
   const handleExportDatabase = async () => {
     setExporting(true);
     setGeneratedSQL(null);
     setExportStats(null);
-    setExportProgress("Exportando todas as tabelas (pode levar 30s)...");
+    const errors: string[] = [];
 
     try {
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      // Step 1: Schema + column types
+      setExportProgress("Exportando schema...");
+      const schemaResult = await callExport({ mode: "schema" });
+      const schema = schemaResult.schema as SchemaResult;
+      const columnTypes = (schemaResult.column_types || {}) as Record<string, Record<string, string>>;
 
-      let authToken = anonKey;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        authToken = session.access_token;
+      // Step 2: Auth users
+      setExportProgress("Exportando usuários...");
+      let authData: { count: number; csv: string } | null = null;
+      try {
+        const authResult = await callExport({ mode: "auth" });
+        authData = { count: authResult.count, csv: authResult.csv };
+      } catch (e: any) {
+        errors.push(`auth.users: ${e.message}`);
       }
 
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/export-database`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-            apikey: anonKey,
-          },
-          body: JSON.stringify({}),
+      // Step 3: Each table individually
+      const tables: Record<string, { count: number; csv: string }> = {};
+      if (authData) tables["_auth_users"] = authData;
+
+      for (let i = 0; i < TABLE_ORDER.length; i++) {
+        const t = TABLE_ORDER[i];
+        setExportProgress(`Exportando tabela ${i + 1}/${TABLE_ORDER.length}: ${t}...`);
+        try {
+          const tableResult = await callExport({ mode: "table", table: t });
+          tables[t] = { count: tableResult.count, csv: tableResult.csv };
+        } catch (e: any) {
+          errors.push(`${t}: ${e.message}`);
         }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "Erro desconhecido" }));
-        throw new Error(err.error || `HTTP ${response.status}`);
       }
 
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
-
-      const tables = result.tables as Record<string, { count: number; csv: string }>;
-      const schema = result.schema as SchemaResult;
-      const columnTypes = (result.column_types || {}) as Record<string, Record<string, string>>;
-
+      // Step 4: Build SQL
       setExportProgress("Gerando SQL de importação...");
-
       const { sql, tablesExported, totalRecords, authUsersCount } = buildSQL(schema, tables, columnTypes);
 
       setGeneratedSQL(sql);
@@ -534,7 +559,7 @@ export default function Maintenance() {
         totalRecords,
         authUsers: authUsersCount,
         hasSchema: !!(schema.tables_ddl),
-        errors: result.errors || [],
+        errors,
       });
 
       toast({
@@ -542,9 +567,7 @@ export default function Maintenance() {
         description: `${tablesExported} tabelas + ${totalRecords.toLocaleString()} registros exportados.`,
       });
 
-      if (result.errors?.length > 0) {
-        console.warn("Erros:", result.errors);
-      }
+      if (errors.length > 0) console.warn("Erros:", errors);
     } catch (err: any) {
       console.error("Export error:", err);
       toast({
