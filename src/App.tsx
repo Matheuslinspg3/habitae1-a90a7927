@@ -173,13 +173,12 @@ const App = () => (
                             <AdminAudit />
                           </AdminRoute>
                         } />
-                        </Route>
-
                         <Route path="/admin-credentials" element={
-                          <AdminRoute>
+                          <DeveloperRoute>
                             <AdminCredentials />
-                          </AdminRoute>
+                          </DeveloperRoute>
                         } />
+                        </Route>
 
                       <Route path="*" element={<NotFound />} />
                     </Routes>
