@@ -2,6 +2,7 @@ import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import { Button } from "@/components/ui/button";
 import { HabitaeLogo } from "@/components/HabitaeLogo";
 import { Construction, RefreshCw, Wifi, Loader2, Download, Copy, Check, X, Database, ChevronDown, ChevronUp } from "lucide-react";
+import { DatabaseTransfer } from "@/components/maintenance/DatabaseTransfer";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -710,6 +711,9 @@ export default function Maintenance() {
             )}
           </Card>
         )}
+
+        {/* Database Transfer */}
+        <DatabaseTransfer />
 
         {/* Auto-check + hidden export trigger */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
