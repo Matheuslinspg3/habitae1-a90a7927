@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.generate-contract-template]
 verify_jwt = false
+
+[functions.admin-credentials]
+verify_jwt = false
