@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { trackAiBilling } from "../_shared/ai-billing.ts";
+import { callGeminiOpenAIChat, getGeminiApiKeys } from "../_shared/gemini.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 // Pricing per 1M tokens (USD)
 const PRICING: Record<string, { input: number; output: number }> = {
@@ -19,6 +19,7 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
   "google/gemini-2.5-flash": { input: 0.15, output: 0.6 },
   "google/gemini-3-flash-preview": { input: 0.15, output: 0.6 },
+  "gemini-2.5-flash": { input: 0.15, output: 0.6 },
 };
 
 function estimateCost(model: string, tokensIn: number, tokensOut: number): number {
@@ -42,7 +43,7 @@ async function getAIConfig(supabase: any): Promise<AIConfig> {
     .select("text_provider, text_openai_model, lovable_fallback_enabled, text_openai_key, text_gemini_key, text_anthropic_key, text_groq_key")
     .eq("id", "singleton")
     .single();
-  return data || { text_provider: "lovable", text_openai_model: "gpt-4o", lovable_fallback_enabled: true, text_openai_key: null, text_gemini_key: null, text_anthropic_key: null, text_groq_key: null };
+  return data || { text_provider: "gemini", text_openai_model: "gpt-4o", lovable_fallback_enabled: true, text_openai_key: null, text_gemini_key: null, text_anthropic_key: null, text_groq_key: null };
 }
 
 function getTextKey(provider: string, config: AIConfig): string | null {
@@ -55,23 +56,19 @@ function getTextKey(provider: string, config: AIConfig): string | null {
   return map[provider] || null;
 }
 
-async function callLovable(messages: any[], tools?: any[], toolChoice?: any) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-  const body: any = { model: "google/gemini-3-flash-preview", messages, temperature: 0.7 };
+async function callGeminiFallback(messages: any[], tools?: any[], toolChoice?: any, preferredKey?: string | null) {
+  if (getGeminiApiKeys({ preferredKeys: [preferredKey] }).length === 0) {
+    throw new Error("Google AI keys not configured");
+  }
+
+  const body: any = { model: "gemini-2.5-flash", messages, temperature: 0.7 };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
-  const res = await fetch(LOVABLE_GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+
+  return await callGeminiOpenAIChat({
+    preferredKeys: [preferredKey],
+    body,
   });
-  if (!res.ok) {
-    if (res.status === 429) throw new Error("Rate limit atingido");
-    if (res.status === 402) throw new Error("Créditos de IA esgotados");
-    throw new Error(`Lovable AI error: ${res.status}`);
-  }
-  return await res.json();
 }
 
 function extractToolResult(aiData: any) {
@@ -209,8 +206,8 @@ LANGUAGE: Generate in Brazilian Portuguese (pt-BR).`;
       .single();
 
     let result: any = null;
-    let usedProvider = "lovable";
-    let usedModel = "google/gemini-3-flash-preview";
+    let usedProvider = "gemini";
+    let usedModel = "gemini-2.5-flash";
     let aiData: any = null;
     const errors: string[] = [];
     const provider = aiConfig.text_provider;
@@ -295,17 +292,17 @@ LANGUAGE: Generate in Brazilian Portuguese (pt-BR).`;
       console.warn(`${provider} failed:`, err.message);
     }
 
-    // Fallback to Lovable AI
-    if (!result && (provider === "lovable" || aiConfig.lovable_fallback_enabled || provider === "groq")) {
+    // Fallback to direct Gemini when provider is not configured or legacy Lovable mode is selected
+    if (!result && (provider === "lovable" || provider === "gemini" || aiConfig.lovable_fallback_enabled || provider === "groq")) {
       try {
-        console.log("Using Lovable AI...");
-        aiData = await callLovable(messages, tools, toolChoice);
+        console.log("Using direct Gemini fallback...");
+        aiData = await callGeminiFallback(messages, tools, toolChoice, aiConfig.text_gemini_key);
         result = extractToolResult(aiData);
-        usedProvider = "lovable";
-        usedModel = "google/gemini-3-flash-preview";
+        usedProvider = "gemini";
+        usedModel = "gemini-2.5-flash";
       } catch (err: any) {
-        errors.push(`Lovable: ${err.message}`);
-        console.error("Lovable AI failed:", err.message);
+        errors.push(`Gemini fallback: ${err.message}`);
+        console.error("Gemini fallback failed:", err.message);
       }
     }
 
