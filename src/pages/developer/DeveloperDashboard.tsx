@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, CreditCard, MessageSquare, Bot, Receipt
+  Terminal, CreditCard, MessageSquare, Bot, Receipt, KeyRound
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
