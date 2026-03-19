@@ -5166,6 +5166,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      exec_sql: { Args: { sql_query: string }; Returns: Json }
       fix_user_without_organization: {
         Args: { p_email: string; p_full_name?: string; p_user_id: string }
         Returns: string
@@ -5663,6 +5664,8 @@ export type Database = {
         | "developer"
         | "leader"
         | "sub_admin"
+        | "atendente"
+        | "desenvolvedor"
       billing_cycle: "monthly" | "yearly"
       commission_type: "valor" | "percentual"
       contract_status: "rascunho" | "ativo" | "encerrado" | "cancelado"
@@ -5851,6 +5854,8 @@ export const Constants = {
         "developer",
         "leader",
         "sub_admin",
+        "atendente",
+        "desenvolvedor",
       ],
       billing_cycle: ["monthly", "yearly"],
       commission_type: ["valor", "percentual"],
