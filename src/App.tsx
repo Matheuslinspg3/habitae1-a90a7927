@@ -48,6 +48,7 @@ const Install = lazy(() => import("./pages/Install"));
 const Automations = lazy(() => import("./pages/Automations"));
 const _Activities = lazy(() => import("./pages/Activities")); // embedded in Administration
 const Administration = lazy(() => import("./pages/Administration"));
+const AdminCredentials = lazy(() => import("./pages/AdminCredentials"));
 const Anuncios = lazy(() => import("./pages/Anuncios"));
 const _RDStation = lazy(() => import("./pages/RDStation")); // embedded in Anuncios
 const MetaAdDetail = lazy(() => import("./pages/ads/MetaAdDetail"));
@@ -172,7 +173,13 @@ const App = () => (
                             <AdminAudit />
                           </AdminRoute>
                         } />
-                      </Route>
+                        </Route>
+
+                        <Route path="/admin-credentials" element={
+                          <AdminRoute>
+                            <AdminCredentials />
+                          </AdminRoute>
+                        } />
 
                       <Route path="*" element={<NotFound />} />
                     </Routes>
