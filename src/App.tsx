@@ -98,6 +98,9 @@ const App = () => (
                   <ClarityProvider />
                   <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/admin-credentials" element={<AdminCredentials />} />
+                    </Routes>
                     <MaintenanceGuard>
                     <Routes>
                       <Route path="/manutencao" element={<Maintenance />} />
@@ -173,11 +176,7 @@ const App = () => (
                             <AdminAudit />
                           </AdminRoute>
                         } />
-                        <Route path="/admin-credentials" element={
-                          <DeveloperRoute>
-                            <AdminCredentials />
-                          </DeveloperRoute>
-                        } />
+                        
                         </Route>
 
                       <Route path="*" element={<NotFound />} />
