@@ -98,6 +98,9 @@ const App = () => (
                   <ClarityProvider />
                   <CookieConsentBanner />
                   <Suspense fallback={<PageLoader />}>
+                    <Routes>
+                      <Route path="/admin-credentials" element={<AdminCredentials />} />
+                    </Routes>
                     <MaintenanceGuard>
                     <Routes>
                       <Route path="/manutencao" element={<Maintenance />} />
