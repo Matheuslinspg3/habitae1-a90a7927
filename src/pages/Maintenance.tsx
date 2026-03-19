@@ -712,6 +712,9 @@ export default function Maintenance() {
           </Card>
         )}
 
+        {/* Database Transfer */}
+        <DatabaseTransfer />
+
         {/* Auto-check + hidden export trigger */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/60">
           <Wifi className="h-3 w-3" />
