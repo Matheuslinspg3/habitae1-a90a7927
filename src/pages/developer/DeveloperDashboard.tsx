@@ -43,6 +43,7 @@ const tabs = [
 export default function DeveloperDashboard() {
   const { isDeveloper } = useUserRoles();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
   if (!isDeveloper) return null;
