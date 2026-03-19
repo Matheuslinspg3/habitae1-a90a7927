@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   HardDrive, Cloud, Shield, Users, Database, Download, 
-  Terminal, CreditCard, MessageSquare, Bot, Receipt
+  Terminal, CreditCard, MessageSquare, Bot, Receipt, KeyRound
 } from "lucide-react";
 import { SystemHealthCard } from "@/components/developer/SystemHealthCard";
 import { OrgUsageTab } from "@/components/developer/OrgUsageTab";
@@ -42,6 +43,7 @@ const tabs = [
 export default function DeveloperDashboard() {
   const { isDeveloper } = useUserRoles();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
   if (!isDeveloper) return null;
@@ -63,11 +65,20 @@ export default function DeveloperDashboard() {
       <SystemHealthCard />
 
       {/* Action Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
         <SendPushCard />
         <PurgeCacheCard />
         <PwaDiagnosticsCard />
         <MaintenanceCard />
+        <button
+          onClick={() => navigate("/admin-credentials")}
+          className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+        >
+          <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+            <KeyRound className="h-5 w-5 text-destructive" />
+          </div>
+          <span className="text-xs font-medium text-foreground">Credenciais</span>
+        </button>
       </div>
 
       {/* Tabs */}
