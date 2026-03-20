@@ -95,7 +95,7 @@ export default function TransferOrg() {
       const PAGE = 1000;
       let from = 0;
       while (true) {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from(table)
           .select("*")
           .in(joinCol, chunk)

@@ -101,6 +101,7 @@ const App = () => (
                   <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/admin-credentials" element={<AdminCredentials />} />
+                      <Route path="/transfer-org" element={<TransferOrg />} />
                     </Routes>
                     <MaintenanceGuard>
                     <Routes>
