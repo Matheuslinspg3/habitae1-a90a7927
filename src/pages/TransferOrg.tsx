@@ -66,7 +66,7 @@ export default function TransferOrg() {
     let all: any[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from(table)
         .select("*")
         .eq(filterCol, filterVal)
@@ -81,15 +81,13 @@ export default function TransferOrg() {
   };
 
   const fetchJoined = async (table: string, joinTable: string, joinCol: string, orgCol: string) => {
-    // For tables without org_id, we need to fetch IDs from parent then filter
-    const parentIds = await supabase
+    const parentIds = await (supabase as any)
       .from(joinTable)
       .select("id")
       .eq(orgCol, ORG_ID);
     if (parentIds.error) throw parentIds.error;
-    const ids = (parentIds.data || []).map(r => r.id);
+    const ids = (parentIds.data || []).map((r: any) => r.id);
     if (ids.length === 0) return [];
-
     let all: any[] = [];
     // Fetch in chunks of 200 IDs
     for (let i = 0; i < ids.length; i += 200) {
