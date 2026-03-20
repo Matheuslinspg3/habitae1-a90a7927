@@ -200,7 +200,7 @@ export default function TransferOrg() {
               {testing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <TestTube className="h-4 w-4 mr-1" />}
               Testar Conexão
             </Button>
-            {connected === true && <Badge variant="default" className="bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</Badge>}
+            {connected === true && <Badge variant="default" className="bg-primary"><CheckCircle2 className="h-3 w-3 mr-1" /> Conectado</Badge>}
             {connected === false && <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" /> Falhou</Badge>}
           </div>
         </CardContent>
