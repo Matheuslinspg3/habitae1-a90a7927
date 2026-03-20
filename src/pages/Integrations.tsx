@@ -3,6 +3,7 @@ import { ImobziIntegrationCard } from "@/components/integrations/ImobziIntegrati
 import { WhatsAppIntegrationCard } from "@/components/integrations/WhatsAppIntegrationCard";
 import { SyncHistorySection } from "@/components/integrations/SyncHistorySection";
 import { PortalFeedsSection } from "@/components/integrations/PortalFeedsSection";
+import { DatabaseTransferCard } from "@/components/integrations/DatabaseTransferCard";
 import { Separator } from "@/components/ui/separator";
 import { useUserRoles } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
@@ -45,6 +46,12 @@ export default function Integrations() {
         
         <div className="max-w-4xl">
           <SyncHistorySection />
+        </div>
+
+        <Separator />
+
+        <div className="max-w-4xl">
+          <DatabaseTransferCard />
         </div>
       </div>
     </div>
