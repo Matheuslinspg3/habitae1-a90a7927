@@ -228,7 +228,7 @@ export default function TransferOrg() {
                 {step.message && <p className="text-xs text-muted-foreground truncate">{step.message}</p>}
               </div>
               {step.status === "running" && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              {step.status === "done" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+              {step.status === "done" && <CheckCircle2 className="h-4 w-4 text-primary" />}
               {step.status === "error" && <XCircle className="h-4 w-4 text-destructive" />}
             </div>
           ))}
