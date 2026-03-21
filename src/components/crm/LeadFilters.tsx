@@ -83,6 +83,7 @@ export function LeadFilters({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os corretores</SelectItem>
+                <SelectItem value="none">Sem corretor</SelectItem>
                 {brokers.map((broker) => (
                   <SelectItem key={broker.user_id} value={broker.user_id}>
                     {broker.full_name}
