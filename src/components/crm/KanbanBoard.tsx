@@ -179,7 +179,11 @@ export function KanbanBoard() {
         );
       }
       if (selectedBrokerId) {
-        stageLeads = stageLeads.filter((lead) => lead.broker_id === selectedBrokerId);
+        if (selectedBrokerId === 'none') {
+          stageLeads = stageLeads.filter((lead) => !lead.broker_id);
+        } else {
+          stageLeads = stageLeads.filter((lead) => lead.broker_id === selectedBrokerId);
+        }
       }
       if (selectedSource) {
         stageLeads = stageLeads.filter((lead) => lead.source === selectedSource);
