@@ -10,6 +10,9 @@ export interface PortalFeed {
   portal_label: string;
   is_active: boolean;
   feed_url: string | null;
+  feed_token: string;
+  token_rotated_at: string;
+  token_rotation_days: number;
   property_filter: Record<string, any>;
   last_generated_at: string | null;
   total_properties_exported: number;
@@ -57,7 +60,6 @@ export function usePortalFeeds() {
     mutationFn: async () => {
       if (!profile?.organization_id) throw new Error('Sem organização');
 
-      const feedUrl = `${window.location.origin.replace('preview--', '').replace(/:\d+$/, '')}`;
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
       const feedsToCreate = PORTAL_DEFAULTS
@@ -80,13 +82,13 @@ export function usePortalFeeds() {
 
       if (error) throw error;
 
-      // Update feed URLs with actual IDs
+      // Update feed URLs with actual IDs and feed token
       if (created) {
         for (const feed of created) {
           await supabase
             .from('portal_feeds')
             .update({
-              feed_url: `${supabaseUrl}/functions/v1/portal-xml-feed?feed_id=${feed.id}`,
+              feed_url: `${supabaseUrl}/functions/v1/portal-xml-feed?feed_id=${feed.id}&token=${feed.feed_token}`,
             })
             .eq('id', feed.id);
         }
@@ -114,6 +116,19 @@ export function usePortalFeeds() {
     },
   });
 
+  const refreshFeedUrl = useMutation({
+    mutationFn: async ({ feedId, feedToken }: { feedId: string; feedToken: string }) => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { error } = await supabase
+        .from('portal_feeds')
+        .update({
+          feed_url: `${supabaseUrl}/functions/v1/portal-xml-feed?feed_id=${feedId}&token=${feedToken}`,
+        })
+        .eq('id', feedId);
+      if (error) throw error;
+    },
+  });
+
   const updateFilter = useMutation({
     mutationFn: async ({ feedId, filter }: { feedId: string; filter: Record<string, any> }) => {
       const { error } = await supabase
@@ -130,16 +145,17 @@ export function usePortalFeeds() {
 
   const regenerateFeed = useMutation({
     mutationFn: async (feedId: string) => {
-      const feed = feeds.find(f => f.id === feedId);
-      if (!feed?.feed_url) throw new Error('Feed URL não encontrada');
-
-      // Call the feed URL to trigger generation
-      const resp = await fetch(feed.feed_url);
-      if (!resp.ok) {
-        const err = await resp.text();
-        throw new Error(`Erro ao gerar feed: ${err}`);
+      const { data, error } = await supabase.functions.invoke('portal-xml-feed', {
+        body: {
+          action: 'regenerate',
+          feed_id: feedId,
+        },
+      });
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Erro ao regenerar feed');
       }
-      return resp.text();
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal-feeds'] });
@@ -147,6 +163,30 @@ export function usePortalFeeds() {
     },
     onError: (err) => {
       toast.error('Erro ao regenerar: ' + (err as Error).message);
+    },
+  });
+
+  const rotateFeedToken = useMutation({
+    mutationFn: async (feedId: string) => {
+      const { data, error } = await supabase.functions.invoke('portal-xml-feed', {
+        body: {
+          action: 'rotate_token',
+          feed_id: feedId,
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async (result, feedId) => {
+      if (result?.new_token) {
+        await refreshFeedUrl.mutateAsync({ feedId, feedToken: result.new_token });
+      }
+      queryClient.invalidateQueries({ queryKey: ['portal-feeds'] });
+      toast.success('Token do feed rotacionado com sucesso');
+    },
+    onError: (err) => {
+      toast.error('Erro ao rotacionar token: ' + (err as Error).message);
     },
   });
 
@@ -159,5 +199,7 @@ export function usePortalFeeds() {
     updateFilter: updateFilter.mutate,
     regenerateFeed: regenerateFeed.mutate,
     isRegenerating: regenerateFeed.isPending,
+    rotateFeedToken: rotateFeedToken.mutate,
+    isRotatingFeedToken: rotateFeedToken.isPending,
   };
 }
