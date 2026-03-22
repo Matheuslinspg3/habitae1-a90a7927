@@ -7,6 +7,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const ALLOWED_ORIGINS = (Deno.env.get("APP_ALLOWED_ORIGINS") || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "unknown";
+}
+
+function isAllowedOrigin(req: Request): boolean {
+  if (ALLOWED_ORIGINS.length === 0) return true;
+  const origin = req.headers.get("origin");
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.includes(origin);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,12 +34,77 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceKey);
+    const clientIp = getClientIp(req);
+    const userAgent = req.headers.get("user-agent") || "unknown";
 
-    const { invite_id, email, password, full_name, company_name, phone, account_type } = await req.json();
+    const logRequest = async (statusCode: number, outcome: string, metadata: Record<string, unknown> = {}) => {
+      await adminClient.rpc("log_public_function_request", {
+        p_function_name: "platform-signup",
+        p_status_code: statusCode,
+        p_outcome: outcome,
+        p_principal: clientIp,
+        p_metadata: {
+          ...metadata,
+          user_agent: userAgent,
+        },
+      });
+    };
+
+    if (!isAllowedOrigin(req)) {
+      await logRequest(403, "blocked_origin");
+      return new Response(JSON.stringify({ error: "Origem não permitida" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: ipQuota, error: ipQuotaError } = await adminClient.rpc("consume_public_function_rate_limit", {
+      p_function_name: "platform-signup",
+      p_principal: `ip:${clientIp}`,
+      p_limit: 15,
+      p_window_seconds: 300,
+    });
+
+    if (ipQuotaError || !ipQuota?.[0]?.allowed) {
+      await logRequest(429, "rate_limited_ip", { quota_error: ipQuotaError?.message ?? null });
+      return new Response(JSON.stringify({ error: "Muitas tentativas. Tente novamente em alguns minutos." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { invite_id, email, password, full_name, company_name, phone, account_type, website } = await req.json();
+
+    if (website) {
+      await logRequest(400, "honeypot_triggered");
+      return new Response(JSON.stringify({ error: "Requisição inválida" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (!invite_id || !email || !password || !full_name || !company_name) {
+      await logRequest(400, "missing_required_fields");
       return new Response(JSON.stringify({ error: "Campos obrigatórios faltando" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (password.length < 8) {
+      await logRequest(400, "weak_password");
+      return new Response(JSON.stringify({ error: "Senha fraca. Use ao menos 8 caracteres." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: inviteQuota, error: inviteQuotaError } = await adminClient.rpc("consume_public_function_rate_limit", {
+      p_function_name: "platform-signup",
+      p_principal: `invite:${invite_id}`,
+      p_limit: 8,
+      p_window_seconds: 900,
+    });
+
+    if (inviteQuotaError || !inviteQuota?.[0]?.allowed) {
+      await logRequest(429, "rate_limited_invite", { invite_id });
+      return new Response(JSON.stringify({ error: "Convite temporariamente bloqueado por excesso de tentativas." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -33,12 +116,14 @@ serve(async (req) => {
       .single();
 
     if (inviteError || !invite) {
+      await logRequest(404, "invite_not_found", { invite_id });
       return new Response(JSON.stringify({ error: "Convite não encontrado" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (invite.status !== "active") {
+      await logRequest(400, "invite_inactive", { invite_id, invite_status: invite.status });
       return new Response(JSON.stringify({ error: "Convite já utilizado ou expirado" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -46,6 +131,7 @@ serve(async (req) => {
 
     if (new Date(invite.expires_at) < new Date()) {
       await adminClient.from("platform_invites").update({ status: "expired" }).eq("id", invite_id);
+      await logRequest(400, "invite_expired", { invite_id });
       return new Response(JSON.stringify({ error: "Convite expirado" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -55,6 +141,7 @@ serve(async (req) => {
     if (invite.invite_email) {
       if (invite.invite_email.toLowerCase().trim() !== email.toLowerCase().trim()) {
         console.error("[platform-signup] Email mismatch for invite");
+        await logRequest(403, "invite_email_mismatch", { invite_id });
         return new Response(JSON.stringify({ error: "Este convite é destinado a outro e-mail" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -78,6 +165,7 @@ serve(async (req) => {
       const msg = authError.message.includes("already been registered")
         ? "Este email já está cadastrado. Faça login."
         : authError.message;
+      await logRequest(400, "auth_create_user_failed", { reason: msg });
       return new Response(JSON.stringify({ error: msg }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -103,6 +191,7 @@ serve(async (req) => {
 
     if (orgError) {
       await adminClient.auth.admin.deleteUser(userId);
+      await logRequest(500, "organization_creation_failed", { invite_id });
       return new Response(JSON.stringify({ error: "Erro ao criar organização" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -157,6 +246,8 @@ serve(async (req) => {
     if (markError) {
       console.error("[platform-signup] Failed to mark invite:", markError.message);
     }
+
+    await logRequest(200, "success", { invite_id, organization_id: org.id });
 
     return new Response(JSON.stringify({ success: true, organization_id: org.id }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
