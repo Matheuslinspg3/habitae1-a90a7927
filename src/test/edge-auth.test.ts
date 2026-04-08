@@ -65,6 +65,20 @@ describe("Edge Functions — autenticação negativa", () => {
     expect(error).toBeTruthy();
   });
 
+
+  it("platform-signup sem token não deve exigir JWT no gateway", async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
+      data: null,
+      error: { message: "Campos obrigatórios faltando", status: 400 } as any,
+    });
+
+    const { error } = await supabase.functions.invoke("platform-signup", {
+      body: {},
+    });
+
+    expect(error).toBeTruthy();
+    expect(error?.status).toBe(400);
+  });
   it("billing sem token retorna erro", async () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({
       data: null,
