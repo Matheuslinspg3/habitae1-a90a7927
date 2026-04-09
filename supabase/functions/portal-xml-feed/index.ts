@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-feed-token',
   'Content-Type': 'application/xml; charset=UTF-8',
 };
 
@@ -100,6 +100,189 @@ interface PropertyData {
   status: string;
   property_type_name: string | null;
   images: { url: string; is_cover: boolean }[];
+}
+
+interface AuthUserContext {
+  userId: string;
+  organizationId: string;
+}
+
+interface GenerateFeedInput {
+  supabase: ReturnType<typeof createClient>;
+  feedConfig: any;
+  organizationId: string;
+  portalParam?: string | null;
+  auditUserId?: string | null;
+  auditReason?: string;
+}
+
+function sanitizeErrorMessage(message: string) {
+  return message
+    .replace(/token=[^&\s]+/gi, 'token=[REDACTED]')
+    .replace(/x-feed-token:[^\s]+/gi, 'x-feed-token:[REDACTED]');
+}
+
+async function getAuthUserContext(req: Request, supabase: ReturnType<typeof createClient>): Promise<AuthUserContext> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    throw new Error('Authorization required');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
+  if (authError || !claimsData?.claims) {
+    throw new Error('Invalid token');
+  }
+  const userId = claimsData.claims.sub as string;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .single();
+
+  if (!profile?.organization_id) {
+    throw new Error('No organization');
+  }
+
+  return { userId, organizationId: profile.organization_id };
+}
+
+async function generateFeedXml({ supabase, feedConfig, organizationId, portalParam, auditUserId, auditReason }: GenerateFeedInput) {
+  const portalName = feedConfig?.portal_name || portalParam || 'olx_zap';
+  const startTime = Date.now();
+
+  // Fetch organization info
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name, email')
+    .eq('id', organizationId)
+    .single();
+
+  const orgName = org?.name || 'Imobiliária';
+  const orgEmail = org?.email || 'contato@imobiliaria.com';
+
+  // Build query for properties
+  let query = supabase
+    .from('properties')
+    .select(`
+      id, title, property_code, description, transaction_type,
+      sale_price, rent_price, condominium_fee, iptu,
+      bedrooms, suites, bathrooms, parking_spots,
+      area_total, area_built, area_useful,
+      address_street, address_number, address_complement,
+      address_neighborhood, address_city, address_state, address_zipcode,
+      latitude, longitude, amenities, youtube_url, status,
+      property_type:property_types(name)
+    `)
+    .eq('organization_id', organizationId)
+    .eq('status', 'disponivel');
+
+  // Apply filters from feed config
+  if (feedConfig?.property_filter) {
+    const filters = feedConfig.property_filter;
+    if (filters.transaction_type) {
+      query = query.eq('transaction_type', filters.transaction_type);
+    }
+    if (filters.neighborhoods && filters.neighborhoods.length > 0) {
+      query = query.in('address_neighborhood', filters.neighborhoods);
+    }
+    if (filters.cities && filters.cities.length > 0) {
+      query = query.in('address_city', filters.cities);
+    }
+  }
+
+  const { data: rawProperties, error: propError } = await query;
+  if (propError) throw propError;
+
+  // Fetch images for all properties
+  const propertyIds = (rawProperties || []).map(p => p.id);
+  let allImages: any[] = [];
+  if (propertyIds.length > 0) {
+    // Fetch in chunks of 100
+    for (let i = 0; i < propertyIds.length; i += 100) {
+      const chunk = propertyIds.slice(i, i + 100);
+      const { data: imgs } = await supabase
+        .from('property_images')
+        .select('property_id, url, is_cover')
+        .in('property_id', chunk)
+        .order('display_order', { ascending: true });
+      if (imgs) allImages = allImages.concat(imgs);
+    }
+  }
+
+  // Group images by property
+  const imagesByProperty: Record<string, { url: string; is_cover: boolean }[]> = {};
+  for (const img of allImages) {
+    if (!imagesByProperty[img.property_id]) imagesByProperty[img.property_id] = [];
+    imagesByProperty[img.property_id].push({ url: img.url, is_cover: img.is_cover });
+  }
+
+  // Map properties
+  const properties: PropertyData[] = (rawProperties || []).map(p => ({
+    ...p,
+    property_type_name: (p.property_type as any)?.name || null,
+    images: imagesByProperty[p.id] || [],
+  }));
+
+  // Generate XML based on portal
+  let xml: string;
+  switch (portalName) {
+    case 'olx_zap':
+    case 'vivareal':
+      xml = generateVrSyncXml(properties, orgName, orgEmail);
+      break;
+    case 'chavesnamao':
+      xml = generateChavesNaMaoXml(properties, orgName);
+      break;
+    case 'imovelweb':
+      xml = generateImovelwebXml(properties, orgName, orgEmail);
+      break;
+    default:
+      xml = generateVrSyncXml(properties, orgName, orgEmail);
+  }
+
+  const duration = Date.now() - startTime;
+
+  // Update feed stats and log
+  if (feedConfig?.id) {
+    await supabase
+      .from('portal_feeds')
+      .update({
+        last_generated_at: new Date().toISOString(),
+        total_properties_exported: properties.length,
+      })
+      .eq('id', feedConfig.id);
+
+    await supabase
+      .from('portal_feed_logs')
+      .insert({
+        feed_id: feedConfig.id,
+        properties_count: properties.length,
+        errors_count: 0,
+        duration_ms: duration,
+      });
+
+    if (auditUserId) {
+      await supabase
+        .from('audit_logs')
+        .insert({
+          organization_id: organizationId,
+          user_id: auditUserId,
+          action: 'portal_feed_regenerated',
+          entity_type: 'portal_feed',
+          entity_ids: [feedConfig.id],
+          details: {
+            reason: auditReason || 'manual_regeneration',
+            properties_count: properties.length,
+            duration_ms: duration,
+            portal_name: portalName,
+          },
+        });
+    }
+  }
+
+  return xml;
 }
 
 // ===== VRSync XML (OLX/ZAP/VivaReal) =====
@@ -254,6 +437,90 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      const action = body?.action;
+      const feedId = body?.feed_id as string | undefined;
+
+      if (!feedId) {
+        return new Response(JSON.stringify({ error: 'feed_id is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const auth = await getAuthUserContext(req, supabase);
+      const { data: feed } = await supabase
+        .from('portal_feeds')
+        .select('*')
+        .eq('id', feedId)
+        .eq('organization_id', auth.organizationId)
+        .single();
+
+      if (!feed) {
+        return new Response(JSON.stringify({ error: 'Feed not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'rotate_token') {
+        const reason = typeof body?.reason === 'string' ? body.reason : 'manual_rotation_endpoint';
+        const { data: rotateResult, error: rotateError } = await supabase.rpc('rotate_portal_feed_token', {
+          p_feed_id: feedId,
+          p_reason: reason,
+          p_actor_id: auth.userId,
+        });
+
+        if (rotateError) throw rotateError;
+
+        const rotation = Array.isArray(rotateResult) ? rotateResult[0] : rotateResult;
+        const rotatedToken = rotation?.new_token as string | undefined;
+        if (rotatedToken) {
+          await supabase
+            .from('portal_feeds')
+            .update({
+              feed_url: `${supabaseUrl}/functions/v1/portal-xml-feed?feed_id=${feedId}&token=${rotatedToken}`,
+            })
+            .eq('id', feedId)
+            .eq('organization_id', auth.organizationId);
+        }
+
+        return new Response(JSON.stringify({
+          ok: true,
+          feed_id: feedId,
+          new_token: rotatedToken,
+          token_rotated_at: rotation?.rotated_at || new Date().toISOString(),
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'regenerate') {
+        await generateFeedXml({
+          supabase,
+          feedConfig: feed,
+          organizationId: auth.organizationId,
+          auditUserId: auth.userId,
+          auditReason: 'manual_regeneration_endpoint',
+        });
+
+        return new Response(JSON.stringify({ ok: true, feed_id: feedId }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: 'Invalid action' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const feedId = url.searchParams.get('feed_id');
     const portal = url.searchParams.get('portal');
 
@@ -264,16 +531,11 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     let feedConfig: any = null;
     let organizationId: string;
 
     if (feedId) {
-      // A10: Require feed_token for public feed access
-      const feedToken = url.searchParams.get('token');
+      const feedToken = req.headers.get('x-feed-token') || url.searchParams.get('token');
       if (!feedToken) {
         return new Response(
           JSON.stringify({ error: 'Feed token required' }),
@@ -281,7 +543,6 @@ serve(async (req) => {
         );
       }
 
-      // Fetch feed config and validate token
       const { data: feed, error: feedError } = await supabase
         .from('portal_feeds')
         .select('*')
@@ -296,6 +557,23 @@ serve(async (req) => {
         );
       }
 
+      const rotationDays = Number(feed.token_rotation_days || 30);
+      const rotatedAt = feed.token_rotated_at || feed.created_at;
+      const rotateAfter = new Date(rotatedAt).getTime() + (rotationDays * 24 * 60 * 60 * 1000);
+
+      if (Date.now() >= rotateAfter) {
+        await supabase.rpc('rotate_portal_feed_token', {
+          p_feed_id: feed.id,
+          p_reason: 'expired_on_access',
+          p_actor_id: null,
+        });
+
+        return new Response(
+          JSON.stringify({ error: 'Feed token expired. Request a new token in integrations settings.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       if (!feed.is_active) {
         return new Response(
           JSON.stringify({ error: 'Feed is inactive' }),
@@ -306,155 +584,16 @@ serve(async (req) => {
       feedConfig = feed;
       organizationId = feed.organization_id;
     } else {
-      // Need auth for portal-based access
-      const authHeader = req.headers.get('Authorization');
-      if (!authHeader) {
-        return new Response(
-          JSON.stringify({ error: 'Authorization required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const token = authHeader.replace('Bearer ', '');
-      const { data: claimsData, error: authError } = await supabase.auth.getClaims(token);
-      if (authError || !claimsData?.claims) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid token' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const userId = claimsData.claims.sub as string;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('user_id', userId)
-        .single();
-
-      if (!profile?.organization_id) {
-        return new Response(
-          JSON.stringify({ error: 'No organization' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      organizationId = profile.organization_id;
+      const auth = await getAuthUserContext(req, supabase);
+      organizationId = auth.organizationId;
     }
 
-    const portalName = feedConfig?.portal_name || portal || 'olx_zap';
-    const startTime = Date.now();
-
-    // Fetch organization info
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('name, email')
-      .eq('id', organizationId)
-      .single();
-
-    const orgName = org?.name || 'Imobiliária';
-    const orgEmail = org?.email || 'contato@imobiliaria.com';
-
-    // Build query for properties
-    let query = supabase
-      .from('properties')
-      .select(`
-        id, title, property_code, description, transaction_type,
-        sale_price, rent_price, condominium_fee, iptu,
-        bedrooms, suites, bathrooms, parking_spots,
-        area_total, area_built, area_useful,
-        address_street, address_number, address_complement,
-        address_neighborhood, address_city, address_state, address_zipcode,
-        latitude, longitude, amenities, youtube_url, status,
-        property_type:property_types(name)
-      `)
-      .eq('organization_id', organizationId)
-      .eq('status', 'disponivel');
-
-    // Apply filters from feed config
-    if (feedConfig?.property_filter) {
-      const filters = feedConfig.property_filter;
-      if (filters.transaction_type) {
-        query = query.eq('transaction_type', filters.transaction_type);
-      }
-      if (filters.neighborhoods && filters.neighborhoods.length > 0) {
-        query = query.in('address_neighborhood', filters.neighborhoods);
-      }
-      if (filters.cities && filters.cities.length > 0) {
-        query = query.in('address_city', filters.cities);
-      }
-    }
-
-    const { data: rawProperties, error: propError } = await query;
-    if (propError) throw propError;
-
-    // Fetch images for all properties
-    const propertyIds = (rawProperties || []).map(p => p.id);
-    let allImages: any[] = [];
-    if (propertyIds.length > 0) {
-      // Fetch in chunks of 100
-      for (let i = 0; i < propertyIds.length; i += 100) {
-        const chunk = propertyIds.slice(i, i + 100);
-        const { data: imgs } = await supabase
-          .from('property_images')
-          .select('property_id, url, is_cover')
-          .in('property_id', chunk)
-          .order('display_order', { ascending: true });
-        if (imgs) allImages = allImages.concat(imgs);
-      }
-    }
-
-    // Group images by property
-    const imagesByProperty: Record<string, { url: string; is_cover: boolean }[]> = {};
-    for (const img of allImages) {
-      if (!imagesByProperty[img.property_id]) imagesByProperty[img.property_id] = [];
-      imagesByProperty[img.property_id].push({ url: img.url, is_cover: img.is_cover });
-    }
-
-    // Map properties
-    const properties: PropertyData[] = (rawProperties || []).map(p => ({
-      ...p,
-      property_type_name: (p.property_type as any)?.name || null,
-      images: imagesByProperty[p.id] || [],
-    }));
-
-    // Generate XML based on portal
-    let xml: string;
-    switch (portalName) {
-      case 'olx_zap':
-      case 'vivareal':
-        xml = generateVrSyncXml(properties, orgName, orgEmail);
-        break;
-      case 'chavesnamao':
-        xml = generateChavesNaMaoXml(properties, orgName);
-        break;
-      case 'imovelweb':
-        xml = generateImovelwebXml(properties, orgName, orgEmail);
-        break;
-      default:
-        xml = generateVrSyncXml(properties, orgName, orgEmail);
-    }
-
-    const duration = Date.now() - startTime;
-
-    // Update feed stats and log
-    if (feedConfig?.id) {
-      await supabase
-        .from('portal_feeds')
-        .update({
-          last_generated_at: new Date().toISOString(),
-          total_properties_exported: properties.length,
-        })
-        .eq('id', feedConfig.id);
-
-      await supabase
-        .from('portal_feed_logs')
-        .insert({
-          feed_id: feedConfig.id,
-          properties_count: properties.length,
-          errors_count: 0,
-          duration_ms: duration,
-        });
-    }
+    const xml = await generateFeedXml({
+      supabase,
+      feedConfig,
+      organizationId,
+      portalParam: portal,
+    });
 
     return new Response(xml, {
       headers: {
@@ -464,9 +603,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Feed generation error:', error);
+    const message = sanitizeErrorMessage((error as Error).message || 'Unknown error');
+    console.error('Feed generation error:', message);
     return new Response(
-      JSON.stringify({ error: (error as Error).message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
