@@ -42,3 +42,9 @@ VITE_SUPABASE_PROJECT_ID="<project-id>"
 #   • CLOUDINARY_API_SECRET, R2_SECRET_ACCESS_KEY: rotacionar a cada 90 dias
 #   • Atualizar via Lovable Cloud → Secrets após rotação
 #   • Nunca expor em logs, respostas HTTP ou código frontend
+
+# Platform signup hardening (Edge Function `platform-signup`)
+# PLATFORM_SIGNUP_ALLOWED_ORIGINS → lista CSV de origens permitidas por ambiente
+#                                  Ex: https://app.habitae.com,https://staging.habitae.com
+# TURNSTILE_SECRET_KEY            → segredo server-side do Cloudflare Turnstile para challenge anti-bot
+# SUPABASE_ENV / DENO_ENV         → usado para fallback de CORS (development permite localhost)
