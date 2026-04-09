@@ -42,3 +42,9 @@ VITE_SUPABASE_PROJECT_ID="<project-id>"
 #   • CLOUDINARY_API_SECRET, R2_SECRET_ACCESS_KEY: rotacionar a cada 90 dias
 #   • Atualizar via Lovable Cloud → Secrets após rotação
 #   • Nunca expor em logs, respostas HTTP ou código frontend
+
+
+# --- Checklist automatizado no CI ---
+# O workflow `.github/workflows/ci.yml` valida segredos obrigatórios por ambiente
+# (`staging` e `production`) usando `scripts/check-required-secrets.sh`.
+# Um deploy/release só deve prosseguir com todos os segredos abaixo definidos.
