@@ -1,4 +1,5 @@
 import { useState } from "react";
+import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -118,23 +119,28 @@ export function ExportTablesCard() {
     let totalRows = 0;
     let totalTables = 0;
     try {
+      const zip = new JSZip();
       for (const table of EXPORTABLE_TABLES) {
         try {
           setLoadingTable(table);
           const rows = await fetchAll(table);
           if (rows.length === 0) continue;
           const csv = toCSV(rows);
-          downloadBlob("\ufeff" + csv, `${table}_${stamp}.csv`, "text/csv;charset=utf-8;");
+          zip.file(`${table}.csv`, "\ufeff" + csv);
           totalRows += rows.length;
           totalTables += 1;
-          await new Promise((r) => setTimeout(r, 150));
         } catch (e) {
           errors.push(e instanceof Error ? e.message : String(e));
         }
       }
+      if (errors.length) {
+        zip.file("_errors.txt", errors.join("\n"));
+      }
+      const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+      downloadBlob(blob, `export_database_${stamp}.zip`, "application/zip");
       toast({
         title: "Exportação geral concluída",
-        description: `${totalTables} tabelas, ${totalRows.toLocaleString("pt-BR")} registros.${errors.length ? ` ${errors.length} erro(s).` : ""}`,
+        description: `${totalTables} tabelas, ${totalRows.toLocaleString("pt-BR")} registros em ZIP.${errors.length ? ` ${errors.length} erro(s).` : ""}`,
         variant: errors.length ? "destructive" : "default",
       });
     } finally {
