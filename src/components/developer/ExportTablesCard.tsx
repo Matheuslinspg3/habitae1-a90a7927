@@ -67,8 +67,8 @@ async function fetchAll(table: string): Promise<Record<string, unknown>[]> {
   let offset = 0;
   const all: Record<string, unknown>[] = [];
   while (true) {
-    const { data, error } = await supabase
-      .from(table as ExportableTable)
+    const { data, error } = await (supabase as any)
+      .from(table)
       .select("*")
       .range(offset, offset + PAGE - 1);
     if (error) throw new Error(`${table}: ${error.message}`);
