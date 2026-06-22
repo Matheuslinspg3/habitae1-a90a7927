@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Database, RefreshCw } from "lucide-react";
+import { ExportTablesCard } from "./ExportTablesCard";
 
 interface TableInfo {
   name: string;
@@ -39,6 +40,7 @@ export function DatabaseTab() {
 
   return (
     <div className="space-y-4">
+      <ExportTablesCard />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
