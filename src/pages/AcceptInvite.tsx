@@ -24,8 +24,6 @@ const signupSchema = z.object({
 
 interface InviteData {
   id: string;
-  role: string;
-  organization_id: string;
   status: string;
   expires_at: string;
   email?: string | null;
@@ -64,7 +62,7 @@ export default function AcceptInvite() {
 
       const { data, error: fetchError } = await supabase
         .from("organization_invites")
-        .select("id, role, organization_id, status, expires_at, email")
+        .select("id, status, expires_at, email")
         .eq("id", id)
         .maybeSingle();
 
@@ -222,7 +220,7 @@ export default function AcceptInvite() {
 
     // Validate org code
     const { data: codeValid } = await supabase
-      .rpc("validate_invite_org_code", { p_org_id: invite.organization_id, p_code: form.orgCode.trim() });
+      .rpc("validate_invite_org_code", { p_invite_id: invite.id, p_code: form.orgCode.trim() });
 
     if (!codeValid) {
       setErrors({ orgCode: "Código da imobiliária incorreto" });
