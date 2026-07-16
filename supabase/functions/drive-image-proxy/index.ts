@@ -24,7 +24,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Proxying image for file ID: ${fileId}, size: ${size}`);
+    console.log(`Proxying image for file ID prefix: ${fileId.slice(0, 6)}..., size: ${size}`);
 
     // Try multiple Google Drive image URLs in order of reliability
     const sizeNum = size.replace("w", "");
@@ -34,9 +34,9 @@ serve(async (req) => {
       `https://drive.google.com/uc?export=view&id=${fileId}`,
     ];
 
-    for (const imgUrl of urls) {
+    for (const [idx, imgUrl] of urls.entries()) {
       try {
-        console.log(`Trying URL: ${imgUrl}`);
+        console.log(`Trying upstream URL #${idx + 1}`);
         const resp = await fetch(imgUrl, {
           headers: {
             "User-Agent":
@@ -49,7 +49,7 @@ serve(async (req) => {
         });
 
         const ct = resp.headers.get("content-type") || "";
-        console.log(`Response status: ${resp.status}, content-type: ${ct}, url: ${imgUrl}`);
+        console.log(`Response status: ${resp.status}, content-type: ${ct}, upstream_index: ${idx + 1}`);
 
         if (resp.ok && (ct.startsWith("image/") || ct === "application/octet-stream")) {
           const body = await resp.arrayBuffer();
@@ -67,7 +67,7 @@ serve(async (req) => {
           }
         }
       } catch (e) {
-        console.error(`Failed URL ${imgUrl}:`, e);
+        console.error(`Failed upstream URL #${idx + 1}:`, e);
       }
     }
 
