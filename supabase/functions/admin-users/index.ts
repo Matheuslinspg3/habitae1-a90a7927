@@ -39,11 +39,20 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Check if caller has developer role
+    const { data: profile } = await adminClient
+      .from("profiles")
+      .select("organization_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!profile?.organization_id) throw new Error("Forbidden: invalid organization context");
+
+    // Check if caller has developer role in the current tenant
     const { data: devRole } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
+      .eq("organization_id", profile.organization_id)
       .eq("role", "developer")
       .maybeSingle();
 

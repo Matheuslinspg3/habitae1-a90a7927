@@ -10,7 +10,7 @@ interface AdminRouteProps {
 
 export function AdminRoute({ children }: AdminRouteProps) {
   const { user, loading } = useAuth();
-  const { isDeveloper, isLoading: rolesLoading } = useUserRoles();
+  const { isDeveloper, activeOrganizationId, isLoading: rolesLoading } = useUserRoles();
 
   if (loading || rolesLoading) {
     return (
@@ -20,7 +20,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (!user || !isDeveloper) {
+  if (!user || !activeOrganizationId || !isDeveloper) {
     return <Navigate to="/acesso-negado" replace />;
   }
 

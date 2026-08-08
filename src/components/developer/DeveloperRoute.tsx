@@ -11,7 +11,7 @@ interface DeveloperRouteProps {
 
 export function DeveloperRoute({ children, requiredRole = "developer" }: DeveloperRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { isDeveloper, isLeader, isLoading: rolesLoading } = useUserRoles();
+  const { isDeveloper, isLeader, activeOrganizationId, isLoading: rolesLoading } = useUserRoles();
 
   if (authLoading || rolesLoading) {
     return (
@@ -22,6 +22,8 @@ export function DeveloperRoute({ children, requiredRole = "developer" }: Develop
   }
 
   if (!user) return <Navigate to="/auth" replace />;
+
+  if (!activeOrganizationId) return <Navigate to="/acesso-negado" replace />;
 
   const hasAccess = requiredRole === "developer" ? isDeveloper : (isDeveloper || isLeader);
   if (!hasAccess) return <Navigate to="/acesso-negado" replace />;
