@@ -43,7 +43,14 @@ async function asaasFetch(path: string, opts: RequestInit = {}) {
     },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.errors?.[0]?.description || JSON.stringify(data));
+  if (!res.ok) {
+    const providerMessage = data.errors?.[0]?.description || JSON.stringify(data);
+    if (res.status === 401 || res.status === 403) {
+      console.error("[PROVIDER_AUTH_SECRET_INVALID][ASAAS]", { status: res.status, path, providerMessage });
+      throw new Error(`[PROVIDER_AUTH_SECRET_INVALID][ASAAS] ${providerMessage}`);
+    }
+    throw new Error(providerMessage);
+  }
   return data;
 }
 
