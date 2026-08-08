@@ -51,3 +51,23 @@
 |---|---|
 | >10% dos logins falhando em 5 min | SEV-1 |
 | Supabase Auth degradado | Monitorar status do Supabase |
+
+---
+
+## Monitoramento de abuso em funções públicas
+
+Funções cobertas: `platform-signup`, `admin-users`.
+
+1. Consultar agregados recentes:
+   ```sql
+   select *
+   from public.get_public_function_anomaly_candidates('15 minutes');
+   ```
+2. Se houver anomalia:
+   - Validar distribuição de `status_code` e `outcome` em `public.function_request_logs`.
+   - Verificar explosão por `principal` (IP/user) e bloquear origem em WAF quando necessário.
+   - Revisar `APP_ALLOWED_ORIGINS` se houver tráfego suspeito cross-origin.
+3. Abrir incidente quando:
+   - `error_rate >= 20%` por 15 min, ou
+   - `429 >= 20` por 15 min, ou
+   - volume > baseline esperado.
