@@ -13,9 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePropertyTypes } from "@/hooks/usePropertyTypes";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Store } from "lucide-react";
+import { Loader2, Sparkles, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { PropertyWithDetails, PropertyFormData } from "@/hooks/useProperties";
+import {
+  MissingValuationField,
+  PropertyAiValuationData,
+  PropertyAiValuationDialog,
+} from "./PropertyAiValuationDialog";
 import { TAB_FIELDS } from "./form/constants";
 import { BasicTab } from "./form/BasicTab";
 import { ValuesTab } from "./form/ValuesTab";
@@ -99,6 +104,14 @@ interface OwnerData {
   notes?: string;
 }
 
+interface PreparedSubmit {
+  propertyData: PropertyFormData;
+  images: PropertyImage[];
+  ownerData?: OwnerData;
+  publishToMarketplace: boolean;
+  valuationData: PropertyAiValuationData;
+}
+
 interface PropertyFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -132,6 +145,10 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   useEffect(() => {
     if (open) formStartRef.current = Date.now();
   }, [open]);
+  const [aiValuationOpen, setAiValuationOpen] = useState(false);
+  const [aiValuationSource, setAiValuationSource] = useState<"values" | "review">("values");
+  const [pendingSubmit, setPendingSubmit] = useState<PreparedSubmit | null>(null);
+  const [lastEvaluatedSignature, setLastEvaluatedSignature] = useState<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(propertySchema),
@@ -218,6 +235,9 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     }
     setActiveTab("basic");
     setPublishToMarketplace(false);
+    setAiValuationOpen(false);
+    setPendingSubmit(null);
+    setLastEvaluatedSignature(null);
   }, [property, prefillData, form, open]);
 
   const getTabHasErrors = (tabKey: string): boolean => {
@@ -233,7 +253,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
     return null;
   };
 
-  const handleSubmit = async (data: FormData) => {
+  const prepareSubmit = (data: FormData): PreparedSubmit => {
     const { owner_name, owner_phone, owner_email, owner_document, owner_notes, area_useful, sale_price_financed, ...restData } = data;
     const selectedType = propertyTypes.find(t => t.id === restData.property_type_id);
     const autoTitle = [selectedType?.name, restData.address_neighborhood, restData.address_city].filter(Boolean).join(' - ') || 'Imóvel sem título';
@@ -242,9 +262,84 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
       name: owner_name, phone: owner_phone || undefined, email: owner_email || undefined,
       document: owner_document || undefined, notes: owner_notes || undefined,
     } : undefined;
-    await onSubmit(propertyData as PropertyFormData, images, ownerData, publishToMarketplace);
+
+    const valuationData: PropertyAiValuationData = {
+      title: autoTitle,
+      property_type: selectedType?.name || "",
+      transaction_type: restData.transaction_type,
+      sale_price: restData.sale_price,
+      rent_price: restData.rent_price,
+      condominium_fee: restData.condominium_fee,
+      iptu_monthly: restData.iptu_monthly,
+      bedrooms: restData.bedrooms,
+      suites: restData.suites,
+      bathrooms: restData.bathrooms,
+      parking_spots: restData.parking_spots,
+      area_useful,
+      area_total: restData.area_total,
+      area_built: restData.area_built,
+      floor: restData.floor,
+      beach_distance_meters: restData.beach_distance_meters,
+      address_neighborhood: restData.address_neighborhood,
+      address_city: restData.address_city,
+      address_state: restData.address_state,
+      amenities: restData.amenities,
+      description: restData.description,
+    };
+
+    return {
+      propertyData: propertyData as PropertyFormData,
+      images,
+      ownerData,
+      publishToMarketplace,
+      valuationData,
+    };
+  };
+
+  const valuationSignature = (data: PropertyAiValuationData) => JSON.stringify(data);
+
+  const submitPrepared = async (prepared: PreparedSubmit) => {
+    await onSubmit(prepared.propertyData, prepared.images, prepared.ownerData, prepared.publishToMarketplace);
     if (!property) trackPropertyCreated();
+    setPendingSubmit(null);
+    setAiValuationOpen(false);
     onOpenChange(false);
+  };
+
+  const handleRequestAiValuation = () => {
+    setPendingSubmit(null);
+    setAiValuationSource("values");
+    setAiValuationOpen(true);
+  };
+
+  const handleSubmit = async (data: FormData) => {
+    const prepared = prepareSubmit(data);
+
+    // New properties get a final, optional AI review before being saved.
+    // If the user already evaluated this exact set of data from the Values tab,
+    // do not interrupt the save with the same question again.
+    if (!property && lastEvaluatedSignature !== valuationSignature(prepared.valuationData)) {
+      setPendingSubmit(prepared);
+      setAiValuationSource("review");
+      setAiValuationOpen(true);
+      return;
+    }
+
+    await submitPrepared(prepared);
+  };
+
+  const handleInsertMissing = (field: MissingValuationField) => {
+    setAiValuationOpen(false);
+    setActiveTab(field.tab);
+    window.setTimeout(() => form.setFocus(field.key as Parameters<typeof form.setFocus>[0]), 80);
+  };
+
+  const handleSkipEvaluation = () => {
+    if (pendingSubmit) {
+      void submitPrepared(pendingSubmit);
+      return;
+    }
+    setAiValuationOpen(false);
   };
 
   const handleInvalidSubmit = () => {
@@ -264,6 +359,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
@@ -293,7 +389,7 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
               </TabsList>
 
               <TabsContent value="basic"><BasicTab form={form} /></TabsContent>
-              <TabsContent value="values"><ValuesTab form={form} /></TabsContent>
+              <TabsContent value="values"><ValuesTab form={form} onRequestAiValuation={handleRequestAiValuation} /></TabsContent>
               <TabsContent value="features"><FeaturesTab form={form} /></TabsContent>
               <TabsContent value="location"><LocationTab form={form} /></TabsContent>
               <TabsContent value="photos"><PhotosTab form={form} images={images} onImagesChange={setImages} /></TabsContent>
@@ -312,6 +408,10 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial min-h-[44px]">Cancelar</Button>
+                <Button type="button" variant="outline" onClick={handleRequestAiValuation} className="flex-1 sm:flex-initial min-h-[44px]">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Avaliar com IA
+                </Button>
                 <Button type="submit" disabled={isSubmitting} className="flex-1 sm:flex-initial min-h-[44px]">
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {property ? "Salvar" : "Cadastrar"}
@@ -322,5 +422,18 @@ export function PropertyForm({ open, onOpenChange, property, onSubmit, isSubmitt
         </Form>
       </DialogContent>
     </Dialog>
+
+    <PropertyAiValuationDialog
+      open={aiValuationOpen}
+      onOpenChange={setAiValuationOpen}
+      propertyData={pendingSubmit?.valuationData || prepareSubmit(form.getValues()).valuationData}
+      source={aiValuationSource}
+      onInsertMissing={handleInsertMissing}
+      onSkip={aiValuationSource === "review" ? handleSkipEvaluation : undefined}
+      onRegisterAfterEvaluation={pendingSubmit ? () => submitPrepared(pendingSubmit) : undefined}
+      onEvaluationSuccess={(data) => setLastEvaluatedSignature(valuationSignature(data))}
+      isSubmitting={isSubmitting}
+    />
+  </>
   );
 }

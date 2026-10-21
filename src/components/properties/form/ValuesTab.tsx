@@ -6,16 +6,19 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { CurrencyInput, PercentageInput } from "@/components/ui/currency-input";
-import { Calculator } from "lucide-react";
+import { Calculator, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { PAYMENT_OPTIONS } from "./constants";
 
 interface ValuesTabProps {
   form: UseFormReturn<any>;
+  onRequestAiValuation?: () => void;
 }
 
-export function ValuesTab({ form }: ValuesTabProps) {
+export function ValuesTab({ form, onRequestAiValuation }: ValuesTabProps) {
   const transactionType = form.watch("transaction_type");
   const commissionType = form.watch("commission_type");
   const salePrice = form.watch("sale_price");
@@ -65,6 +68,26 @@ export function ValuesTab({ form }: ValuesTabProps) {
           </div>
         )}
       </div>
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Sparkles className="h-4 w-4 text-primary" />
+            </span>
+            <div>
+              <p className="text-sm font-medium">Quer uma avaliação de preço com IA?</p>
+              <p className="text-xs text-muted-foreground">
+                Analise faixa de preço, valor por m² e os principais fatores do imóvel.
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={onRequestAiValuation} disabled={!onRequestAiValuation}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Avaliar agora
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FormField control={form.control} name="condominium_fee" render={({ field }) => (
